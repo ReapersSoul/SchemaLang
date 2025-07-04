@@ -1,0 +1,166 @@
+struct Organization{
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the organization");
+	string: name: required: description("The name of the organization");
+	string: description: required: description("The description of the organization");
+}
+
+enum Classification {
+	None,
+	Safe,
+	Euclid,
+	Keter,
+	Thaumiel,
+	Neutralized,
+	Pending,
+	Explained,
+	Esoteric,
+}
+
+enum EsotericClassification {
+	None,
+	Apollyon,
+	Archon,
+	Cernunnos,
+	Decommissioned,
+	Godel,
+	Hiemal,
+	Principalis,
+	Tiamat,
+	Ticonderoga,
+	Thaumiel,
+	Uncontained,
+	Yesod,
+}
+
+enum SecondaryClassification {
+	None,
+	Impetus,
+	Nuntii,
+	Prodest,
+};
+
+enum DisruptionClassification {
+	None,
+	Dark,
+	Vlam,
+	Keneq,
+	Ekhi,
+	Amida,
+};
+
+enum RiskClassification {
+	None,
+	Notice,
+	Caution,
+	Warning,
+	Danger,
+	Critical,
+};
+
+struct Addendum{
+	int64: id: required: unique: auto_increment: foreign_key(SCP.id): description("The SCP this addendum is attached to");
+	string: title: required: description("The title of the addendum");
+	string: content: required: description("The content of the addendum");
+}
+
+struct SCP{
+	int64: id : primary_key: required: unique: auto_increment: description("The unique identifier of the SCP");
+	string: name: required: description("The common name of the SCP (e.g. 'The Statue') DO NOT include the text \"SCP-XXXX\".");
+	Classification: objectClass: required: description("The object class of the SCP");
+	EsotericClassification: esotericClass: optional: description("The esoteric class of the SCP");
+	SecondaryClassification: secondaryClass: optional: description("The secondary class of the SCP");
+	DisruptionClassification: disruptionClass: optional: description("The disruption class of the SCP");
+	RiskClassification: riskClass: optional: description("The risk class of the SCP");
+	bool: kClassScenario: optional: description("Whether or not the SCP is a K-Class Scenario");
+	string: specialContainmentProcedures: required: description("The special containment procedures of the SCP");
+	string: visual_and_ability_description:required: description("a description of the SCPs abilities and appearance. This should be about a paragraph long or longer.");
+	Organization: organization: required: description("The organization that is in possession of the SCP");
+	array<Addendum>: addenda: optional: description("The addenda of the SCP"): unique_items: min_items(4);
+}
+
+enum Title{
+	None,
+	Mr,
+	Ms,
+	Dr,
+	Prof,
+	Other
+}
+
+enum Sex{
+	Female,
+	Male,
+	Intersex,
+	Other
+}
+
+struct Personel{
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the personel");
+	Title: title: required: description("The title of the personel");
+	string: first_name: required: description("The first name of the personel");
+	string: second_name: optional: description("The middle name of the personel");
+	string: last_name: required: description("The last name of the personel");
+	Sex: sex: optional: description("the sex of the personel");
+	string: gender: optional: description("the gender of the personel");
+	string: email: required: description("The email of the personel");
+	string: phone: required: description("The phone number of the personel");
+	string: dob: required: description("The date of birth of the person");
+	string: streat_address: required: description("The street address of the personel");
+	string: city: required: description("The city of the personel");
+	string: state: required: description("The state of the personel");
+	string: zip_code: required: description("The zip code of the personel");
+	string: country: required: description("The country of the personel");
+	Organization: organization: required: description("The organization the personel is a part of");
+}
+
+struct DClass{
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the D-Class"): foreign_key(Personel.id);
+	string: designation: required: description("The designation of the D-Class");
+	string: reason: required: description("The reason for the D-Class being in foundation possession");
+	string: termination_date: required: description("The termination date of the D-Class");
+}
+
+struct Researcher{
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the researcher"): foreign_key(Personel.id);
+	string: department: required: description("The department of the researcher");
+	string: position: required: description("The position of the researcher");
+}
+
+struct TaskForceMember{
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the task force member"): foreign_key(Personel.id);
+	string: task_force: required: description("The task force the member is a part of");
+	string: rank: required: description("The rank of the task force member");
+}
+
+struct ZeroOneCouncilMember{
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 01 council member"): foreign_key(Personel.id);
+	string: position: required: description("The position of the 01 council member");
+}
+
+struct ZeroTwoCouncilMember{
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 02 council member"): foreign_key(Personel.id);
+	string: position: required: description("The position of the 02 council member");
+}
+
+struct ZeroThreeCouncilMember{
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 03 council member"): foreign_key(Personel.id);
+	string: position: required: description("The position of the 03 council member");
+}
+
+struct ZeroFourCouncilMember{
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 04 council member"): foreign_key(Personel.id);
+	string: position: required: description("The position of the 04 council member");
+}
+
+struct ZeroFiveCouncilMember{
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 05 council member"): foreign_key(Personel.id);
+	string: position: required: description("The position of the 05 council member");
+}
+
+struct Site{
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the site");
+	string: name: required: description("The name of the site");
+	string: location: required: description("The location of the site");
+	string: description: required: description("The description of the site");
+	Organization: organization: required: description("The organization that is in possession of the site");
+}
