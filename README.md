@@ -7,54 +7,54 @@ SchemaLang is a schema definition language that allows you to define structured 
 
 ### Basic Command Structure
 ```bash
-SchemaLangTranspiler <schemaDirectory> <outputDirectory> [flags]
+SchemaLangTranspiler -schemaDirectory=<path> -outputDirectory=<path> [flags]
 ```
 
 ### Required Parameters
-- `schemaDirectory` - Path to directory containing `.schema` or `.schemaLang` files
-- `outputDirectory` - Path where generated files will be created
+- `-schemaDirectory=<path>` - Path to directory containing `.schema` or `.schemaLang` files
+- `-outputDirectory=<path>` - Path where generated files will be created
 
 ### Generator Flags
-- `--cpp` - Generate C++ classes with getters/setters
-- `--java` - Generate Java classes (currently in development)
-- `--json` - Generate JSON schema files
-- `--sqlite` - Generate SQLite database operations
-- `--mysql` - Generate MySQL database operations
+- `-cpp` - Generate C++ classes with getters/setters
+- `-java` - Generate Java classes (currently in development)
+- `-json` - Generate JSON schema files
+- `-sqlite` - Generate SQLite database operations
+- `-mysql` - Generate MySQL database operations
 
 ### Optional Flags
-- `--help` - Display usage information
+- `-help` - Display usage information
 - `-R` - Recursively process subdirectories for schema files
 
 ### Advanced Options
 **Warning: The following flags generate exponential numbers of files and should be used with caution**
 
-- `--enableExponentialOperations` - Required flag to enable exponential file generation
-- `--selectAllFiles` - Generate SELECT ALL operation files for all field combinations
-- `--selectFiles` - Generate SELECT operation files for all field combinations  
-- `--insertFiles` - Generate INSERT operation files for all field combinations
-- `--updateFiles` - Generate UPDATE operation files for all field combinations
-- `--deleteFiles` - Generate DELETE operation files for all field combinations
+- `-enableExponentialOperations` - Required flag to enable exponential file generation
+- `-selectAllFiles` - Generate SELECT ALL operation files for all field combinations
+- `-selectFiles` - Generate SELECT operation files for all field combinations  
+- `-insertFiles` - Generate INSERT operation files for all field combinations
+- `-updateFiles` - Generate UPDATE operation files for all field combinations
+- `-deleteFiles` - Generate DELETE operation files for all field combinations
 
 ### Examples
 
 **Basic C++ generation:**
 ```bash
-SchemaLangTranspiler ./schemas ./output --cpp
+SchemaLangTranspiler -schemaDirectory=./schemas -outputDirectory=./output -cpp
 ```
 
 **Multi-target generation with drop-in system:**
 ```bash
-SchemaLangTranspiler ./schemas ./output --cpp --json --sqlite
+SchemaLangTranspiler -schemaDirectory=./schemas -outputDirectory=./output -cpp -json -sqlite
 ```
 
 **Recursive directory processing:**
 ```bash
-SchemaLangTranspiler ./schemas ./output --cpp --json -R
+SchemaLangTranspiler -schemaDirectory=./schemas -outputDirectory=./output -cpp -json -R
 ```
 
 **Generate with exponential operations (use with caution):**
 ```bash
-SchemaLangTranspiler ./schemas ./output --mysql --enableExponentialOperations --selectFiles
+SchemaLangTranspiler -schemaDirectory=./schemas -outputDirectory=./output -mysql -enableExponentialOperations -selectFiles
 ```
 
 ### Output Structure

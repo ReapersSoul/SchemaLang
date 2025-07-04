@@ -12,7 +12,7 @@
 				"-sqlite",
 				"-mysql",
 				"-cpp",
-				"--selectFiles"
+				"-selectFiles"
 			],
 			"stopAtEntry": false,
 			"cwd": "${workspaceFolder}/bin",
