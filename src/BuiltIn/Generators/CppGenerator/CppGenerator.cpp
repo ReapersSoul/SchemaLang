@@ -395,9 +395,10 @@ void CppGenerator::generate_struct_file_source(std::vector<StructDefinition> bas
 	structFile.close();
 }
 
-void CppGenerator::addGenerator(Generator *gen)
+bool CppGenerator::add_generator(Generator *gen)
 {
 	generators.push_back(gen);
+	return true;
 }
 
 std::string CppGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefinition type)

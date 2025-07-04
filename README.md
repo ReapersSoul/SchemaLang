@@ -24,6 +24,7 @@ SchemaLangTranspiler -schemaDirectory=<path> -outputDirectory=<path> [flags]
 ### Optional Flags
 - `-help` - Display usage information
 - `-R` - Recursively process subdirectories for schema files
+- `-additionalGenerators=<path>` - Path to directory containing dynamic generator libraries (.dll/.so files)
 
 ### Advanced Options
 **Warning: The following flags generate exponential numbers of files and should be used with caution**
@@ -57,6 +58,11 @@ SchemaLangTranspiler -schemaDirectory=./schemas -outputDirectory=./output -cpp -
 SchemaLangTranspiler -schemaDirectory=./schemas -outputDirectory=./output -mysql -enableExponentialOperations -selectFiles
 ```
 
+**Using dynamic generators:**
+```bash
+SchemaLangTranspiler -schemaDirectory=./schemas -outputDirectory=./output -additionalGenerators=./generators -cpp -json
+```
+
 ### Output Structure
 Generated files are organized in subdirectories based on the target:
 - `<outputDirectory>/Schemas/Cpp/` - C++ header and source files
@@ -64,6 +70,200 @@ Generated files are organized in subdirectories based on the target:
 - `<outputDirectory>/Schemas/Json/` - JSON schema files
 - `<outputDirectory>/Schemas/Sqlite/` - SQLite operation files
 - `<outputDirectory>/Schemas/Mysql/` - MySQL operation files
+- `<outputDirectory>/Schemas/[GeneratorName]/` - Dynamic generator output files (named by generator)
+
+## Dynamic Generator System
+
+SchemaLang supports loading additional generators dynamically from shared libraries (.dll on Windows, .so on Linux). This allows you to create custom generators that extend the functionality of the transpiler without modifying the core codebase.
+
+### Using Dynamic Generators
+
+To use dynamic generators, specify the directory containing your generator libraries:
+
+```bash
+./SchemaLangTranspiler -additionalGenerators=/path/to/generators -schemaDirectory=/path/to/schemas -outputDirectory=/path/to/output -cpp -json
+```
+
+### Creating Dynamic Generators
+
+Dynamic generators are compiled as shared libraries that implement the `Generator` interface. They can also register their own command-line arguments for customization.
+
+#### Basic Dynamic Generator Structure
+
+1. **Create a generator class** that inherits from `Generator`
+2. **Implement all pure virtual methods**
+3. **Create factory and identification functions** using `extern "C"`
+4. **Optionally register custom arguments** for your generator
+
+#### Example Implementation
+
+```cpp
+// MyCustomGenerator.hpp
+#pragma once
+#include <Generator/Generator.hpp>
+
+class MyCustomGenerator : public Generator
+{
+public:
+    std::string convert_to_local_type(ProgramStructure *ps, TypeDefinition type) override;
+    bool add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s) override;
+    bool generate_files(ProgramStructure ps, std::string out_path) override;
+};
+
+// MyCustomGenerator.cpp
+#include "MyCustomGenerator.hpp"
+#include <DynamicGeneratorInterface.hpp>
+
+static MyCustomGenerator* g_generator = nullptr;
+static bool g_enableSpecialFeature = false;
+static std::string g_outputFormat = "default";
+
+// Implement Generator methods
+std::string MyCustomGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefinition type)
+{
+    // Convert SchemaLang types to your target language types
+    if (type.name == "string") return "MyString";
+    if (type.name == "int32") return "MyInt32";
+    // ... more conversions
+    return "Unknown";
+}
+
+bool MyCustomGenerator::add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
+{
+    // Add custom methods or content to generated structs
+    // This is called during the drop-in system integration
+    return true;
+}
+
+bool MyCustomGenerator::generate_files(ProgramStructure ps, std::string out_path)
+{
+    // Generate your custom output files
+    // Use g_enableSpecialFeature and g_outputFormat for customization
+    return true;
+}
+
+// Export functions for dynamic loading
+extern "C" {
+    Generator* getGeneratorInstance() {
+        if (!g_generator) {
+            g_generator = new MyCustomGenerator();
+        }
+        return g_generator;
+    }
+    
+    const char* getGeneratorName() {
+        return "MyCustomGenerator";  // This name will be used for the output directory
+    }
+    
+    void registerArguments(argumentParser* parser) {
+        // Register custom command-line arguments
+        Flag* specialFeatureFlag = new Flag("enableSpecialFeature", false, []() {
+            g_enableSpecialFeature = true;
+            std::cout << "Special feature enabled for MyCustomGenerator" << std::endl;
+        }, 1);
+        
+        Parameter* outputFormatParam = new Parameter("myOutputFormat", false, [](std::string value) {
+            g_outputFormat = value;
+            std::cout << "Output format set to: " << value << std::endl;
+        }, 1);
+        
+        parser->addFlag(specialFeatureFlag);
+        parser->addParameter(outputFormatParam);
+    }
+}
+```
+
+#### Building Dynamic Generators
+
+Compile your generator as a shared library:
+
+```bash
+# Linux
+g++ -shared -fPIC -o MyCustomGenerator.so MyCustomGenerator.cpp -I/path/to/schemalang/include
+
+# Windows (MinGW)
+g++ -shared -o MyCustomGenerator.dll MyCustomGenerator.cpp -I/path/to/schemalang/include
+
+# Windows (MSVC)
+cl /LD MyCustomGenerator.cpp /I"C:\path\to\schemalang\include" /Fe:MyCustomGenerator.dll
+```
+
+### Dynamic Generator Features
+
+#### Argument Registration System
+
+Dynamic generators can register their own command-line arguments that will be processed by the main argument parser. This allows users to customize generator behavior without modifying the core transpiler:
+
+```bash
+# Using custom arguments from dynamic generators
+./SchemaLangTranspiler -additionalGenerators=./generators -schemaDirectory=./schemas -outputDirectory=./output -cpp -enableSpecialFeature -myOutputFormat=xml
+```
+
+#### Drop-In System Integration
+
+Dynamic generators automatically integrate with the drop-in system:
+
+- **Added to CppGenerator**: Dynamic generators are automatically registered with the C++ generator for method injection
+- **Cross-Generator References**: Dynamic generators can reference and use other generators (both built-in and dynamic)
+- **Unified Interface**: Generated classes can include methods from multiple generators seamlessly
+
+#### Loading Process
+
+The transpiler automatically:
+
+1. **Scans the directory** for .dll/.so files
+2. **Loads each library** using Boost.DLL
+3. **Calls `getGeneratorInstance()`** to create generator instances
+4. **Calls `getGeneratorName()`** to get the generator name for output directory naming
+5. **Calls `registerArguments()`** (if available) to register custom arguments
+6. **Integrates generators** into the drop-in system
+7. **Processes arguments** including custom ones from dynamic generators
+8. **Generates output files** using all enabled generators with named output directories
+
+### Advanced Dynamic Generator Capabilities
+
+#### Generator Interaction
+
+Dynamic generators can interact with built-in generators and other dynamic generators:
+
+```cpp
+bool MyCustomGenerator::add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
+{
+    // Check if this is being called by the C++ generator
+    if (/* gen is CppGenerator */) {
+        // Add C++-specific methods to the struct
+        // These will be injected into the generated C++ class
+    }
+    return true;
+}
+```
+
+#### Custom Output Directories
+
+Dynamic generators get their own named output directories based on the generator name:
+- `<outputDirectory>/Schemas/[GeneratorName]/` - Named after the generator (e.g., "MyCustomGenerator")
+
+The generator name is obtained from the required `getGeneratorName()` function and is used to create a clean, identifiable output directory structure.
+
+#### Error Handling
+
+The system provides comprehensive error handling:
+- **Library Loading Errors**: Reported with specific error messages
+- **Missing Functions**: Warnings for libraries without required functions
+- **Argument Conflicts**: Automatic handling of argument name conflicts
+- **Runtime Errors**: Graceful handling of generator runtime failures
+
+### Use Cases for Dynamic Generators
+
+- **Custom Language Support**: Generate code for languages not built into SchemaLang
+- **Specialized Formats**: Create generators for specific file formats or protocols
+- **Framework Integration**: Generate code specific to particular frameworks or libraries
+- **Custom Validation**: Add specialized validation logic for specific domains
+- **Protocol Buffers**: Generate .proto files or other schema formats
+- **API Documentation**: Generate API documentation in custom formats
+- **Test Code Generation**: Create unit tests or mock objects automatically
+
+The dynamic generator system makes SchemaLang highly extensible while maintaining the benefits of the drop-in system and unified command-line interface.
 
 ## Basic Structure
 

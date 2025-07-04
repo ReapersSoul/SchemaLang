@@ -85,7 +85,8 @@
 		"codecvt": "cpp",
 		"forward_list": "cpp",
 		"text_encoding": "cpp",
-		"hash_map": "cpp"
+		"hash_map": "cpp",
+		"filesystem": "cpp"
 	},
 	"vcpkg.target.useManifest": true,
 	"cmake.configureArgs": [

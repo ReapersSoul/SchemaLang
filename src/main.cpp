@@ -1,5 +1,6 @@
 #include <iostream>
 #include <filesystem>
+#include <vector>
 #include <ArgParser/ArgParser.hpp>
 #include <ProgramStructure/ProgramStructure.hpp>
 #include <BuiltIn/Generators/CppGenerator/CppGenerator.hpp>
@@ -7,15 +8,20 @@
 #include <BuiltIn/Generators/JsonGenerator/JsonGenerator.hpp>
 #include <BuiltIn/Generators/SqliteGenerator/SqliteGenerator.hpp>
 #include <BuiltIn/Generators/MySqlGenerator/MySqlGenerator.hpp>
+#include <boost/dll.hpp>
+#include <boost/function.hpp>
 
 int main(int argc, char *argv[])
 {
 	std::filesystem::path schemaDirectory;
 	std::filesystem::path outputDirectory;
+	std::filesystem::path additionalGeneratorsDirectory;
 	bool EnableExponentialOperations = false;
 	bool recursive = false;
 
 	ProgramStructure ps;
+	std::vector<Generator*> dynamicGenerators;
+	std::vector<std::string> dynamicGeneratorNames;
 
 	JsonGenerator *jsonGenerator = new JsonGenerator();
 	SqliteGenerator *sqliteGenerator = new SqliteGenerator();
@@ -30,21 +36,89 @@ int main(int argc, char *argv[])
 				  { ap.printUsage(); });
 	ap.addFlag(&helpFlag);
 
+	Parameter additionalGeneratorsParameter("additionalGenerators", false, [&](std::string value)
+		{
+			additionalGeneratorsDirectory = value;
+			
+			// Load dynamic generators from the specified directory
+			if (!std::filesystem::exists(additionalGeneratorsDirectory))
+			{
+				std::cout << "Additional generators directory does not exist: " << additionalGeneratorsDirectory << std::endl;
+				return;
+			}
+
+			for (const auto& entry : std::filesystem::directory_iterator(additionalGeneratorsDirectory))
+			{
+				if (entry.is_regular_file())
+				{
+					std::string extension = entry.path().extension().string();
+					if (extension == ".dll" || extension == ".so")
+					{
+						try
+						{
+							boost::dll::shared_library lib(entry.path().string());
+							
+							if (lib.has("getGeneratorInstance"))
+							{
+								auto getGeneratorInstance = lib.get<Generator*()>("getGeneratorInstance");
+								Generator* generator = getGeneratorInstance();
+								
+								if (generator != nullptr)
+								{
+									// Get the generator name (now required)
+									if (lib.has("getGeneratorName"))
+									{
+										auto getGeneratorName = lib.get<const char*()>("getGeneratorName");
+										std::string generatorName = getGeneratorName();
+										
+										dynamicGenerators.push_back(generator);
+										dynamicGeneratorNames.push_back(generatorName);
+										std::cout << "Loaded generator '" << generatorName << "' from: " << entry.path().string() << std::endl;
+										
+										// Check if the generator has a registerArguments function
+										if (lib.has("registerArguments"))
+										{
+											auto registerArguments = lib.get<void(argumentParser*)>("registerArguments");
+											registerArguments(&ap);
+											std::cout << "Registered arguments for generator '" << generatorName << "' from: " << entry.path().string() << std::endl;
+										}
+									}
+									else
+									{
+										std::cout << "Error: " << entry.path().string() << " does not have required getGeneratorName function" << std::endl;
+									}
+								}
+							}
+							else
+							{
+								std::cout << "Warning: " << entry.path().string() << " does not have getGeneratorInstance function" << std::endl;
+							}
+						}
+						catch (const std::exception& e)
+						{
+							std::cout << "Error loading generator from " << entry.path().string() << ": " << e.what() << std::endl;
+						}
+					}
+				}
+			}
+		}, INT32_MAX);
+	ap.addParameter(&additionalGeneratorsParameter);
+
 	Flag jsonFlag("json", false, [&]
-				  { cppGenerator->addGenerator(jsonGenerator); });
+				  { cppGenerator->add_generator(jsonGenerator); });
 	ap.addFlag(&jsonFlag);
 	Flag sqliteFlag("sqlite", false, [&]
-					{ cppGenerator->addGenerator(sqliteGenerator); });
+					{ cppGenerator->add_generator(sqliteGenerator); });
 	ap.addFlag(&sqliteFlag);
 	Flag mysqlFlag("mysql", false, [&]
-				   { cppGenerator->addGenerator(mysqlGenerator); });
+				   { cppGenerator->add_generator(mysqlGenerator); });
 	ap.addFlag(&mysqlFlag);
 	Flag cppFlag("cpp", false, [&]
-				 { cppGenerator->addGenerator(cppGenerator); });
+				 { cppGenerator->add_generator(cppGenerator); });
 	ap.addFlag(&cppFlag);
 	Flag javaFlag("java", false, [&]
 				  {
-					  // cppGenerator->addGenerator(new JavaGenerator());
+					  // cppGenerator->add_generator(new JavaGenerator());
 				  });
 	ap.addFlag(&javaFlag);
 
@@ -172,6 +246,34 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	// Set up generator interactions
+	std::vector<Generator*> allGenerators = {jsonGenerator, sqliteGenerator, mysqlGenerator, cppGenerator};
+	
+	// Add dynamic generators to built-in generators
+	for (Generator* dynamicGen : dynamicGenerators)
+	{
+		cppGenerator->add_generator(dynamicGen);
+	}
+	
+	// Add all built-in generators and other dynamic generators to each dynamic generator
+	for (Generator* dynamicGen : dynamicGenerators)
+	{
+		// Add built-in generators
+		for (Generator* builtInGen : allGenerators)
+		{
+			dynamicGen->add_generator(builtInGen);
+		}
+		
+		// Add other dynamic generators
+		for (Generator* otherDynamicGen : dynamicGenerators)
+		{
+			if (otherDynamicGen != dynamicGen)
+			{
+				dynamicGen->add_generator(otherDynamicGen);
+			}
+		}
+	}
+
 	if (!std::filesystem::exists(schemaDirectory))
 	{
 		std::cout << "Directory does not exist: " << argv[1] << std::endl;
@@ -226,6 +328,17 @@ int main(int argc, char *argv[])
 		// 	std::cout << "Failed to generate java files" << std::endl;
 		// 	return 1;
 		// }
+	}
+
+	// Generate files for dynamic generators
+	for (size_t i = 0; i < dynamicGenerators.size(); i++)
+	{
+		printf("Generating files for dynamic generator '%s'\n", dynamicGeneratorNames[i].c_str());
+		if (!ps.generate_files(dynamicGenerators[i], (outputDirectory / dynamicGeneratorNames[i]).string()))
+		{
+			std::cout << "Failed to generate files for dynamic generator '" << dynamicGeneratorNames[i] << "'" << std::endl;
+			return 1;
+		}
 	}
 
 	return 0;

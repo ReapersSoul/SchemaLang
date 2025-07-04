@@ -134,6 +134,8 @@ class argumentParser
 	std::string programName;
 	std::vector<Flag *> flags;
 	std::vector<Parameter *> parameters;
+	std::vector<std::string> discardedArgs;
+	std::vector<std::pair<int, std::function<void()>>> callbacksWithPriority;
 
 	void split(std::string &name, std::string &value, std::string arg)
 	{
@@ -150,6 +152,62 @@ class argumentParser
 		}
 	}
 
+	void processDiscardedArgsForFlag(Flag* flag)
+	{
+		for (auto it = discardedArgs.begin(); it != discardedArgs.end(); ++it)
+		{
+			std::string flagName;
+			std::string flagValue;
+			split(flagName, flagValue, *it);
+			
+			if (flag->getName() == flagName)
+			{
+				flag->setValue(true);
+				if (flag->hasCallback())
+				{
+					// Insert callback at the appropriate position based on priority
+					auto callback = std::make_pair(flag->getPriority(), [flag]() { flag->execute(); });
+					auto insertPos = std::upper_bound(callbacksWithPriority.begin(), callbacksWithPriority.end(), 
+						callback, [](const std::pair<int, std::function<void()>>& a, const std::pair<int, std::function<void()>>& b) {
+							return a.first > b.first;
+						});
+					callbacksWithPriority.insert(insertPos, callback);
+				}
+				// Remove the processed argument from discarded list
+				discardedArgs.erase(it);
+				break;
+			}
+		}
+	}
+
+	void processDiscardedArgsForParameter(Parameter* parameter)
+	{
+		for (auto it = discardedArgs.begin(); it != discardedArgs.end(); ++it)
+		{
+			std::string paramName;
+			std::string paramValue;
+			split(paramName, paramValue, *it);
+			
+			if (parameter->getName() == paramName)
+			{
+				parameter->setValue(paramValue);
+				if (parameter->hasCallback())
+				{
+					// Insert callback at the appropriate position based on priority
+					auto callback = std::make_pair(parameter->getPriority(), [parameter]() { parameter->execute(); });
+					auto insertPos = std::upper_bound(callbacksWithPriority.begin(), callbacksWithPriority.end(), 
+						callback, [](const std::pair<int, std::function<void()>>& a, const std::pair<int, std::function<void()>>& b) {
+							return a.first > b.first;
+						});
+					callbacksWithPriority.insert(insertPos, callback);
+				}
+				// Remove the processed argument from discarded list
+				discardedArgs.erase(it);
+				break;
+			}
+		}
+	}
+
 public:
 	bool parse(int argc, char *argv[])
 	{
@@ -161,11 +219,17 @@ public:
 		{
 			args.push_back(argv[i]);
 		}
+		
+		// Clear previous state
+		discardedArgs.clear();
+		callbacksWithPriority.clear();
+		
 		for (int i = 0; i < args.size(); i++)
 		{
 			if (args[i].substr(0, 2) == "--" || args[i].substr(0, 1) == "-")
 			{
 				// strip off the -- or -
+				std::string originalArg = args[i];
 				if (args[i].substr(0, 2) == "--")
 				{
 					args[i] = args[i].substr(2);
@@ -207,15 +271,11 @@ public:
 				}
 				if (!found)
 				{
-					printf("Unknown flag or parameter: %s\n", flagName.c_str());
-					printUsage();
-					return false;
+					// Add to discarded args for later processing
+					discardedArgs.push_back(args[i]);
 				}
 			}
 		}
-		
-		// Create a unified collection of callbacks with their priorities
-		std::vector<std::pair<int, std::function<void()>>> callbacksWithPriority;
 		
 		// Add flag callbacks to the unified collection
 		for (Flag* flag : flagsToExecute)
@@ -239,6 +299,21 @@ public:
 		for (const auto& callback : callbacksWithPriority)
 		{
 			callback.second();
+		}
+		
+		// Check if any discarded arguments remain (these are truly unknown)
+		if (!discardedArgs.empty())
+		{
+			printf("Unknown flags or parameters:\n");
+			for (const auto& arg : discardedArgs)
+			{
+				std::string flagName;
+				std::string flagValue;
+				split(flagName, flagValue, arg);
+				printf("  %s\n", flagName.c_str());
+			}
+			printUsage();
+			return false;
 		}
 		
 		for (int i = 0; i < flags.size(); i++)
@@ -280,10 +355,14 @@ public:
 	void addFlag(Flag *flag)
 	{
 		flags.push_back(flag);
+		// Check if this flag was in the discarded arguments
+		processDiscardedArgsForFlag(flag);
 	}
 
 	void addParameter(Parameter *parameter)
 	{
 		parameters.push_back(parameter);
+		// Check if this parameter was in the discarded arguments
+		processDiscardedArgsForParameter(parameter);
 	}
 };
