@@ -6,11 +6,13 @@
 			"request": "launch",
 			"program": "${workspaceFolder}/bin/SchemaLangTranspiler",
 			"args": [
-				"-schemaDirectory=./SchemaSrc",
+				"-schemaDirectory=./",
 				"-outputDirectory=./",
 				"-json",
 				"-sqlite",
-				"-cpp"
+				"-mysql",
+				"-cpp",
+				"--selectFiles"
 			],
 			"stopAtEntry": false,
 			"cwd": "${workspaceFolder}/bin",

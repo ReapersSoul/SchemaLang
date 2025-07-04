@@ -3,21 +3,24 @@
 #include <functional>
 #include <vector>
 #include <iostream>
+#include <algorithm>
 
 class Flag
 {
 	std::string name = "";
 	bool value = false;
 	bool required = false;
+	int priority = 0;
 	std::function<void()> callback = nullptr;
 	bool HasCallback = false;
 
 public:
-	Flag(std::string name, bool required, std::function<void()> callback = nullptr)
+	Flag(std::string name, bool required, std::function<void()> callback = nullptr, int priority = 0)
 	{
 		this->name = name;
 		this->required = required;
 		this->callback = callback;
+		this->priority = priority;
 		if (callback)
 		{
 			HasCallback = true;
@@ -53,6 +56,11 @@ public:
 		return HasCallback;
 	}
 
+	int getPriority() const
+	{
+		return priority;
+	}
+
 	void execute()
 	{
 		callback();
@@ -64,15 +72,17 @@ class Parameter
 	std::string name = "";
 	std::string value = "";
 	bool required = false;
+	int priority = 0;
 	std::function<void(std::string)> callback = nullptr;
 	bool HasCallback = false;
 
 public:
-	Parameter(std::string name, bool required, std::function<void(std::string)> callback = nullptr)
+	Parameter(std::string name, bool required, std::function<void(std::string)> callback = nullptr, int priority = 0)
 	{
 		this->name = name;
 		this->required = required;
 		this->callback = callback;
+		this->priority = priority;
 		if (callback)
 		{
 			HasCallback = true;
@@ -108,6 +118,11 @@ public:
 		return HasCallback;
 	}
 
+	int getPriority() const
+	{
+		return priority;
+	}
+
 	void execute()
 	{
 		callback(value);
@@ -139,6 +154,8 @@ public:
 	bool parse(int argc, char *argv[])
 	{
 		std::vector<std::string> args;
+		std::vector<Flag*> flagsToExecute;
+		std::vector<Parameter*> parametersToExecute;
 		programName = argv[0];
 		for (int i = 1; i < argc; i++)
 		{
@@ -169,7 +186,7 @@ public:
 						flags[j]->setValue(true);
 						if (flags[j]->hasCallback())
 						{
-							flags[j]->execute();
+							flagsToExecute.push_back(flags[j]);
 						}
 						found = true;
 						break;
@@ -182,7 +199,7 @@ public:
 						parameters[j]->setValue(flagValue);
 						if (parameters[j]->hasCallback())
 						{
-							parameters[j]->execute();
+							parametersToExecute.push_back(parameters[j]);
 						}
 						found = true;
 						break;
@@ -196,6 +213,34 @@ public:
 				}
 			}
 		}
+		
+		// Create a unified collection of callbacks with their priorities
+		std::vector<std::pair<int, std::function<void()>>> callbacksWithPriority;
+		
+		// Add flag callbacks to the unified collection
+		for (Flag* flag : flagsToExecute)
+		{
+			callbacksWithPriority.push_back(std::make_pair(flag->getPriority(), [flag]() { flag->execute(); }));
+		}
+		
+		// Add parameter callbacks to the unified collection
+		for (Parameter* parameter : parametersToExecute)
+		{
+			callbacksWithPriority.push_back(std::make_pair(parameter->getPriority(), [parameter]() { parameter->execute(); }));
+		}
+		
+		// Sort all callbacks by priority (higher priority first)
+		std::sort(callbacksWithPriority.begin(), callbacksWithPriority.end(), 
+			[](const std::pair<int, std::function<void()>>& a, const std::pair<int, std::function<void()>>& b) {
+				return a.first > b.first;
+			});
+		
+		// Execute all callbacks in priority order
+		for (const auto& callback : callbacksWithPriority)
+		{
+			callback.second();
+		}
+		
 		for (int i = 0; i < flags.size(); i++)
 		{
 			if (flags[i]->isRequired() && !flags[i]->getValue())

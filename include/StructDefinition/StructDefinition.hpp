@@ -23,4 +23,14 @@ struct StructDefinition
 	bool has_MemberVariableDefinition(std::string identifier);
 	bool has_private_variable(std::string identifier);
 	bool has_function(std::string identifier);
+
+	int getUniqueSubsetCount() const
+	{
+		int count = 0;
+		int n = member_variables.size();
+		if (n == 0)
+			return 0;
+		count = (1 << n) - 1; // 2^n - 1
+		return count;
+	}
 };

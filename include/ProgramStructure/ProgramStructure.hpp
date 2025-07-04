@@ -52,4 +52,14 @@ public:
 	std::vector<StructDefinition> &getStructs();
 
 	std::vector<EnumDefinition> &getEnums();
+
+	int getUniqueSubsetCount() const
+	{
+		int count = 0;
+		for (const auto &s : structs)
+		{
+			count += s.getUniqueSubsetCount();
+		}
+		return count;
+	}
 };

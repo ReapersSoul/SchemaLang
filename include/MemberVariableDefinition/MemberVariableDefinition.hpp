@@ -14,6 +14,7 @@ struct MemberVariableDefinition
 	bool unique = false;
 	ForiegnKeyDefinition fk = {"", ""};
 	std::string description = "";
+	std::string default_value = "";
 	int min_items = 0;
 	int max_tokens = 0;
 	bool unique_items = false;

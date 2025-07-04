@@ -39,8 +39,22 @@ std::vector<std::vector<int>> SqliteGenerator::comb(int N)
 std::string SqliteGenerator::generate_create_table_statement_string_struct(ProgramStructure *ps, StructDefinition &s)
 {
 	std::string sql = "CREATE TABLE IF NOT EXISTS " + s.identifier + " (\n";
+	bool first_column = true;
+	
 	for (int i = 0; i < s.member_variables.size(); i++)
 	{
+		// Skip array fields - they don't create columns in the parent table
+		if (s.member_variables[i].type.is_array())
+		{
+			continue;
+		}
+		
+		if (!first_column)
+		{
+			sql += ",\n";
+		}
+		first_column = false;
+		
 		sql += "\t" + s.member_variables[i].identifier + " ";
 		// add type
 		sql+= convert_to_local_type(ps, s.member_variables[i].type);
@@ -61,13 +75,68 @@ std::string SqliteGenerator::generate_create_table_statement_string_struct(Progr
 		{
 			sql += " REFERENCES " + s.member_variables[i].fk.struct_name + "(" + s.member_variables[i].fk.variable_name + ")";
 		}
-		if (i < s.member_variables.size() - 1)
-		{
-			sql += ",\n";
-		}
 	}
 	sql += "\n);\n";
 	return sql;
+}
+
+// Function to add foreign key columns for array relationships
+void SqliteGenerator::add_foreign_key_columns_for_arrays(ProgramStructure *ps)
+{
+	// Iterate through all structs
+	for (auto &parent_struct : ps->getStructs())
+	{
+		// Look for array fields in this struct
+		for (auto &member_var : parent_struct.member_variables)
+		{
+			if (member_var.type.is_array())
+			{
+				// Get the element type of the array
+				TypeDefinition element_type = member_var.type.element_type();
+				
+				// Check if the element type is a struct
+				if (element_type.is_struct(ps))
+				{
+					// Find the target struct
+					std::string target_struct_name = element_type.identifier();
+					
+					// Find the target struct in the program structure
+					for (auto &target_struct : ps->getStructs())
+					{
+						if (target_struct.identifier == target_struct_name)
+						{
+							// Add foreign key column to the target struct
+							MemberVariableDefinition fk_column;
+							fk_column.identifier = parent_struct.identifier + "Id";
+							fk_column.type = TypeDefinition("int64");
+							fk_column.required = member_var.required; // If array is required, FK is NOT NULL
+							fk_column.fk.struct_name = parent_struct.identifier;
+							fk_column.fk.variable_name = "id"; // Assuming parent has 'id' as primary key
+							fk_column.description = "Foreign key reference to " + parent_struct.identifier + " table";
+							
+							// Check if this foreign key column already exists
+							bool fk_exists = false;
+							for (auto &existing_var : target_struct.member_variables)
+							{
+								if (existing_var.identifier == fk_column.identifier)
+								{
+									fk_exists = true;
+									break;
+								}
+							}
+							
+							// Only add if it doesn't already exist
+							if (!fk_exists)
+							{
+								target_struct.member_variables.push_back(fk_column);
+							}
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 std::string SqliteGenerator::generate_select_all_statement_string_member_variable(StructDefinition &s, MemberVariableDefinition &mv)
@@ -216,7 +285,7 @@ void SqliteGenerator::generate_select_all_statement_function_member_variable(Gen
 		return;
 	}
 	FunctionDefinition select_all_statement;
-	select_all_statement.identifier = "SelectBy" + mv.identifier;
+	select_all_statement.identifier = "SQLiteSelectBy" + mv.identifier;
 	select_all_statement.return_type.identifier() = "void";
 	select_all_statement.parameters.push_back(std::make_pair(sqlite_db, "db"));
 	select_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
@@ -318,7 +387,7 @@ void SqliteGenerator::generate_select_all_statement_functions_struct(Generator *
 void SqliteGenerator::generate_select_member_variable_function_statement(Generator *gen, ProgramStructure *ps, StructDefinition &s, MemberVariableDefinition &mv_1, std::vector<int> &criteria)
 {
 	FunctionDefinition select_statement;
-	select_statement.identifier = "Select" + s.identifier + "By";
+	select_statement.identifier = "SQLiteSelect" + s.identifier + "By";
 	select_statement.return_type = mv_1.type;
 	for (int i = 0; i < criteria.size(); i++)
 	{
@@ -366,7 +435,7 @@ void SqliteGenerator::generate_select_statements_function_struct(Generator *gen,
 void SqliteGenerator::generate_insert_statements_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
 	FunctionDefinition insert_statement;
-	insert_statement.identifier = "Insert";
+	insert_statement.identifier = "SQLiteInsert";
 	insert_statement.return_type.identifier() = BOOL;
 	insert_statement.static_function = true;
 	insert_statement.parameters.push_back(std::make_pair(sqlite_db, "db"));
@@ -409,7 +478,7 @@ void SqliteGenerator::generate_insert_statements_function_struct(Generator *gen,
 	s.functions.push_back(insert_statement);
 
 	FunctionDefinition insert_statement_no_args;
-	insert_statement_no_args.identifier = "Insert";
+	insert_statement_no_args.identifier = "SQLiteInsert";
 	insert_statement_no_args.return_type.identifier() = BOOL;
 	insert_statement_no_args.static_function = false;
 	insert_statement_no_args.parameters.push_back(std::make_pair(sqlite_db, "db"));
@@ -451,7 +520,7 @@ void SqliteGenerator::generate_insert_statements_function_struct(Generator *gen,
 void SqliteGenerator::generate_update_all_statement_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
 	FunctionDefinition update_all_statement;
-	update_all_statement.identifier = "Update" + s.identifier;
+	update_all_statement.identifier = "SQLiteUpdate" + s.identifier;
 	update_all_statement.return_type.identifier() = BOOL;
 	update_all_statement.parameters.push_back(std::make_pair(sqlite_db, "db"));
 	for (auto &mv : s.member_variables)
@@ -636,10 +705,12 @@ std::string SqliteGenerator::convert_to_local_type(ProgramStructure *ps, TypeDef
 	{
 		return "CHAR";
 	}
-	// convert array to "TEXT"
+	// convert array to foreign key relationship - arrays don't create columns in the parent table
 	if (type.is_array())
 	{
-		return "TEXT";
+		// Arrays are handled by adding foreign key columns to the child table
+		// No column is created in the parent table for arrays
+		return ""; // Return empty string to indicate no column should be created
 	}
 	return type.identifier();
 }
@@ -696,7 +767,7 @@ bool SqliteGenerator::add_generator_specific_content_to_struct(Generator *gen, P
 	// generate_delete_statement_function_struct(gen, ps, s);
 
 	FunctionDefinition getCreateTableStatement;
-	getCreateTableStatement.identifier = "getCreateTableStatement";
+	getCreateTableStatement.identifier = "getSQLiteCreateTableStatement";
 	getCreateTableStatement.static_function = true;
 	getCreateTableStatement.return_type.identifier() = STRING;
 	getCreateTableStatement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
@@ -707,7 +778,7 @@ bool SqliteGenerator::add_generator_specific_content_to_struct(Generator *gen, P
 	s.functions.push_back(getCreateTableStatement);
 
 	FunctionDefinition createTable;
-	createTable.identifier = "CreateTable";
+	createTable.identifier = "SQLiteCreateTable";
 	createTable.static_function = true;
 	createTable.return_type.identifier() = BOOL;
 	createTable.parameters.push_back(std::make_pair(TypeDefinition("sqlite3 *"), "db"));
@@ -715,7 +786,7 @@ bool SqliteGenerator::add_generator_specific_content_to_struct(Generator *gen, P
 	createTable.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
 	{
 		structFile << "\tchar *zErrMsg = 0;\n";
-		structFile << "\tint rc = sqlite3_exec(db, getCreateTableStatement().c_str(), NULL, 0, &zErrMsg);\n";
+		structFile << "\tint rc = sqlite3_exec(db, getSQLiteCreateTableStatement().c_str(), NULL, 0, &zErrMsg);\n";
 		structFile << "\tif(rc != SQLITE_OK){\n";
 		structFile << "\t\tstd::cout << \"SQL error: \" << zErrMsg << std::endl;\n";
 		structFile << "\t\tsqlite3_free(zErrMsg);\n";
@@ -735,6 +806,9 @@ bool SqliteGenerator::generate_files(ProgramStructure ps, std::string out_path)
 	{
 		std::filesystem::create_directories(out_path);
 	}
+
+	// Add foreign key columns for array relationships before generating files
+	add_foreign_key_columns_for_arrays(&ps);
 
 	for (auto &s : ps.getStructs())
 	{

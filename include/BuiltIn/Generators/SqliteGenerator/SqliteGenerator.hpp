@@ -53,6 +53,9 @@ class SqliteGenerator : public Generator
 
 	std::string escape_string(std::string str);
 
+	// Function to add foreign key columns for array relationships
+	void add_foreign_key_columns_for_arrays(ProgramStructure *ps);
+
 public:
 	SqliteGenerator();
 
