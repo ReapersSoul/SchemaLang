@@ -430,11 +430,11 @@ public:
 
 ### Supported Generator Combinations
 
-- **C++ + JSON**: Adds JSON serialization capabilities
-- **C++ + SQLite**: Adds SQLite database operations
-- **C++ + MySQL**: Adds MySQL database operations
-- **C++ + Multiple**: Combines all selected generators into a single comprehensive class
-- **Java + [Any]**: Same drop-in system (currently in development)
+- **C++ & JSON**: Adds JSON serialization capabilities
+- **C++ & SQLite**: Adds SQLite database operations
+- **C++ & MySQL**: Adds MySQL database operations
+- **C++ & Multiple**: Combines all selected generators into a single comprehensive class
+- **Java & [Any]**: Same drop-in system (currently in development)
 
 This drop-in system makes SchemaLang particularly powerful for full-stack development, allowing you to define your data model once and get complete database integration, API serialization, and type-safe operations across your entire application.
 
