@@ -3,6 +3,68 @@
 ## Overview
 SchemaLang is a schema definition language that allows you to define structured data types with detailed metadata including constraints, relationships, and documentation. It supports generating code for multiple targets including C++, JSON schemas, MySQL, and SQLite.
 
+## CLI Usage
+
+### Basic Command Structure
+```bash
+SchemaLangTranspiler <schemaDirectory> <outputDirectory> [flags]
+```
+
+### Required Parameters
+- `schemaDirectory` - Path to directory containing `.schema` or `.schemaLang` files
+- `outputDirectory` - Path where generated files will be created
+
+### Generator Flags
+- `--cpp` - Generate C++ classes with getters/setters
+- `--java` - Generate Java classes (currently in development)
+- `--json` - Generate JSON schema files
+- `--sqlite` - Generate SQLite database operations
+- `--mysql` - Generate MySQL database operations
+
+### Optional Flags
+- `--help` - Display usage information
+- `-R` - Recursively process subdirectories for schema files
+
+### Advanced Options
+**Warning: The following flags generate exponential numbers of files and should be used with caution**
+
+- `--enableExponentialOperations` - Required flag to enable exponential file generation
+- `--selectAllFiles` - Generate SELECT ALL operation files for all field combinations
+- `--selectFiles` - Generate SELECT operation files for all field combinations  
+- `--insertFiles` - Generate INSERT operation files for all field combinations
+- `--updateFiles` - Generate UPDATE operation files for all field combinations
+- `--deleteFiles` - Generate DELETE operation files for all field combinations
+
+### Examples
+
+**Basic C++ generation:**
+```bash
+SchemaLangTranspiler ./schemas ./output --cpp
+```
+
+**Multi-target generation with drop-in system:**
+```bash
+SchemaLangTranspiler ./schemas ./output --cpp --json --sqlite
+```
+
+**Recursive directory processing:**
+```bash
+SchemaLangTranspiler ./schemas ./output --cpp --json -R
+```
+
+**Generate with exponential operations (use with caution):**
+```bash
+SchemaLangTranspiler ./schemas ./output --mysql --enableExponentialOperations --selectFiles
+```
+
+### Output Structure
+Generated files are organized in subdirectories based on the target:
+- `<outputDirectory>/Schemas/Cpp/` - C++ header and source files
+- `<outputDirectory>/Schemas/Java/` - Java class files  
+- `<outputDirectory>/Schemas/Json/` - JSON schema files
+- `<outputDirectory>/Schemas/Sqlite/` - SQLite operation files
+- `<outputDirectory>/Schemas/Mysql/` - MySQL operation files
+
 ## Basic Structure
 
 ### 1. **Struct Definition**
