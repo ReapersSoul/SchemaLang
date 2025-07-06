@@ -712,3 +712,15 @@ public:
 This drop-in system makes SchemaLang particularly powerful for full-stack development, allowing you to define your data model once and get complete database integration, API serialization, and type-safe operations across your entire application.
 
 This comprehensive syntax enables you to define complex data structures with built-in validation, relationships, and documentation, making it ideal for generating database schemas, API specifications, or data validation code across multiple platforms and languages. The advanced generator drop-in system further enhances productivity by creating unified classes that combine database operations, serialization, and validation in a single, type-safe interface.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+The MIT License allows you to:
+- Use SchemaLang commercially in your projects
+- Modify and distribute the source code
+- Use the generated code in proprietary applications without licensing restrictions
+- Create and distribute your own dynamic generators
+
+The only requirement is to include the copyright notice and license text in copies of the software.
