@@ -17,6 +17,7 @@ SchemaLangTranspiler -schemaDirectory=<path> -outputDirectory=<path> [flags]
 ### Generator Flags
 - `-cpp` - Generate C++ classes with getters/setters
 - `-java` - Generate Java classes (currently in development)
+- `-lua` - Generate Lua modules and classes (currently in development)
 - `-json` - Generate JSON schema files
 - `-sqlite` - Generate SQLite database operations
 - `-mysql` - Generate MySQL database operations
@@ -67,6 +68,7 @@ SchemaLangTranspiler -schemaDirectory=./schemas -outputDirectory=./output -addit
 Generated files are organized in subdirectories based on the target:
 - `<outputDirectory>/Schemas/Cpp/` - C++ header and source files
 - `<outputDirectory>/Schemas/Java/` - Java class files  
+- `<outputDirectory>/Schemas/Lua/` - Lua module files
 - `<outputDirectory>/Schemas/Json/` - JSON schema files
 - `<outputDirectory>/Schemas/Sqlite/` - SQLite operation files
 - `<outputDirectory>/Schemas/Mysql/` - MySQL operation files
@@ -501,6 +503,7 @@ SchemaLang can generate code for multiple targets, each with specific capabiliti
 
 - **C++**: Complete classes with private member variables, getters/setters, constructors, and support for generator drop-ins
 - **Java**: Complete classes with private member variables, getters/setters, constructors, and support for generator drop-ins (currently in development)
+- **Lua**: Complete modules with constructor functions, methods, and support for generator drop-ins (currently in development)
 
 ### Schema and Database Generators
 
@@ -514,31 +517,31 @@ SchemaLang can generate code for multiple targets, each with specific capabiliti
 
 Each generator can work independently:
 
-- **C++/Java**: Produces clean, well-structured classes suitable for any application
+- **C++/Java/Lua**: Produces clean, well-structured classes/modules suitable for any application
 - **JSON Schema**: Creates comprehensive schemas for API validation and documentation
 - **MySQL/SQLite**: Generates complete database schemas ready for deployment
 
 #### Drop-In Enhanced Generation
 
-When combined with C++ or Java generators, specialized generators can enhance the generated classes:
+When combined with C++, Java, or Lua generators, specialized generators can enhance the generated classes:
 
-**JSON + C++/Java:**
+**JSON + C++/Java/Lua:**
 
 - Creates base classes for serialization (`HasJsonSchema`)
 - Injects `toJSON()`, `fromJSON()`, and `getSchema()` methods
 - Provides complete JSON serialization/deserialization implementations
 
-**SQLite + C++/Java:**
+**SQLite + C++/Java/Lua:**
 
 - Directly injects database operation methods
 - Adds SELECT methods for each field (e.g., `SQLiteSelectByid()`, `SQLiteSelectBytitle()`)
 - Includes INSERT, UPDATE, and table creation methods
 - Provides both static utility methods and instance methods
 
-**MySQL + C++/Java:**
+**MySQL + C++/Java/Lua:**
 
-- Directly injects MySQL X DevAPI methods
-- Adds SELECT methods returning vectors of objects
+- Directly injects MySQL X DevAPI methods (C++/Java) or Lua methods (Lua)
+- Adds SELECT methods returning vectors of objects (C++/Java) or tables (Lua)
 - Includes INSERT, UPDATE, and table creation methods
 - Supports both static operations and instance methods
 
@@ -549,12 +552,19 @@ SchemaLang excels when multiple generators are used together:
 - **C++ + JSON + SQLite**: Creates classes with JSON serialization and SQLite database operations
 - **C++ + MySQL + JSON**: Combines MySQL database operations with JSON API capabilities
 - **C++ + SQLite + MySQL + JSON**: Full-stack classes with multiple database backends and serialization
+- **Lua + JSON + SQLite**: Creates Lua modules with JSON serialization and SQLite operations using lua-cjson and luasql-sqlite3
+- **Java + JSON + MySQL**: Creates Java classes with Jackson JSON support and JDBC database operations
 
 Each generator respects the modifiers and constraints defined in the schema, ensuring consistency across all generated outputs. The drop-in system allows for seamless integration between generators, creating powerful, unified classes that handle data persistence, serialization, and validation automatically.
 
 ## Generator Drop-In System
 
-SchemaLang features an advanced **generator drop-in system** that allows specialized generators (SQLite, MySQL, JSON) to inject methods and base classes into object-oriented language generators (C++, Java). This creates a unified interface where database operations, serialization, and schema validation are seamlessly integrated into the generated classes.
+SchemaLang features an advanced **generator drop-in system** that allows specialized generators (SQLite, MySQL, JSON) to inject methods and base classes into object-oriented language generators (C++, Java, Lua). This creates a unified interface where database operations, serialization, and schema validation are seamlessly integrated into the generated classes.
+
+**Current Status:**
+- **C++**: Fully implemented and stable
+- **Java**: In development - basic functionality implemented, drop-in system active
+- **Lua**: In development - basic functionality implemented, drop-in system with common Lua libraries (lua-cjson, luasql-sqlite3, luasql-mysql)
 
 ### How the Drop-In System Works
 
@@ -697,6 +707,7 @@ public:
 - **C++ & MySQL**: Adds MySQL database operations
 - **C++ & Multiple**: Combines all selected generators into a single comprehensive class
 - **Java & [Any]**: Same drop-in system (currently in development)
+- **Lua & [Any]**: Same drop-in system with Lua-specific libraries (currently in development)
 
 This drop-in system makes SchemaLang particularly powerful for full-stack development, allowing you to define your data model once and get complete database integration, API serialization, and type-safe operations across your entire application.
 

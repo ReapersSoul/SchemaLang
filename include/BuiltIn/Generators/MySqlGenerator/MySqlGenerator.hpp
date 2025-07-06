@@ -26,6 +26,7 @@ public:
 	std::string generate_select_by_member_variable_statement_string(StructDefinition &s, MemberVariableDefinition &mv_1, std::vector<int> &criteria);
 	std::string generate_insert_statement_string_struct(StructDefinition &s);
 	std::string generate_update_all_statement_string_struct(StructDefinition &s);
+	std::string generate_delete_statement_string_struct(StructDefinition &s);
 
 	// Functions for C++ code generation
 	void generate_select_all_statement_function_member_variable(Generator *gen, ProgramStructure *ps, StructDefinition &s, MemberVariableDefinition &mv);
@@ -34,8 +35,8 @@ public:
 	void generate_select_statements_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s);
 	void generate_insert_statements_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s);
 	void generate_update_all_statement_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s);
-	void generate_update_statements_function_struct();
-	void generate_delete_statement_function_struct();
+	void generate_update_statements_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s);
+	void generate_delete_statement_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s);
 
 	// File generation functions
 	bool generate_create_table_file(ProgramStructure *ps, StructDefinition &s, std::string out_path);

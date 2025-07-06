@@ -4,10 +4,11 @@
 #include <ArgParser/ArgParser.hpp>
 #include <ProgramStructure/ProgramStructure.hpp>
 #include <BuiltIn/Generators/CppGenerator/CppGenerator.hpp>
-// #include <BuiltIn/Generators/JavaGenerator/JavaGenerator.hpp>
+#include <BuiltIn/Generators/JavaGenerator/JavaGenerator.hpp>
 #include <BuiltIn/Generators/JsonGenerator/JsonGenerator.hpp>
 #include <BuiltIn/Generators/SqliteGenerator/SqliteGenerator.hpp>
 #include <BuiltIn/Generators/MySqlGenerator/MySqlGenerator.hpp>
+#include <BuiltIn/Generators/LuaGenerator/LuaGenerator.hpp>
 #include <boost/dll.hpp>
 #include <boost/function.hpp>
 
@@ -26,9 +27,10 @@ int main(int argc, char *argv[])
 	JsonGenerator *jsonGenerator = new JsonGenerator();
 	SqliteGenerator *sqliteGenerator = new SqliteGenerator();
 	MysqlGenerator *mysqlGenerator = new MysqlGenerator();
+	LuaGenerator *luaGenerator = new LuaGenerator();
+	JavaGenerator *javaGenerator = new JavaGenerator();
 
 	CppGenerator *cppGenerator = new CppGenerator();
-	// JavaGenerator* javaGenerator = new JavaGenerator();
 
 	// parse arguments
 	argumentParser ap;
@@ -107,6 +109,9 @@ int main(int argc, char *argv[])
 	Flag jsonFlag("json", false, [&]
 				  { cppGenerator->add_generator(jsonGenerator); });
 	ap.addFlag(&jsonFlag);
+	Flag luaFlag("lua", false, [&]
+				 { cppGenerator->add_generator(luaGenerator); });
+	ap.addFlag(&luaFlag);
 	Flag sqliteFlag("sqlite", false, [&]
 					{ cppGenerator->add_generator(sqliteGenerator); });
 	ap.addFlag(&sqliteFlag);
@@ -118,7 +123,7 @@ int main(int argc, char *argv[])
 	ap.addFlag(&cppFlag);
 	Flag javaFlag("java", false, [&]
 				  {
-					  // cppGenerator->add_generator(new JavaGenerator());
+					  // Java generator flag - just enables Java generation
 				  });
 	ap.addFlag(&javaFlag);
 
@@ -247,7 +252,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Set up generator interactions
-	std::vector<Generator*> allGenerators = {jsonGenerator, sqliteGenerator, mysqlGenerator, cppGenerator};
+	std::vector<Generator*> allGenerators = {jsonGenerator, luaGenerator, sqliteGenerator, mysqlGenerator, javaGenerator, cppGenerator};
 	
 	// Add dynamic generators to built-in generators
 	for (Generator* dynamicGen : dynamicGenerators)
@@ -273,6 +278,31 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
+	
+	// Set up drop-in system for Java and Lua generators (only if those generators are enabled)
+	if (javaFlag.getValue())
+	{
+		javaGenerator->add_generator(jsonGenerator);
+		javaGenerator->add_generator(sqliteGenerator);
+		javaGenerator->add_generator(mysqlGenerator);
+		javaGenerator->add_generator(luaGenerator);
+		javaGenerator->add_generator(cppGenerator);
+	}
+	
+	if (luaFlag.getValue())
+	{
+		luaGenerator->add_generator(jsonGenerator);
+		luaGenerator->add_generator(sqliteGenerator);  
+		luaGenerator->add_generator(mysqlGenerator);
+		luaGenerator->add_generator(javaGenerator);
+		luaGenerator->add_generator(cppGenerator);
+	}
+	
+	// Set up drop-in system for C++ generator (only add generators that are enabled)
+	if (javaFlag.getValue())
+	{
+		cppGenerator->add_generator(javaGenerator);
+	}
 
 	if (!std::filesystem::exists(schemaDirectory))
 	{
@@ -286,6 +316,16 @@ int main(int argc, char *argv[])
 		if (!ps.generate_files(jsonGenerator, (outputDirectory / "Json").string()))
 		{
 			std::cout << "Failed to generate json files" << std::endl;
+			return 1;
+		}
+	}
+
+	if (luaFlag.getValue())
+	{
+		printf("Generating lua files\n");
+		if (!ps.generate_files(luaGenerator, (outputDirectory / "Lua").string()))
+		{
+			std::cout << "Failed to generate lua files" << std::endl;
 			return 1;
 		}
 	}
@@ -323,11 +363,11 @@ int main(int argc, char *argv[])
 	if (javaFlag.getValue())
 	{
 		printf("Generating java files\n");
-		// if (!ps.generate_files(javaGenerator, outputDirectory/"Schemas"/"Java"/entry.path().filename().replace_extension(".java").string()))
-		// {
-		// 	std::cout << "Failed to generate java files" << std::endl;
-		// 	return 1;
-		// }
+		if (!ps.generate_files(javaGenerator, (outputDirectory / "Java").string()))
+		{
+			std::cout << "Failed to generate java files" << std::endl;
+			return 1;
+		}
 	}
 
 	// Generate files for dynamic generators

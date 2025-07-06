@@ -31,77 +31,86 @@ json JsonGenerator::structToSchema(StructDefinition s, ProgramStructure *ps)
 	j["title"] = s.identifier;
 	j["type"] = "object";
 	json properties;
-	for (auto &mv : s.member_variables)
-	{
-		json property;
 
-		if (mv.type.is_struct(ps))
+	try
+	{
+		for (auto &mv : s.member_variables)
 		{
-			property = structToSchema(ps->getStruct(mv.type.identifier()), ps);
-		}
-		else if (mv.type.is_enum(ps))
-		{
-			property = enumToSchema(ps->getEnum(mv.type.identifier()));
-		}
-		else if (mv.type.is_array())
-		{
-			json array_property;
-			array_property["type"] = "array";
-			if (ps->tokenIsStruct(mv.type.element_type().identifier()))
+			json property;
+
+			if (mv.type.is_struct(ps))
 			{
-				array_property["items"] = structToSchema(ps->getStruct(mv.type.element_type().identifier()), ps);
+				property = structToSchema(ps->getStruct(mv.type.identifier()), ps);
 			}
-			else if (ps->tokenIsEnum(mv.type.element_type().identifier()))
+			else if (mv.type.is_enum(ps))
 			{
-				array_property["items"] = enumToSchema(ps->getEnum(mv.type.element_type().identifier()));
+				property = enumToSchema(ps->getEnum(mv.type.identifier()));
 			}
-			else
+			else if (mv.type.is_array())
 			{
-				if (mv.type.element_type().is_number())
+				json array_property;
+				array_property["type"] = "array";
+				if (ps->tokenIsStruct(mv.type.element_type().identifier()))
 				{
-					array_property["items"]["type"] = "number";
+					array_property["items"] = structToSchema(ps->getStruct(mv.type.element_type().identifier()), ps);
 				}
-				if (mv.type.element_type().is_bool())
+				else if (ps->tokenIsEnum(mv.type.element_type().identifier()))
 				{
-					array_property["items"]["type"] = "boolean";
+					array_property["items"] = enumToSchema(ps->getEnum(mv.type.element_type().identifier()));
 				}
 				else
 				{
-					array_property["items"]["type"] = mv.type.element_type().identifier();
+					if (mv.type.element_type().is_number())
+					{
+						array_property["items"]["type"] = "number";
+					}
+					if (mv.type.element_type().is_bool())
+					{
+						array_property["items"]["type"] = "boolean";
+					}
+					else
+					{
+						array_property["items"]["type"] = mv.type.element_type().identifier();
+					}
 				}
-			}
-			array_property["minItems"] = mv.min_items;
-			array_property["uniqueItems"] = mv.unique_items;
-			property = array_property;
-		}
-		else
-		{
-			if (mv.type.is_number())
-			{
-				property["type"] = "number";
-			}
-			else if (mv.type.is_bool())
-			{
-				property["type"] = "boolean";
+				array_property["minItems"] = mv.min_items;
+				array_property["uniqueItems"] = mv.unique_items;
+				property = array_property;
 			}
 			else
 			{
-				property["type"] = mv.type.identifier();
+				if (mv.type.is_number())
+				{
+					property["type"] = "number";
+				}
+				else if (mv.type.is_bool())
+				{
+					property["type"] = "boolean";
+				}
+				else
+				{
+					property["type"] = mv.type.identifier();
+				}
+			}
+			property["description"] = mv.description;
+
+			properties[mv.identifier] = property;
+		}
+		j["properties"] = properties;
+
+		j["required"] = json::array();
+		for (auto &mv : s.member_variables)
+		{
+			if (mv.required)
+			{
+				j["required"].push_back(mv.identifier);
 			}
 		}
-		property["description"] = mv.description;
-
-		properties[mv.identifier] = property;
 	}
-	j["properties"] = properties;
-
-	j["required"] = json::array();
-	for (auto &mv : s.member_variables)
+	catch (const std::exception &e)
 	{
-		if (mv.required)
-		{
-			j["required"].push_back(mv.identifier);
-		}
+		printf("Error generating schema for struct %s: %s\n", s.identifier.c_str(), e.what());
+		exit(1);
 	}
 	return j;
 }

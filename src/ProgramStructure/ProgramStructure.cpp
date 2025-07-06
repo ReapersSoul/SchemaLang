@@ -119,7 +119,7 @@ bool ProgramStructure::readMemberVariable(std::vector<std::string> tokens, int &
 				}
 				else
 				{
-					printf("Error: Expected array element type for %s\n", current_MemberVariableDefinition.identifier.c_str());
+					printf("Error: Expected array element type for %s\n", tokens[i+3].c_str());
 					return false;
 				}
 				i++;
@@ -331,9 +331,15 @@ bool ProgramStructure::readStruct(std::vector<std::string> tokens, int &i, Struc
 		}
 		else
 		{
-			printf("Error: Expected member variable type\n");
+			printf("Error: Expected member variable type %s is not a valid type for struct %s member variable %s\n", tokens[i].c_str(), current_struct.identifier.c_str(), tokens[i+2].c_str());
 			return false;
 		}
+	}
+	//remove identifier from type_names
+	auto it = std::find(type_names.begin(), type_names.end(), current_struct.identifier);
+	if (it != type_names.end())
+	{
+		type_names.erase(it);
 	}
 	return true;
 }
@@ -481,7 +487,7 @@ bool ProgramStructure::tokenIsEnum(std::string token)
 
 bool ProgramStructure::tokenIsValidTypeName(std::string token)
 {
-	if (tokenIsType(token) || tokenIsStruct(token) || tokenIsEnum(token))
+	if (tokenIsType(token) || tokenIsStruct(token) || tokenIsEnum(token)|| std::find(type_names.begin(), type_names.end(), token) != type_names.end())
 	{
 		return true;
 	}
@@ -510,6 +516,27 @@ EnumDefinition &ProgramStructure::getEnum(std::string identifier)
 	}
 }
 
+bool ProgramStructure::parseTypeNames(std::vector<std::string> tokens){
+	type_names.clear();
+	for(int i=0; i < tokens.size(); i++)
+	{
+		if(tokens[i] == "struct" || tokens[i] == "enum")
+		{
+			i++;
+			if(i < tokens.size()){
+				type_names.push_back(tokens[i]);
+			}
+			else
+			{
+				printf("Error: Expected type name after 'struct' or 'enum'\n");
+				return false;
+			}
+			continue;
+		}
+	}
+	return true;
+}
+
 bool ProgramStructure::readFile(std::string file_path)
 {
 	std::fstream file;
@@ -525,6 +552,11 @@ bool ProgramStructure::readFile(std::string file_path)
 	whole_file.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 	file.close();
 	std::vector<std::string> tokens = tokenize(whole_file);
+	if(!parseTypeNames(tokens))
+	{
+		printf("Error: Failed to parse type and enum names from file %s\n", file_path.c_str());
+		return false;
+	}
 
 	StructDefinition current_struct;
 	EnumDefinition current_enum;

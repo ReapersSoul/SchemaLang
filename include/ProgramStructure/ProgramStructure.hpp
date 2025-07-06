@@ -31,6 +31,7 @@ struct ProgramStructure
 
 	std::vector<StructDefinition> structs;
 	std::vector<EnumDefinition> enums;
+	std::vector<std::string> type_names;
 
 public:
 	bool tokenIsType(std::string token);
@@ -45,7 +46,9 @@ public:
 
 	EnumDefinition &getEnum(std::string identifier);
 
-	bool readFile(std::string file_path);
+    bool parseTypeNames(std::vector<std::string> tokens);
+
+    bool readFile(std::string file_path);
 
 	bool generate_files(Generator *gen, std::string out_path);
 

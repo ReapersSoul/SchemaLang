@@ -26,6 +26,8 @@ class CppGenerator : public Generator
 	void generate_struct_file_source(std::vector<StructDefinition> base_classes, ProgramStructure *ps, StructDefinition &s, std::string &out_path);
 
 public:
+	CppGenerator();
+
 	bool add_generator(Generator *gen) override;
 
 	std::string convert_to_local_type(ProgramStructure *ps, TypeDefinition type);

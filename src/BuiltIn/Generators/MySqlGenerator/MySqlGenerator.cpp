@@ -247,6 +247,27 @@ std::string MysqlGenerator::generate_update_all_statement_string_struct(StructDe
 	return sql;
 }
 
+std::string MysqlGenerator::generate_delete_statement_string_struct(StructDefinition &s)
+{
+	std::string sql = "DELETE FROM " + s.identifier + " WHERE ";
+	bool has_primary_key = false;
+	for (int i = 0; i < s.member_variables.size(); i++)
+	{
+		if (s.member_variables[i].primary_key)
+		{
+			sql += s.member_variables[i].identifier + " = ?";
+			has_primary_key = true;
+			break;
+		}
+	}
+	if (!has_primary_key)
+	{
+		sql += s.member_variables[0].identifier + " = ?";
+	}
+	sql += ";";
+	return sql;
+}
+
 // functions for c++ code generation
 void MysqlGenerator::generate_select_all_statement_function_member_variable(Generator *gen, ProgramStructure *ps, StructDefinition &s, MemberVariableDefinition &mv)
 {
@@ -496,14 +517,192 @@ void MysqlGenerator::generate_update_all_statement_function_struct(Generator *ge
 	s.functions.push_back(update_all_statement);
 }
 
-void MysqlGenerator::generate_update_statements_function_struct()
+void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
-	// Implementation for additional update statements
+	FunctionDefinition update_statement;
+	update_statement.identifier = "MySQLUpdate";
+	update_statement.return_type.identifier() = "bool";
+	update_statement.static_function = true;
+	update_statement.parameters.push_back(std::make_pair(mysql_session, "session"));
+	for (auto &mv : s.member_variables)
+	{
+		if (mv.type.is_array())
+		{
+			continue;
+		}
+		update_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+	}
+	update_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	{
+		structFile << "\ttry {\n";
+		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
+		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << s.identifier << "\");\n";
+		structFile << "\t\tmysqlx::TableUpdate update = table.update();\n";
+		
+		// Set all non-primary key fields
+		for (auto &mv : s.member_variables)
+		{
+			if (mv.type.is_array() || mv.primary_key)
+			{
+				continue;
+			}
+			structFile << "\t\tupdate.set(\"" << mv.identifier << "\", " << mv.identifier << ");\n";
+		}
+		
+		// Add WHERE clause for primary key
+		for (auto &mv : s.member_variables)
+		{
+			if (mv.primary_key)
+			{
+				structFile << "\t\tupdate.where(\"" << mv.identifier << " = :pk\").bind(\"pk\", " << mv.identifier << ");\n";
+				break;
+			}
+		}
+		
+		structFile << "\t\tmysqlx::Result result = update.execute();\n";
+		structFile << "\t\treturn result.getAffectedItemsCount() > 0;\n";
+		structFile << "\t} catch (const std::exception& e) {\n";
+		structFile << "\t\tstd::cerr << \"MySQL Update error: \" << e.what() << std::endl;\n";
+		structFile << "\t\treturn false;\n";
+		structFile << "\t}\n";
+		return true;
+	};
+	s.functions.push_back(update_statement);
+
+	// Instance method version
+	FunctionDefinition update_statement_no_args;
+	update_statement_no_args.identifier = "MySQLUpdate";
+	update_statement_no_args.return_type.identifier() = "bool";
+	update_statement_no_args.static_function = false;
+	update_statement_no_args.parameters.push_back(std::make_pair(mysql_session, "session"));
+	update_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	{
+		structFile << "\treturn MySQLUpdate(session";
+		for (auto &mv : s.member_variables)
+		{
+			if (mv.type.is_array())
+			{
+				continue;
+			}
+			structFile << ", " << mv.identifier;
+		}
+		structFile << ");\n";
+		return true;
+	};
+	s.functions.push_back(update_statement_no_args);
 }
 
-void MysqlGenerator::generate_delete_statement_function_struct()
+void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
-	// Implementation for delete statements
+	FunctionDefinition delete_statement;
+	delete_statement.identifier = "MySQLDelete";
+	delete_statement.return_type.identifier() = "bool";
+	delete_statement.static_function = true;
+	delete_statement.parameters.push_back(std::make_pair(mysql_session, "session"));
+	
+	// Find primary key parameter
+	for (auto &mv : s.member_variables)
+	{
+		if (mv.primary_key)
+		{
+			delete_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+			break;
+		}
+	}
+	// If no primary key, use first field
+	if (delete_statement.parameters.size() == 1)
+	{
+		delete_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, s.member_variables[0].type), s.member_variables[0].identifier));
+	}
+	
+	delete_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	{
+		structFile << "\ttry {\n";
+		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
+		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << s.identifier << "\");\n";
+		
+		// Find primary key field for WHERE clause
+		for (auto &mv : s.member_variables)
+		{
+			if (mv.primary_key)
+			{
+				structFile << "\t\tmysqlx::Result result = table.remove()\n";
+				structFile << "\t\t\t.where(\"" << mv.identifier << " = :pk\")\n";
+				structFile << "\t\t\t.bind(\"pk\", " << mv.identifier << ")\n";
+				structFile << "\t\t\t.execute();\n";
+				break;
+			}
+		}
+		
+		// If no primary key found, use first field
+		if (!s.member_variables.empty())
+		{
+			bool has_primary_key = false;
+			for (auto &mv : s.member_variables)
+			{
+				if (mv.primary_key)
+				{
+					has_primary_key = true;
+					break;
+				}
+			}
+			if (!has_primary_key)
+			{
+				structFile << "\t\tmysqlx::Result result = table.remove()\n";
+				structFile << "\t\t\t.where(\"" << s.member_variables[0].identifier << " = :param\")\n";
+				structFile << "\t\t\t.bind(\"param\", " << s.member_variables[0].identifier << ")\n";
+				structFile << "\t\t\t.execute();\n";
+			}
+		}
+		
+		structFile << "\t\treturn result.getAffectedItemsCount() > 0;\n";
+		structFile << "\t} catch (const std::exception& e) {\n";
+		structFile << "\t\tstd::cerr << \"MySQL Delete error: \" << e.what() << std::endl;\n";
+		structFile << "\t\treturn false;\n";
+		structFile << "\t}\n";
+		return true;
+	};
+	s.functions.push_back(delete_statement);
+
+	// Instance method version
+	FunctionDefinition delete_statement_no_args;
+	delete_statement_no_args.identifier = "MySQLDelete";
+	delete_statement_no_args.return_type.identifier() = "bool";
+	delete_statement_no_args.static_function = false;
+	delete_statement_no_args.parameters.push_back(std::make_pair(mysql_session, "session"));
+	delete_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	{
+		structFile << "\treturn MySQLDelete(session";
+		// Find primary key
+		for (auto &mv : s.member_variables)
+		{
+			if (mv.primary_key)
+			{
+				structFile << ", " << mv.identifier;
+				break;
+			}
+		}
+		// If no primary key, use first field
+		if (!s.member_variables.empty())
+		{
+			bool has_primary_key = false;
+			for (auto &mv : s.member_variables)
+			{
+				if (mv.primary_key)
+				{
+					has_primary_key = true;
+					break;
+				}
+			}
+			if (!has_primary_key)
+			{
+				structFile << ", " << s.member_variables[0].identifier;
+			}
+		}
+		structFile << ");\n";
+		return true;
+	};
+	s.functions.push_back(delete_statement_no_args);
 }
 
 // file generation functions
@@ -741,6 +940,8 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 	generate_select_statements_function_struct(gen, ps, s);
 	generate_insert_statements_function_struct(gen, ps, s);
 	generate_update_all_statement_function_struct(gen, ps, s);
+	generate_update_statements_function_struct(gen, ps, s);
+	generate_delete_statement_function_struct(gen, ps, s);
 
 	// Add MySQL create table functions
 	FunctionDefinition getMySQLCreateTableStatement;

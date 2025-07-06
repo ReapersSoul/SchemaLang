@@ -25,6 +25,8 @@ class SqliteGenerator : public Generator
 
 	std::string generate_update_all_statement_string_struct(StructDefinition &s);
 
+	std::string generate_delete_statement_string_struct(StructDefinition &s);
+
 	// functions for c++ code generation
 	void generate_select_all_statement_function_member_variable(Generator *gen, ProgramStructure *ps, StructDefinition &s, MemberVariableDefinition &mv);
 
@@ -38,9 +40,9 @@ class SqliteGenerator : public Generator
 
 	void generate_update_all_statement_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s);
 
-	void generate_update_statements_function_struct();
+	void generate_update_statements_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s);
 
-	void generate_delete_statement_function_struct();
+	void generate_delete_statement_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s);
 
 	// file generation functions
 	bool generate_create_table_file(ProgramStructure *ps, StructDefinition &s, std::string out_path);
