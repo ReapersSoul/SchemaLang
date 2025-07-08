@@ -102,7 +102,7 @@ Dynamic generators are compiled as shared libraries that implement the `Generato
 ```cpp
 // MyCustomGenerator.hpp
 #pragma once
-#include <Generator/Generator.hpp>
+#include <Generator.hpp>
 
 class MyCustomGenerator : public Generator
 {
@@ -326,15 +326,15 @@ type: field_name: modifiers: description("text")
 - `auto_increment` - Automatically increments for new records
 
 ### Relationship Modifiers
-- `foreign_key(StructName.field)` - Creates a foreign key relationship
+- `reference(StructName.field)` - Creates a foreign key relationship
 
 ### Array Modifiers
 - `unique_items` - Array elements must be unique
 - `min_items(n)` - Minimum number of items required (n = positive integer)
+- `max_items(n)` - Maximum number of items allowed (n = positive integer)
 
 ### Validation Modifiers
 - `description("text")` - Documentation string explaining the field's purpose (required for all fields)
-- `max_tokens(n)` - Maximum number of tokens/characters allowed (n = positive integer)
 
 ## Enum Definition
 
@@ -385,7 +385,7 @@ struct_type ::= identifier (must be previously defined struct)
 ```
 modifier ::= simple_modifier | parameterized_modifier
 simple_modifier ::= "required" | "optional" | "unique" | "primary_key" | "auto_increment" | "unique_items"
-parameterized_modifier ::= "foreign_key" "(" identifier "." identifier ")" | "description" "(" string ")" | "min_items" "(" integer ")" | "max_tokens" "(" integer ")"
+parameterized_modifier ::= "reference" "(" identifier "." identifier ")" | "description" "(" string ")" | "min_items" "(" integer ")" | "max_items" "(" integer ")"
 ```
 
 ### Enum Definition
@@ -426,7 +426,7 @@ struct SCP {
 ### Struct with Foreign Key
 ```
 struct DClass {
-    int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the D-Class"): foreign_key(Personel.id);
+    int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the D-Class"): reference(Personel.id);
     string: designation: required: description("The designation of the D-Class");
     string: reason: required: description("The reason for the D-Class being in foundation possession");
 }
@@ -468,9 +468,9 @@ struct Personel {
 2. **Use meaningful names** - Choose clear, descriptive names for structs, fields, and enums
 3. **Specify constraints explicitly** - Always declare `required` or `optional` for clarity
 4. **Use appropriate data types** - Choose the right size integers, use `int64` for IDs
-5. **Define relationships** - Use foreign keys when linking between structs
+5. **Define relationships** - Use references when linking between structs
 6. **Use enums for constrained values** - Define enums for fields with a fixed set of possible values
-7. **Include validation constraints** - Use `min_items`, `max_tokens`, `unique_items` where appropriate
+7. **Include validation constraints** - Use `min_items`, `max_items`, `unique_items` where appropriate
 8. **Organize definitions** - Define enums before structs that use them
 9. **Follow naming conventions** - Use consistent naming patterns across your schema
 
@@ -641,7 +641,7 @@ When all generators are enabled, a struct like this:
 
 ```schemalang
 struct Addendum {
-    int64: id: required: unique: auto_increment: foreign_key(SCP.id): description("The SCP this addendum is attached to");
+    int64: id: required: unique: auto_increment: reference(SCP.id): description("The SCP this addendum is attached to");
     string: title: required: description("The title of the addendum");
     string: content: required: description("The content of the addendum");
 }

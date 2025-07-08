@@ -1,5 +1,5 @@
 #pragma once
-#include <Generator/Generator.hpp>
+#include <Generator.hpp>
 #include <ArgParser/ArgParser.hpp>
 #include <string>
 #include <vector>

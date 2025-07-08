@@ -1,6 +1,9 @@
 {
 	"dependencies": [
 		"nlohmann-json",
-		"boost-dll"
+		"boost-dll",
+		"physfs",
+		"zstd",
+		"inja"
 	]
 }

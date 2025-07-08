@@ -2,18 +2,28 @@
 #include <filesystem>
 #include <vector>
 #include <ArgParser/ArgParser.hpp>
-#include <ProgramStructure/ProgramStructure.hpp>
-#include <BuiltIn/Generators/CppGenerator/CppGenerator.hpp>
-#include <BuiltIn/Generators/JavaGenerator/JavaGenerator.hpp>
-#include <BuiltIn/Generators/JsonGenerator/JsonGenerator.hpp>
-#include <BuiltIn/Generators/SqliteGenerator/SqliteGenerator.hpp>
-#include <BuiltIn/Generators/MySqlGenerator/MySqlGenerator.hpp>
-#include <BuiltIn/Generators/LuaGenerator/LuaGenerator.hpp>
+#include <ProgramStructure.hpp>
+#include <BuiltInGenerators/CppGenerator.hpp>
+#include <BuiltInGenerators/JavaGenerator.hpp>
+#include <BuiltInGenerators/JsonGenerator.hpp>
+#include <BuiltInGenerators/SqliteGenerator.hpp>
+#include <BuiltInGenerators/MySqlGenerator.hpp>
+#include <BuiltInGenerators/LuaGenerator.hpp>
 #include <boost/dll.hpp>
 #include <boost/function.hpp>
+#include <EmbeddedResources/EmbeddedResourcesEmbeddedVFS.hpp>
 
 int main(int argc, char *argv[])
 {
+	if(!initEmbeddedResourcesEmbeddedVFS(argv[0])){
+		std::cerr << "Failed to initialize embedded resources VFS." << std::endl;
+		return 1;
+	}
+	if(!mountEmbeddedResourcesEmbeddedVFS()){
+		std::cerr << "Failed to mount embedded resources VFS." << std::endl;
+		return 1;
+	}
+
 	std::filesystem::path schemaDirectory;
 	std::filesystem::path outputDirectory;
 	std::filesystem::path additionalGeneratorsDirectory;

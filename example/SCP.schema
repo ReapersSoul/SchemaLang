@@ -58,7 +58,7 @@ enum RiskClassification {
 };
 
 struct Addendum{
-	int64: id: required: unique: auto_increment: foreign_key(SCP.id): description("The SCP this addendum is attached to");
+	int64: id: required: unique: auto_increment: reference(SCP.id): description("The SCP this addendum is attached to");
 	string: title: required: description("The title of the addendum");
 	string: content: required: description("The content of the addendum");
 }
@@ -114,46 +114,46 @@ struct Personel{
 }
 
 struct DClass{
-	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the D-Class"): foreign_key(Personel.id);
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the D-Class"): reference(Personel.id);
 	string: designation: required: description("The designation of the D-Class");
 	string: reason: required: description("The reason for the D-Class being in foundation possession");
 	string: termination_date: required: description("The termination date of the D-Class");
 }
 
 struct Researcher{
-	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the researcher"): foreign_key(Personel.id);
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the researcher"): reference(Personel.id);
 	string: department: required: description("The department of the researcher");
 	string: position: required: description("The position of the researcher");
 }
 
 struct TaskForceMember{
-	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the task force member"): foreign_key(Personel.id);
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the task force member"): reference(Personel.id);
 	string: task_force: required: description("The task force the member is a part of");
 	string: rank: required: description("The rank of the task force member");
 }
 
 struct ZeroOneCouncilMember{
-	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 01 council member"): foreign_key(Personel.id);
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 01 council member"): reference(Personel.id);
 	string: position: required: description("The position of the 01 council member");
 }
 
 struct ZeroTwoCouncilMember{
-	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 02 council member"): foreign_key(Personel.id);
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 02 council member"): reference(Personel.id);
 	string: position: required: description("The position of the 02 council member");
 }
 
 struct ZeroThreeCouncilMember{
-	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 03 council member"): foreign_key(Personel.id);
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 03 council member"): reference(Personel.id);
 	string: position: required: description("The position of the 03 council member");
 }
 
 struct ZeroFourCouncilMember{
-	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 04 council member"): foreign_key(Personel.id);
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 04 council member"): reference(Personel.id);
 	string: position: required: description("The position of the 04 council member");
 }
 
 struct ZeroFiveCouncilMember{
-	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 05 council member"): foreign_key(Personel.id);
+	int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the 05 council member"): reference(Personel.id);
 	string: position: required: description("The position of the 05 council member");
 }
 
