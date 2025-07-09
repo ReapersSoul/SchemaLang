@@ -291,7 +291,7 @@ void MysqlGenerator::generate_select_all_statement_function_member_variable(Gene
 	select_all_statement.parameters.push_back(std::make_pair(mysql_session, "session"));
 	select_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 
-	select_all_statement.generate_function = [this, &mv](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	select_all_statement.generate_function = [this, &mv](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		std::string sql = generate_select_all_statement_string_member_variable(s, mv);
 		structFile << "\tstd::vector<" << s.identifier << "Schema*> results;\n";
@@ -337,7 +337,7 @@ void MysqlGenerator::generate_select_member_variable_function_statement(Generato
 		select_statement.identifier += s.member_variables[criteria[i]].identifier;
 		select_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, s.member_variables[criteria[i]].type), s.member_variables[criteria[i]].identifier));
 	}
-	select_statement.generate_function = [this, &mv_1, &criteria](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	select_statement.generate_function = [this, &mv_1, &criteria](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
@@ -388,7 +388,7 @@ void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, 
 	{
 		insert_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 	}
-	insert_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	insert_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
@@ -429,7 +429,7 @@ void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, 
 	insert_statement_no_args.return_type.identifier() = "bool";
 	insert_statement_no_args.static_function = false;
 	insert_statement_no_args.parameters.push_back(std::make_pair(mysql_session, "session"));
-	insert_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	insert_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
@@ -477,7 +477,7 @@ void MysqlGenerator::generate_update_all_statement_function_struct(Generator *ge
 	{
 		update_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 	}
-	update_all_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	update_all_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
@@ -541,7 +541,7 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 		}
 		update_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 	}
-	update_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	update_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
@@ -585,7 +585,7 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 	update_statement_no_args.return_type.identifier() = "bool";
 	update_statement_no_args.static_function = false;
 	update_statement_no_args.parameters.push_back(std::make_pair(mysql_session, "session"));
-	update_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	update_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\treturn MySQLUpdate(session";
 		for (auto &mv : s.member_variables)
@@ -626,7 +626,7 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 		delete_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, s.member_variables[0].type), s.member_variables[0].identifier));
 	}
 	
-	delete_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	delete_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
@@ -682,7 +682,7 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 	delete_statement_no_args.return_type.identifier() = "bool";
 	delete_statement_no_args.static_function = false;
 	delete_statement_no_args.parameters.push_back(std::make_pair(mysql_session, "session"));
-	delete_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	delete_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\treturn MySQLDelete(session";
 		// Find primary key
@@ -910,6 +910,7 @@ std::string MysqlGenerator::escape_identifier(const std::string& identifier)
 
 MysqlGenerator::MysqlGenerator()
 {
+	name= "MySQL";
 	// base_class.identifier = "MySQL";
 	// base_class.includes.push_back("<mysqlx/xdevapi.h>");
 	// base_class.includes.push_back("<string>");
@@ -1019,7 +1020,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 	getMySQLCreateTableStatement.identifier = "getMySQLCreateTableStatement";
 	getMySQLCreateTableStatement.static_function = true;
 	getMySQLCreateTableStatement.return_type.identifier() = STRING;
-	getMySQLCreateTableStatement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	getMySQLCreateTableStatement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\treturn \"" << escape_string(generate_create_table_statement_string_struct(ps, s)) << "\";\n";
 		return true;
@@ -1032,7 +1033,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 	createMySQLTable.static_function = true;
 	createMySQLTable.return_type.identifier() = BOOL;
 	createMySQLTable.parameters.push_back(std::make_pair(mysql_session, "session"));
-	createMySQLTable.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	createMySQLTable.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tsession.sql(getMySQLCreateTableStatement()).execute();\n";

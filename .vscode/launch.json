@@ -13,7 +13,7 @@
 				"-mysql",
 				"-cpp",
 				"-lua",
-				"-java"
+				// "-java"
 			],
 			"stopAtEntry": false,
 			"cwd": "${workspaceFolder}/bin",

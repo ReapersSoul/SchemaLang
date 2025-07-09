@@ -27,6 +27,9 @@ struct StructDefinition
 	std::vector<PrivateVariableDefinition> private_variables;
 	std::vector<MemberVariableDefinition> member_variables;
 
+	std::vector<generator_otherwise_pair<std::string>> before_setter_lines;
+	std::vector<generator_otherwise_pair<std::string>> before_getter_lines;
+
 	void clear();
 	void add_function(FunctionDefinition fd);
 	void add_private_variable(PrivateVariableDefinition pv);

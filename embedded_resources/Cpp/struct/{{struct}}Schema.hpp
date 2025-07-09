@@ -1,7 +1,10 @@
 #pragma once
+#include <vector>
+#include <optional>
+
 //base classes
 {% for bc in base_classes %}
-#include "Has{{ bc }}Schema.hpp"
+#include "Has{{ bc.identifier }}Schema.hpp"
 {% endfor %}
 
 {% if includes %}
@@ -18,60 +21,47 @@
 {% endfor %}
 {% endfor %}
 
-class {{struct}}Schema : {% for bc in base_classes %}public Has{{ bc }}Schema{% if not loop.is_last %}, {% endif %}{% endfor %}{
+class {{struct}}Schema : {% for bc in base_classes %}public Has{{ bc.identifier }}Schema{% if not loop.is_last %}, {% endif %}{% endfor %}{
 public:
 	{{struct}}Schema() {
-		all_nodes.push_back(this);
+		all_{{struct}}Schemas.push_back(this);
 	}
 
 	~{{struct}}Schema() {
-		auto it = std::find(all_nodes.begin(), all_nodes.end(), this);
-		if (it != all_nodes.end()) {
-			all_nodes.erase(it);
+		auto it = std::find(all_{{struct}}Schemas.begin(), all_{{struct}}Schemas.end(), this);
+		if (it != all_{{struct}}Schemas.end()) {
+			all_{{struct}}Schemas.erase(it);
 		}
 	}
 
 	//getters
 {% for mv in member_variables %}{% if not mv.required %}
-	std::optional<{{mv.type}}> get{{mv.identifier}}() const {
-		return this->{{mv.identifier}};
-	}
+	std::optional<{{mv.type}}> get{{mv.identifier}}() const;
 {% else %}
-	{{mv.type}} get{{mv.identifier}}() const {
-		return this->{{mv.identifier}};
-	}
+	{{mv.type}} get{{mv.identifier}}() const;
 {% endif %}{% endfor %}
 
 	//setters
 {% for mv in member_variables %}
-	void set{{mv.identifier}}({{mv.type}} value) {
-		this->{{mv.identifier}} = value;
-		return this->{{mv.identifier}};
-	}
+	void set{{mv.identifier}}({{mv.type}} value);
 {% endfor %}
 
 {% for f in functions %}
-	{% if f.static %}static {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if not loop.is_last %},{% endif %}{% endfor %}) {
-{% if f.can_generate_function %}
-		{{f.generate_function}}
-{% else %}
-		// Default implementation
-		return {{f.return_type}}();
-{% endif %}
-	}
+	{% if f.static %}static {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if not loop.is_last %}, {% endif %}{% endfor %});
 {% endfor %}
 
 {% for key,g in generators %}
 	// Generator: {{key}}
 {% for f in g.functions %}
-	{% if f.static %}static {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if not loop.is_last %},{% endif %}{% endfor %}) {
-{% if f.can_generate_function %}
-		{{f.generate_function}}
-{% else %}
-		// Default implementation
-		return {{f.return_type}}();
-{% endif %}
-	}
+	{% if f.static %}static {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if not loop.is_last %}, {% endif %}{% endfor %});
+{% endfor %}
+
+{% endfor %}
+
+{% for bc in base_classes %}
+    // Base class: {{bc.identifier}}
+{% for f in bc.functions %}
+    {% if f.static %}static {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if not loop.is_last %}, {% endif %}{% endfor %}) override;
 {% endfor %}
 
 {% endfor %}

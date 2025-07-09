@@ -312,7 +312,7 @@ void SqliteGenerator::generate_select_all_statement_function_member_variable(Gen
 	select_all_statement.parameters.push_back(std::make_pair(sqlite_db, "db"));
 	select_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 
-	select_all_statement.generate_function = [this, &mv](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	select_all_statement.generate_function = [this, &mv](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		if (mv.type.is_array())
 		{
@@ -408,7 +408,7 @@ void SqliteGenerator::generate_select_member_variable_function_statement(Generat
 		MemberVariableDefinition mv = s.member_variables[criteria[i]];
 		select_statement.parameters.push_back(std::make_pair(mv.type.identifier(), mv.identifier));
 	}
-	select_statement.generate_function = [this, &mv_1, &criteria](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	select_statement.generate_function = [this, &mv_1, &criteria](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\tchar *zErrMsg = 0;\n";
 		structFile << "\tstd::string sql = \"";
@@ -458,7 +458,7 @@ void SqliteGenerator::generate_insert_statements_function_struct(Generator *gen,
 	{
 		insert_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 	}
-	insert_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	insert_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\tchar *zErrMsg = 0;\n";
 		structFile << "\tstd::string sql = \"";
@@ -497,8 +497,7 @@ void SqliteGenerator::generate_insert_statements_function_struct(Generator *gen,
 	insert_statement_no_args.identifier = "SQLiteInsert";
 	insert_statement_no_args.return_type.identifier() = BOOL;
 	insert_statement_no_args.static_function = false;
-	insert_statement_no_args.parameters.push_back(std::make_pair(sqlite_db, "db"));
-	insert_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	insert_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\tchar *zErrMsg = 0;\n";
 		structFile << "\tstd::string sql = \"";
@@ -539,12 +538,11 @@ void SqliteGenerator::generate_update_all_statement_function_struct(Generator *g
 	update_all_statement.generator = "SQLite";
 	update_all_statement.identifier = "SQLiteUpdate" + s.identifier;
 	update_all_statement.return_type.identifier() = BOOL;
-	update_all_statement.parameters.push_back(std::make_pair(sqlite_db, "db"));
 	for (auto &mv : s.member_variables)
 	{
 		update_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 	}
-	update_all_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	update_all_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\tchar *zErrMsg = 0;\n";
 		structFile << "\tstd::string sql = \"";
@@ -583,7 +581,7 @@ void SqliteGenerator::generate_update_statements_function_struct(Generator *gen,
 		}
 		update_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 	}
-	update_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	update_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\tchar *zErrMsg = 0;\n";
 		structFile << "\tstd::string sql = \"";
@@ -627,8 +625,7 @@ void SqliteGenerator::generate_update_statements_function_struct(Generator *gen,
 	update_statement_no_args.identifier = "SQLiteUpdate";
 	update_statement_no_args.return_type.identifier() = "bool";
 	update_statement_no_args.static_function = false;
-	update_statement_no_args.parameters.push_back(std::make_pair(sqlite_db, "db"));
-	update_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	update_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\treturn SQLiteUpdate(db";
 		for (auto &mv : s.member_variables)
@@ -669,7 +666,7 @@ void SqliteGenerator::generate_delete_statement_function_struct(Generator *gen, 
 		delete_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, s.member_variables[0].type), s.member_variables[0].identifier));
 	}
 	
-	delete_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	delete_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\tchar *zErrMsg = 0;\n";
 		structFile << "\tstd::string sql = \"";
@@ -719,7 +716,7 @@ void SqliteGenerator::generate_delete_statement_function_struct(Generator *gen, 
 	delete_statement_no_args.return_type.identifier() = "bool";
 	delete_statement_no_args.static_function = false;
 	delete_statement_no_args.parameters.push_back(std::make_pair(sqlite_db, "db"));
-	delete_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	delete_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\treturn SQLiteDelete(db";
 		// Find primary key
@@ -857,6 +854,7 @@ std::string SqliteGenerator::escape_string(std::string str)
 
 SqliteGenerator::SqliteGenerator()
 {
+	name = "SQLite";
 	// base_class.identifier = "Sqlite";
 	// base_class.includes.push_back("<sqlite3.h>");
 	// base_class.includes.push_back("<iostream>");
@@ -913,87 +911,117 @@ std::string SqliteGenerator::convert_to_local_type(ProgramStructure *ps, TypeDef
 
 bool SqliteGenerator::add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
-	s.includes.insert({"SQLite","<sqlite3.h>"});
-	s.includes.insert({"","<iostream>"});
-	s.includes.insert({"","<string>"});
-	s.includes.insert({"","<vector>"});
+	if(gen->name=="Cpp"){
+		s.includes.insert({"SQLite","<sqlite3.h>"});
+		s.includes.insert({"","<iostream>"});
+		s.includes.insert({"","<string>"});
+		s.includes.insert({"","<vector>"});
 
-	// add index private variables for each member variable
-	bool has_primary_key = false;
+		// add index private variables for each member variable
+		bool has_primary_key = false;
 
-	int i = 0;
-	for (auto &mv : s.member_variables)
-	{
-		if (mv.primary_key)
+		int i = 0;
+		for (auto &mv : s.member_variables)
 		{
-			PrivateVariableDefinition primary_key_index;
-			primary_key_index.type = TypeDefinition("int");
-			primary_key_index.identifier = "primary_key_index";
-			primary_key_index.in_class_init = true;
-			primary_key_index.static_member = true;
-			primary_key_index.const_member = true;
-			primary_key_index.generate_initializer = [i](ProgramStructure *ps, PrivateVariableDefinition &mv, std::ofstream &structFile)
+			if (mv.primary_key)
+			{
+				PrivateVariableDefinition primary_key_index;
+				primary_key_index.type = TypeDefinition("int");
+				primary_key_index.identifier = "primary_key_index";
+				primary_key_index.in_class_init = true;
+				primary_key_index.static_member = true;
+				primary_key_index.const_member = true;
+				primary_key_index.generate_initializer = [i](ProgramStructure *ps, PrivateVariableDefinition &mv, std::ostream &structFile)
+				{
+					structFile << std::to_string(i);
+					return true;
+				};
+			}
+			PrivateVariableDefinition index;
+			index.type = TypeDefinition("int");
+			index.identifier = mv.identifier + "_index";
+			index.in_class_init = true;
+			index.static_member = true;
+			index.const_member = true;
+			index.generate_initializer = [i](ProgramStructure *ps, PrivateVariableDefinition &mv, std::ostream &structFile)
 			{
 				structFile << std::to_string(i);
 				return true;
 			};
+			s.private_variables.push_back(index);
+			i++;
 		}
-		PrivateVariableDefinition index;
-		index.type = TypeDefinition("int");
-		index.identifier = mv.identifier + "_index";
-		index.in_class_init = true;
-		index.static_member = true;
-		index.const_member = true;
-		index.generate_initializer = [i](ProgramStructure *ps, PrivateVariableDefinition &mv, std::ofstream &structFile)
+
+		PrivateVariableDefinition database;
+		database.type = TypeDefinition("sqlite3 *");
+		database.identifier = "db";
+		database.static_member = true;
+
+		// add select statements
+		generate_select_statements_function_struct(gen, ps, s);
+		// add insert statement
+		generate_insert_statements_function_struct(gen, ps, s);
+		// add update statements
+		generate_update_statements_function_struct(gen, ps, s);
+		// add delete statements
+		generate_delete_statement_function_struct(gen, ps, s);
+
+		FunctionDefinition getCreateTableStatement;
+		getCreateTableStatement.generator = name;
+		getCreateTableStatement.identifier = "getSQLiteCreateTableStatement";
+		getCreateTableStatement.static_function = true;
+		getCreateTableStatement.return_type.identifier() = STRING;
+		getCreateTableStatement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 		{
-			structFile << std::to_string(i);
+			structFile << "\treturn \"" << escape_string(generate_create_table_statement_string_struct(ps, s)) << "\";\n";
 			return true;
 		};
-		s.private_variables.push_back(index);
-		i++;
+		s.functions.push_back(getCreateTableStatement);
+
+		FunctionDefinition createTable;
+		createTable.generator = name;
+		createTable.identifier = "SQLiteCreateTable";
+		createTable.static_function = true;
+		createTable.return_type.identifier() = BOOL;
+		createTable.parameters.push_back(std::make_pair(TypeDefinition("sqlite3 *"), "db"));
+		createTable.static_function = true;
+		createTable.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+		{
+			structFile << "\tchar *zErrMsg = 0;\n";
+			structFile << "\tint rc = sqlite3_exec(db, getSQLiteCreateTableStatement().c_str(), NULL, 0, &zErrMsg);\n";
+			structFile << "\tif(rc != SQLITE_OK){\n";
+			structFile << "\t\tstd::cout << \"SQL error: \" << zErrMsg << std::endl;\n";
+			structFile << "\t\tsqlite3_free(zErrMsg);\n";
+			structFile << "\t\treturn false;\n";
+			structFile << "\t}\n";
+			structFile << "\treturn true;\n";
+			return true;
+		};
+		s.functions.push_back(createTable);
+
+		//register update listener
+		FunctionDefinition registerUpdateListener;
+		registerUpdateListener.generator = name;
+		registerUpdateListener.identifier = "SQLiteRegisterUpdateListener";
+		registerUpdateListener.static_function = true;
+		registerUpdateListener.return_type.identifier() = "bool";
+		registerUpdateListener.parameters.push_back(std::make_pair(TypeDefinition("sqlite3 *"), "db"));
+		registerUpdateListener.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+		{
+			structFile << "\t// Register update listener for SQLite database\n";
+			structFile << "\t// This is a placeholder for actual implementation\n";
+			structFile << "\treturn true;\n";
+			return true;
+		};
+		s.functions.push_back(registerUpdateListener);
+
+		s.before_setter_lines.push_back({name,"if(!SQLiteUpdate(db, *this)){\n"
+			"\t\tstd::cerr << \"Failed to update " + s.identifier + " in SQLite database.\" << std::endl;\n"
+			"\t\treturn;\n"
+			"\t}\n"});
+	}else{
+		std::cout << "Warning: SqliteGenerator only supports C++ code generation." << std::endl;
 	}
-
-	// add select statements
-	generate_select_statements_function_struct(gen, ps, s);
-	// add insert statement
-	generate_insert_statements_function_struct(gen, ps, s);
-	// add update statements
-	generate_update_statements_function_struct(gen, ps, s);
-	// add delete statements
-	generate_delete_statement_function_struct(gen, ps, s);
-
-	FunctionDefinition getCreateTableStatement;
-	getCreateTableStatement.generator = "SQLite";
-	getCreateTableStatement.identifier = "getSQLiteCreateTableStatement";
-	getCreateTableStatement.static_function = true;
-	getCreateTableStatement.return_type.identifier() = STRING;
-	getCreateTableStatement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
-	{
-		structFile << "\treturn \"" << escape_string(generate_create_table_statement_string_struct(ps, s)) << "\";\n";
-		return true;
-	};
-	s.functions.push_back(getCreateTableStatement);
-
-	FunctionDefinition createTable;
-	createTable.generator = "SQLite";
-	createTable.identifier = "SQLiteCreateTable";
-	createTable.static_function = true;
-	createTable.return_type.identifier() = BOOL;
-	createTable.parameters.push_back(std::make_pair(TypeDefinition("sqlite3 *"), "db"));
-	createTable.static_function = true;
-	createTable.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
-	{
-		structFile << "\tchar *zErrMsg = 0;\n";
-		structFile << "\tint rc = sqlite3_exec(db, getSQLiteCreateTableStatement().c_str(), NULL, 0, &zErrMsg);\n";
-		structFile << "\tif(rc != SQLITE_OK){\n";
-		structFile << "\t\tstd::cout << \"SQL error: \" << zErrMsg << std::endl;\n";
-		structFile << "\t\tsqlite3_free(zErrMsg);\n";
-		structFile << "\t\treturn false;\n";
-		structFile << "\t}\n";
-		structFile << "\treturn true;\n";
-		return true;
-	};
-	s.functions.push_back(createTable);
 
 	return true;
 }

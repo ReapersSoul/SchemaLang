@@ -5,6 +5,7 @@
 struct Generator
 {
 	StructDefinition base_class;
+	std::string name;
 
 	virtual std::string convert_to_local_type(ProgramStructure *ps, TypeDefinition type) = 0;
 

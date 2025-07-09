@@ -2,6 +2,7 @@
 
 LuaGenerator::LuaGenerator()
 {
+	name = "Lua";
 	base_class.identifier = "Lua";
 	
 	// Add lua_push method
@@ -10,7 +11,7 @@ LuaGenerator::LuaGenerator()
 	lua_push.identifier = "lua_push";
 	lua_push.return_type.identifier() = "void";
 	lua_push.parameters.push_back(std::make_pair(TypeDefinition("lua_State*"), "L"));
-	lua_push.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	lua_push.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\t// Push this object to Lua stack as a table\n";
 		structFile << "\tlua_newtable(L);\n";
@@ -101,7 +102,7 @@ LuaGenerator::LuaGenerator()
 	lua_to.return_type.identifier() = "void";
 	lua_to.parameters.push_back(std::make_pair(TypeDefinition("lua_State*"), "L"));
 	lua_to.parameters.push_back(std::make_pair(TypeDefinition("int"), "index"));
-	lua_to.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	lua_to.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\t// Convert from Lua table at given index to this object\n";
 		structFile << "\tif (!lua_istable(L, index)) {\n";
@@ -224,7 +225,7 @@ LuaGenerator::LuaGenerator()
 	lua_create_table.static_function = true;
 	lua_create_table.parameters.push_back(std::make_pair(TypeDefinition("lua_State*"), "L"));
 	lua_create_table.parameters.push_back(std::make_pair(TypeDefinition("const std::string&"), "schema_name"));
-	lua_create_table.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	lua_create_table.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\t// Create a Lua table constructor for this schema\n";
 		structFile << "\tstd::string lua_code = \"local \" + schema_name + \" = {}\\n\";\n";

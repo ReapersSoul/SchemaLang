@@ -117,14 +117,15 @@ json JsonGenerator::structToSchema(StructDefinition s, ProgramStructure *ps)
 
 JsonGenerator::JsonGenerator()
 {
+	name = "Json";
 	base_class.identifier = "Json";
 	FunctionDefinition toJSON;
-	toJSON.generator = "Json";
+	toJSON.generator = name;
 	toJSON.identifier = "toJSON";
-	toJSON.return_type.identifier() = "json";
-	toJSON.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	toJSON.return_type.identifier() = "nlohmann::json";
+	toJSON.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
-		structFile << "\tjson j;\n";
+		structFile << "\tnlohmann::json j;\n";
 		for (auto &mv : s.member_variables)
 		{
 			if (mv.type.is_struct(ps))
@@ -137,7 +138,7 @@ JsonGenerator::JsonGenerator()
 			}
 			else if (mv.type.is_array())
 			{
-				structFile << "\tjson " << mv.identifier << "Array;\n";
+				structFile << "\tnlohmann::json " << mv.identifier << "Array;\n";
 				structFile << "\tfor(auto &v : " << mv.identifier << "){\n";
 				if (ps->tokenIsStruct(mv.type.element_type().identifier()))
 				{
@@ -163,11 +164,11 @@ JsonGenerator::JsonGenerator()
 		return true;
 	};
 	FunctionDefinition fromJSON;
-	fromJSON.generator = "Json";
+	fromJSON.generator = name;
 	fromJSON.identifier = "fromJSON";
 	fromJSON.return_type.identifier() = "void";
-	fromJSON.parameters.push_back(std::make_pair(TypeDefinition("json"), "j"));
-	fromJSON.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	fromJSON.parameters.push_back(std::make_pair(TypeDefinition("nlohmann::json"), "j"));
+	fromJSON.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		for (auto &mv : s.member_variables)
 		{
@@ -221,10 +222,10 @@ JsonGenerator::JsonGenerator()
 		return true;
 	};
 	FunctionDefinition getSchema;
-	getSchema.generator = "Json";
+	getSchema.generator = name;
 	getSchema.identifier = "getSchema";
 	getSchema.return_type.identifier() = "nlohmann::json";
-	getSchema.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
+	getSchema.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\treturn nlohmann::json::parse(\n";
 		json j = structToSchema(s, ps);
@@ -238,8 +239,8 @@ JsonGenerator::JsonGenerator()
 	base_class.functions.push_back(fromJSON);
 	base_class.functions.push_back(getSchema);
 
-	base_class.includes.insert({"json","<nlohmann/json.hpp>"});
-	base_class.includes.insert({"json","<string>"});
+	base_class.includes.insert({name,"<nlohmann/json.hpp>"});
+	base_class.includes.insert({name,"<string>"});
 }
 
 std::string JsonGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefinition type)
