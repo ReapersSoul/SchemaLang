@@ -11,11 +11,11 @@ bool CppGenerator::generate_base_class_header_file(Generator *gen, ProgramStruct
 	baseClassFile << "#pragma once\n";
 	for (auto &include : gen->base_class.includes)
 	{
-		baseClassFile << "#include " << include << "\n";
+		baseClassFile << "#include " << include.second << "\n";
 	}
 	for (auto &line : gen->base_class.before_lines)
 	{
-		baseClassFile << line << "\n";
+		baseClassFile << line.second << "\n";
 	}
 	baseClassFile << "class Has" + gen->base_class.identifier + "Schema{\n";
 	baseClassFile << "public:\n";
@@ -146,12 +146,12 @@ bool CppGenerator::generate_struct_file_header(std::vector<StructDefinition> bas
 
 	for (auto &include : s.includes)
 	{
-		structFile << "#include " << include << "\n";
+		structFile << "#include " << include.second << "\n";
 	}
 
 	for (auto &line : s.before_lines)
 	{
-		structFile << line << "\n";
+		structFile << line.second << "\n";
 	}
 
 	for (int i = 0; i < s.member_variables.size(); i++)
@@ -398,10 +398,11 @@ void CppGenerator::generate_struct_file_source(std::vector<StructDefinition> bas
 CppGenerator::CppGenerator()
 {
 	base_class.identifier = "Cpp";
-	base_class.includes.insert("<jni.h>");
+	base_class.includes.insert({"Java","<jni.h>"});
 
 	// Add Java integration methods
 	FunctionDefinition to_java_object;
+	to_java_object.generator = "Cpp";
 	to_java_object.identifier = "to_java_object";
 	to_java_object.return_type.identifier() = "jobject";
 	to_java_object.parameters.push_back(std::make_pair(TypeDefinition("JNIEnv*"), "env"));
@@ -503,6 +504,7 @@ CppGenerator::CppGenerator()
 	};
 
 	FunctionDefinition from_java_object;
+	from_java_object.generator = "Cpp";
 	from_java_object.identifier = "from_java_object";
 	from_java_object.return_type.identifier() = "void";
 	from_java_object.parameters.push_back(std::make_pair(TypeDefinition("JNIEnv*"), "env"));
@@ -574,6 +576,7 @@ CppGenerator::CppGenerator()
 	};
 
 	FunctionDefinition create_java_class;
+	create_java_class.generator = "Cpp";
 	create_java_class.identifier = "create_java_class";
 	create_java_class.return_type.identifier() = "jclass";
 	create_java_class.static_function = true;
@@ -746,7 +749,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 
 	inja::Environment env;
 	env.set_trim_blocks(true);
-	env.set_lstrip_blocks(true);
+	//env.set_lstrip_blocks(true);
 
 	std::map<std::string, std::string> struct_name_content_pairs;
 	// open file
@@ -771,9 +774,13 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 	{
 		inja::json data;
 		data["struct"] = s.identifier;
+
+		data["generators"] = inja::json::object();
+
 		data["functions"] = inja::json::array();
 		for (auto &f : s.functions)
 		{
+
 			inja::json function_data;
 			function_data["identifier"] = f.identifier;
 			function_data["return_type"] = convert_to_local_type(&ps, f.return_type);
@@ -793,15 +800,35 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 			{
 				function_data["generate_function"] = "Momentarily not supported in CppGenerator";
 			}
-
-			data["functions"].push_back(function_data);
+			if(f.generator.empty())
+			{
+				data["functions"].push_back(function_data);
+			}else{
+				if (data["generators"].find(f.generator) == data["generators"].end())
+				{
+					data["generators"][f.generator] = inja::json::object();
+					data["generators"][f.generator]["functions"] = inja::json::array();
+				}
+			
+				data["generators"][f.generator]["functions"].push_back(function_data);
+			}
 		}
 			
 		data["includes"] = inja::json::array();
 		for (auto &include : s.includes)
 		{
-			data["includes"].push_back(include);
+			if(include.first.empty()){
+				data["includes"].push_back(include.second);
+			}else{
+				if(data["generators"].find(include.first) == data["generators"].end())
+				{
+					data["generators"][include.first] = inja::json::object();
+					data["generators"][include.first]["includes"] = inja::json::array();
+				}
+				data["generators"][include.first]["includes"].push_back(include.second);
+			}
 		}
+
 		data["base_classes"]= inja::json::array();
 		for (auto &bc : base_classes)
 		{
@@ -819,7 +846,11 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 			mv_data["type"] = convert_to_local_type(&ps, mv.type);
 			mv_data["static"] = mv.static_member;
 			mv_data["required"] = mv.required;
-			mv_data["default_value"] = mv.default_value;
+			if(mv.default_value.empty()){
+			mv_data["default_value"] = false;
+			}else{
+				mv_data["default_value"] = mv.default_value;
+			}
 			data["member_variables"].push_back(mv_data);
 		}
 		data["private_variables"] = inja::json::array();
@@ -831,6 +862,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 			pv_data["static"] = pv.static_member;
 			data["private_variables"].push_back(pv_data);
 		}
+
 
 		if(std::filesystem::exists(out_path + "/test/") == false)
 		{

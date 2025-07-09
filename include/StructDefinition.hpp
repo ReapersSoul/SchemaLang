@@ -6,10 +6,20 @@
 #include <PrivateVariableDefinition.hpp>
 #include <MemberVariableDefinition.hpp>
 
+#include <map>
+
+template<typename T>
+using generator_otherwise_pair = std::pair<std::string, T>;
+
 struct StructDefinition
 {
-	std::set<std::string> includes;
-	std::vector<std::string> before_lines;
+	struct CompareBySecond {
+		bool operator()(const generator_otherwise_pair<std::string>& a, const generator_otherwise_pair<std::string>& b) const {
+			return a.second < b.second;  // ignore .first for comparison
+		}
+	};
+	std::set<generator_otherwise_pair<std::string>,CompareBySecond> includes;
+	std::vector<generator_otherwise_pair<std::string>> before_lines;
 	std::string identifier;
 
 	std::vector<FunctionDefinition> functions;

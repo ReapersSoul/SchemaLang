@@ -305,6 +305,7 @@ void SqliteGenerator::generate_select_all_statement_function_member_variable(Gen
 		return;
 	}
 	FunctionDefinition select_all_statement;
+	select_all_statement.generator = "SQLite";
 	select_all_statement.identifier = "SQLiteSelectBy" + mv.identifier;
 	select_all_statement.return_type.identifier() = "std::vector<" + s.identifier + "Schema*>";
 	select_all_statement.static_function = true;
@@ -399,6 +400,7 @@ void SqliteGenerator::generate_select_all_statement_functions_struct(Generator *
 void SqliteGenerator::generate_select_member_variable_function_statement(Generator *gen, ProgramStructure *ps, StructDefinition &s, MemberVariableDefinition &mv_1, std::vector<int> &criteria)
 {
 	FunctionDefinition select_statement;
+	select_statement.generator = "SQLite";
 	select_statement.identifier = "SQLiteSelect" + s.identifier + "By";
 	select_statement.return_type = mv_1.type;
 	for (int i = 0; i < criteria.size(); i++)
@@ -447,6 +449,7 @@ void SqliteGenerator::generate_select_statements_function_struct(Generator *gen,
 void SqliteGenerator::generate_insert_statements_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
 	FunctionDefinition insert_statement;
+	insert_statement.generator = "SQLite";
 	insert_statement.identifier = "SQLiteInsert";
 	insert_statement.return_type.identifier() = BOOL;
 	insert_statement.static_function = true;
@@ -490,6 +493,7 @@ void SqliteGenerator::generate_insert_statements_function_struct(Generator *gen,
 	s.functions.push_back(insert_statement);
 
 	FunctionDefinition insert_statement_no_args;
+	insert_statement_no_args.generator = "SQLite";
 	insert_statement_no_args.identifier = "SQLiteInsert";
 	insert_statement_no_args.return_type.identifier() = BOOL;
 	insert_statement_no_args.static_function = false;
@@ -532,6 +536,7 @@ void SqliteGenerator::generate_insert_statements_function_struct(Generator *gen,
 void SqliteGenerator::generate_update_all_statement_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
 	FunctionDefinition update_all_statement;
+	update_all_statement.generator = "SQLite";
 	update_all_statement.identifier = "SQLiteUpdate" + s.identifier;
 	update_all_statement.return_type.identifier() = BOOL;
 	update_all_statement.parameters.push_back(std::make_pair(sqlite_db, "db"));
@@ -565,6 +570,7 @@ void SqliteGenerator::generate_update_all_statement_function_struct(Generator *g
 void SqliteGenerator::generate_update_statements_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
 	FunctionDefinition update_statement;
+	update_statement.generator = "SQLite";
 	update_statement.identifier = "SQLiteUpdate";
 	update_statement.return_type.identifier() = "bool";
 	update_statement.static_function = true;
@@ -617,6 +623,7 @@ void SqliteGenerator::generate_update_statements_function_struct(Generator *gen,
 
 	// Instance method version
 	FunctionDefinition update_statement_no_args;
+	update_statement_no_args.generator = "SQLite";
 	update_statement_no_args.identifier = "SQLiteUpdate";
 	update_statement_no_args.return_type.identifier() = "bool";
 	update_statement_no_args.static_function = false;
@@ -641,6 +648,7 @@ void SqliteGenerator::generate_update_statements_function_struct(Generator *gen,
 void SqliteGenerator::generate_delete_statement_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
 	FunctionDefinition delete_statement;
+	delete_statement.generator = "SQLite";
 	delete_statement.identifier = "SQLiteDelete";
 	delete_statement.return_type.identifier() = "bool";
 	delete_statement.static_function = true;
@@ -706,6 +714,7 @@ void SqliteGenerator::generate_delete_statement_function_struct(Generator *gen, 
 
 	// Instance method version
 	FunctionDefinition delete_statement_no_args;
+	delete_statement_no_args.generator = "SQLite";
 	delete_statement_no_args.identifier = "SQLiteDelete";
 	delete_statement_no_args.return_type.identifier() = "bool";
 	delete_statement_no_args.static_function = false;
@@ -904,10 +913,10 @@ std::string SqliteGenerator::convert_to_local_type(ProgramStructure *ps, TypeDef
 
 bool SqliteGenerator::add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
-	s.includes.insert("<sqlite3.h>");
-	s.includes.insert("<iostream>");
-	s.includes.insert("<string>");
-	s.includes.insert("<vector>");
+	s.includes.insert({"SQLite","<sqlite3.h>"});
+	s.includes.insert({"","<iostream>"});
+	s.includes.insert({"","<string>"});
+	s.includes.insert({"","<vector>"});
 
 	// add index private variables for each member variable
 	bool has_primary_key = false;
@@ -954,6 +963,7 @@ bool SqliteGenerator::add_generator_specific_content_to_struct(Generator *gen, P
 	generate_delete_statement_function_struct(gen, ps, s);
 
 	FunctionDefinition getCreateTableStatement;
+	getCreateTableStatement.generator = "SQLite";
 	getCreateTableStatement.identifier = "getSQLiteCreateTableStatement";
 	getCreateTableStatement.static_function = true;
 	getCreateTableStatement.return_type.identifier() = STRING;
@@ -965,6 +975,7 @@ bool SqliteGenerator::add_generator_specific_content_to_struct(Generator *gen, P
 	s.functions.push_back(getCreateTableStatement);
 
 	FunctionDefinition createTable;
+	createTable.generator = "SQLite";
 	createTable.identifier = "SQLiteCreateTable";
 	createTable.static_function = true;
 	createTable.return_type.identifier() = BOOL;

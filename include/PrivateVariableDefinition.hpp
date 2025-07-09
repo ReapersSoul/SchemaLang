@@ -4,6 +4,7 @@
 
 struct PrivateVariableDefinition
 {
+	std::string generator;
 	TypeDefinition type;
 	std::string identifier = "";
 	bool in_class_init = false;

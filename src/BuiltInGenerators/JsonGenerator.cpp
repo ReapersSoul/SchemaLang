@@ -119,6 +119,7 @@ JsonGenerator::JsonGenerator()
 {
 	base_class.identifier = "Json";
 	FunctionDefinition toJSON;
+	toJSON.generator = "Json";
 	toJSON.identifier = "toJSON";
 	toJSON.return_type.identifier() = "json";
 	toJSON.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
@@ -162,6 +163,7 @@ JsonGenerator::JsonGenerator()
 		return true;
 	};
 	FunctionDefinition fromJSON;
+	fromJSON.generator = "Json";
 	fromJSON.identifier = "fromJSON";
 	fromJSON.return_type.identifier() = "void";
 	fromJSON.parameters.push_back(std::make_pair(TypeDefinition("json"), "j"));
@@ -219,6 +221,7 @@ JsonGenerator::JsonGenerator()
 		return true;
 	};
 	FunctionDefinition getSchema;
+	getSchema.generator = "Json";
 	getSchema.identifier = "getSchema";
 	getSchema.return_type.identifier() = "nlohmann::json";
 	getSchema.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
@@ -235,8 +238,8 @@ JsonGenerator::JsonGenerator()
 	base_class.functions.push_back(fromJSON);
 	base_class.functions.push_back(getSchema);
 
-	base_class.includes.insert("<nlohmann/json.hpp>");
-	base_class.includes.insert("<string>");
+	base_class.includes.insert({"json","<nlohmann/json.hpp>"});
+	base_class.includes.insert({"json","<string>"});
 }
 
 std::string JsonGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefinition type)

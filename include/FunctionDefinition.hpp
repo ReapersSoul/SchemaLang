@@ -4,6 +4,7 @@
 
 struct FunctionDefinition
 {
+	std::string generator;
 	std::string identifier;
 	bool static_function = false;
 	TypeDefinition return_type;

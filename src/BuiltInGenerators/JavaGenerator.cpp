@@ -80,9 +80,9 @@ void JavaGenerator::generate_struct_file(StructDefinition s, ProgramStructure *p
         {
             for (auto &include : bc.includes)
             {
-                if (include.find(".java") != std::string::npos || include.find("java.") != std::string::npos)
+                if (include.second.find(".java") != std::string::npos || include.second.find("java.") != std::string::npos)
                 {
-                    structFile << "import " << include << ";\n";
+                    structFile << "import " << include.second << ";\n";
                 }
             }
         }
@@ -524,6 +524,7 @@ JavaGenerator::JavaGenerator()
     
     // Add validation method
     FunctionDefinition validate;
+    validate.generator = "Java";
     validate.identifier = "validate";
     validate.return_type.identifier() = "boolean";
     validate.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
@@ -553,6 +554,7 @@ JavaGenerator::JavaGenerator()
     
     // Add clone method
     FunctionDefinition clone;
+    clone.generator = "Java";
     clone.identifier = "clone";
     clone.return_type.identifier() = "Object";
     clone.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
@@ -579,6 +581,7 @@ JavaGenerator::JavaGenerator()
     
     // Add JSON serialization methods
     FunctionDefinition toJson;
+    toJson.generator = "Java";
     toJson.identifier = "toJson";
     toJson.return_type.identifier() = "String";
     toJson.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
@@ -594,6 +597,7 @@ JavaGenerator::JavaGenerator()
     };
     
     FunctionDefinition fromJson;
+    fromJson.generator = "Java";
     fromJson.identifier = "fromJson";
     fromJson.return_type.identifier() = "Object"; // Will be corrected in generation
     fromJson.static_function = true;
@@ -612,6 +616,7 @@ JavaGenerator::JavaGenerator()
     
     // Add database methods for MySQL/SQLite
     FunctionDefinition saveToDatabase;
+    saveToDatabase.generator = "Java";
     saveToDatabase.identifier = "saveToDatabase";
     saveToDatabase.return_type.identifier() = "void";
     saveToDatabase.parameters.push_back(std::make_pair(TypeDefinition("Connection"), "connection"));
@@ -657,6 +662,7 @@ JavaGenerator::JavaGenerator()
     };
     
     FunctionDefinition loadFromDatabase;
+    loadFromDatabase.generator = "Java";
     loadFromDatabase.identifier = "loadFromDatabase";
     loadFromDatabase.return_type.identifier() = "Object"; // Will be corrected in generation
     loadFromDatabase.static_function = true;
@@ -709,6 +715,7 @@ JavaGenerator::JavaGenerator()
     
     // Add Lua integration methods
     FunctionDefinition toLuaTable;
+    toLuaTable.generator = "Java";
     toLuaTable.identifier = "toLuaTable";
     toLuaTable.return_type.identifier() = "String";
     toLuaTable.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ofstream &structFile)
@@ -763,6 +770,7 @@ JavaGenerator::JavaGenerator()
     };
     
     FunctionDefinition fromLuaTable;
+    fromLuaTable.generator = "Java";
     fromLuaTable.identifier = "fromLuaTable";
     fromLuaTable.return_type.identifier() = "Object"; // Will be corrected in generation
     fromLuaTable.static_function = true;
@@ -837,6 +845,7 @@ JavaGenerator::JavaGenerator()
     
     // Add C++ integration methods (these generate C++ code when used by CppGenerator)
     FunctionDefinition to_cpp_object;
+    to_cpp_object.generator = "Java";
     to_cpp_object.identifier = "to_cpp_object";
     to_cpp_object.return_type.identifier() = "jobject";
     to_cpp_object.parameters.push_back(std::make_pair(TypeDefinition("JNIEnv*"), "env"));
@@ -899,6 +908,7 @@ JavaGenerator::JavaGenerator()
     };
     
     FunctionDefinition from_cpp_object;
+    from_cpp_object.generator = "Java";
     from_cpp_object.identifier = "from_cpp_object";
     from_cpp_object.return_type.identifier() = "void";
     from_cpp_object.parameters.push_back(std::make_pair(TypeDefinition("JNIEnv*"), "env"));
@@ -968,6 +978,7 @@ JavaGenerator::JavaGenerator()
     };
     
     FunctionDefinition create_jni_bridge;
+    create_jni_bridge.generator = "Java";
     create_jni_bridge.identifier = "create_jni_bridge";
     create_jni_bridge.return_type.identifier() = "std::string";
     create_jni_bridge.static_function = true;

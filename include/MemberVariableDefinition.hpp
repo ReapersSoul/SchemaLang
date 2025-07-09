@@ -5,6 +5,7 @@
 
 struct MemberVariableDefinition
 {
+	std::string generator;
 	TypeDefinition type;
 	std::string identifier = "";
 

@@ -6,6 +6,7 @@ LuaGenerator::LuaGenerator()
 	
 	// Add lua_push method
 	FunctionDefinition lua_push;
+	lua_push.generator = "Lua";
 	lua_push.identifier = "lua_push";
 	lua_push.return_type.identifier() = "void";
 	lua_push.parameters.push_back(std::make_pair(TypeDefinition("lua_State*"), "L"));
@@ -95,6 +96,7 @@ LuaGenerator::LuaGenerator()
 	
 	// Add lua_to method
 	FunctionDefinition lua_to;
+	lua_to.generator = "Lua";
 	lua_to.identifier = "lua_to";
 	lua_to.return_type.identifier() = "void";
 	lua_to.parameters.push_back(std::make_pair(TypeDefinition("lua_State*"), "L"));
@@ -216,6 +218,7 @@ LuaGenerator::LuaGenerator()
 	
 	// Add lua_create_table static method
 	FunctionDefinition lua_create_table;
+	lua_create_table.generator = "Lua";
 	lua_create_table.identifier = "lua_create_table";
 	lua_create_table.return_type.identifier() = "void";
 	lua_create_table.static_function = true;
@@ -264,9 +267,9 @@ LuaGenerator::LuaGenerator()
 	base_class.functions.push_back(lua_create_table);
 	
 	// Add required includes for Lua
-	base_class.includes.insert("<lua.hpp>");
-	base_class.includes.insert("<lauxlib.h>");
-	base_class.includes.insert("<lualib.h>");
+	base_class.includes.insert({"Lua","<lua.hpp>"});
+	base_class.includes.insert({"Lua","<lauxlib.h>"});
+	base_class.includes.insert({"Lua","<lualib.h>"});
 }
 
 std::string LuaGenerator::lua_table_name(const std::string& identifier)
