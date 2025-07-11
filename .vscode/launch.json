@@ -12,8 +12,7 @@
 				"-sqlite",
 				"-mysql",
 				"-cpp",
-				"-lua",
-				// "-java"
+				"-lua"
 			],
 			"stopAtEntry": false,
 			"cwd": "${workspaceFolder}/bin",

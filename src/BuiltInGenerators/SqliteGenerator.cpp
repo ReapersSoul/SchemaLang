@@ -1020,11 +1020,14 @@ bool SqliteGenerator::add_generator_specific_content_to_struct(Generator *gen, P
 			"\t\treturn;\n"
 			"\t}\n"});
 	}else{
-		std::cout << "Warning: SqliteGenerator only supports C++ code generation." << std::endl;
+		std::cout << "Warning: SqliteGenerator only supports C++ code generation. cant add generator specific content to struct for generator: " << gen->name << std::endl;
 	}
 
 	return true;
 }
+
+#include <inja/inja.hpp>
+#include <EmbeddedResources/EmbeddedResourcesEmbeddedVFS.hpp>
 
 bool SqliteGenerator::generate_files(ProgramStructure ps, std::string out_path)
 {
@@ -1036,11 +1039,148 @@ bool SqliteGenerator::generate_files(ProgramStructure ps, std::string out_path)
 	// Add foreign key columns for array relationships before generating files
 	add_foreign_key_columns_for_arrays(&ps);
 
+	// for (auto &s : ps.getStructs())
+	// {
+	// 	if (!generate_struct_files(&ps, s, out_path))
+	// 	{
+	// 		std::cout << "Failed to generate sqlite file for struct: " << s.identifier << std::endl;
+	// 		return false;
+	// 	}
+	// }
+
+	inja::Environment env;
+	//env.set_trim_blocks(true);
+	//env.set_lstrip_blocks(false);
+
+	std::map<std::string, std::string> struct_name_content_pairs;
+	// open file
+	std::vector<std::string> files = listEmbeddedResourcesEmbeddedFiles("/SQLite/struct/");
+	for (auto &file : files)
+	{
+		std::string content(reinterpret_cast<const char *>(loadEmbeddedResourcesEmbeddedFile(("/SQLite/struct/" + file).c_str()).data()), loadEmbeddedResourcesEmbeddedFile(("/SQLite/struct/" + file).c_str()).size());
+		std::string filename = std::filesystem::path(file).filename().string();
+		struct_name_content_pairs[filename] = content;
+	}
+
+	std::map<std::string, std::string> enum_name_content_pairs;
+	files = listEmbeddedResourcesEmbeddedFiles("/SQLite/enum/");
+	for (auto &file : files)
+	{
+		std::string content(reinterpret_cast<const char *>(loadEmbeddedResourcesEmbeddedFile(("/SQLite/enum/" + file).c_str()).data()), loadEmbeddedResourcesEmbeddedFile(("/SQLite/enum/" + file).c_str()).size());
+		std::string filename = std::filesystem::path(file).filename().string();
+		enum_name_content_pairs[filename] = content;
+	}
+
 	for (auto &s : ps.getStructs())
 	{
-		if (!generate_struct_files(&ps, s, out_path))
+		inja::json data;
+		data["struct"] = s.identifier;
+		data["fields"] = inja::json::array();
+		for (auto &mv : s.member_variables)
 		{
-			std::cout << "Failed to generate sqlite file for struct: " << s.identifier << std::endl;
+			// Create fields data for SQLite template compatibility
+			inja::json field_data;
+			field_data["name"] = mv.identifier;
+			bool convert_to_reference = mv.type.is_struct(&ps)|| mv.type.is_enum(&ps)|| (mv.type.is_array() && (mv.type.element_type().is_struct(&ps)|| mv.type.element_type().is_enum(&ps)));
+			field_data["convert_to_reference"] = convert_to_reference;
+			if(convert_to_reference){
+				if(mv.type.is_array()){
+					field_data["type"] = mv.type.element_type().identifier();
+				}else if(mv.type.is_struct(&ps)|| mv.type.is_enum(&ps)){
+					field_data["type"] = mv.type.identifier();
+				}
+			}else{
+				field_data["type"] = convert_to_local_type(&ps, mv.type);
+			}
+			field_data["required"] = mv.required;
+			field_data["unique"] = mv.unique;
+			field_data["primary_key"] = mv.primary_key;
+			field_data["auto_increment"] = mv.auto_increment;
+			
+			// Handle reference data
+			if((mv.reference.struct_name.empty() || mv.reference.variable_name.empty())&&!convert_to_reference)
+			{
+				field_data["reference"] = false; // Empty object if no reference
+			}else
+			{
+				inja::json reference_data;
+				if(convert_to_reference){
+					if(mv.type.is_array()){
+						reference_data["struct_name"] = mv.type.element_type().identifier();
+					}else if(mv.type.is_struct(&ps)|| mv.type.is_enum(&ps)){
+						reference_data["struct_name"] = mv.type.identifier();
+					} 
+					reference_data["variable_name"] = "id"; // Use the member variable identifier as the reference variable name
+				}else{
+					reference_data["struct_name"] = mv.reference.struct_name;
+					reference_data["variable_name"] = mv.reference.variable_name;
+				}
+				field_data["reference"] = reference_data;
+			}
+			
+			if (!mv.default_value.empty())
+			{
+				field_data["default_value"] = mv.default_value;
+			}else
+			{
+				field_data["default_value"] = false; // Default to false if no default value is set
+			}
+			
+			data["fields"].push_back(field_data);
+		}
+
+		try
+		{
+			for (auto &file : struct_name_content_pairs)
+			{
+				std::ofstream of(env.render(out_path + "/" + file.first, data));
+				if (!of.is_open())
+				{
+					std::cout << "Failed to open file: " << env.render(out_path + "/" + file.first, data);
+				}
+				of << env.render(file.second, data);
+				of.close();
+				std::cout << "Generated file: " << env.render(out_path + "/" + file.first, data) << std::endl;
+			}
+		}
+		catch (const std::exception &e)
+		{
+			std::cout << "Error generating file for struct " << s.identifier << ": " << e.what() << std::endl;
+			return false;
+		}
+	}
+
+	for (auto &e : ps.getEnums())
+	{
+		inja::json data;
+		data["enum"] = e.identifier;
+
+		data["values"] = inja::json::array();
+		for (auto &v : e.values)
+		{
+			inja::json value_data;
+			value_data["name"] = v.first;
+			value_data["value"] = v.second;
+			data["values"].push_back(value_data);
+		}
+
+		try
+		{
+			for (auto &file : enum_name_content_pairs)
+			{
+				std::ofstream of(env.render(out_path + "/" + file.first, data));
+				if (!of.is_open())
+				{
+					std::cout << "Failed to open file: " << env.render(out_path + "/" + file.first, data);
+				}
+				of << env.render(file.second, data);
+				of.close();
+				std::cout << "Generated file: " << env.render(out_path + "/" + file.first, data) << std::endl;
+			}
+		}
+		catch (const std::exception &ex)
+		{
+			std::cout << "Error generating file for enum " << e.identifier << ": " << ex.what() << std::endl;
 			return false;
 		}
 	}
