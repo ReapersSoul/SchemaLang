@@ -1,4 +1,4 @@
-#include "{{struct}}Schema.hpp"
+#include {{struct_include}}
 
 // Static member definition
 std::vector<{{struct}}Schema*> {{struct}}Schema::all_{{struct}}Schemas;

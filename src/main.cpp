@@ -131,6 +131,16 @@ int main(int argc, char *argv[])
 	Flag cppFlag("cpp", false, [&]
 				 { cppGenerator->add_generator(cppGenerator); });
 	ap.addFlag(&cppFlag);
+
+	// C++ specific parameters
+	Parameter cppIncludePrefixParameter("cppIncludePrefix", false, [&](std::string value)
+		{ cppGenerator->set_include_prefix(value); });
+	ap.addParameter(&cppIncludePrefixParameter);
+
+	Flag cppUseAngleBracketsFlag("cppUseAngleBrackets", false, [&]
+		{ cppGenerator->set_use_angle_brackets(true); });
+	ap.addFlag(&cppUseAngleBracketsFlag);
+
 	Flag javaFlag("java", false, [&]
 				  {
 					  // Java generator flag - just enables Java generation

@@ -4,8 +4,15 @@
 
 //base classes
 {% for bc in base_classes %}
-#include "Has{{ bc.identifier }}Schema.hpp"
+#include {{bc.formatted_include}}
 {% endfor %}
+
+{% if schema_includes %}
+//schema includes
+{% for include in schema_includes %}
+#include {{include}}
+{% endfor %}
+{% endif %}
 
 {% if includes %}
 //includes
@@ -70,7 +77,7 @@ private:
 	static std::vector<{{struct}}Schema*> all_{{struct}}Schemas;
 
 {% for pv in private_variables %}
-	{{pv.type}} {{pv.identifier}};
+	{% if pv.static %}static {% endif %}{% if pv.const %}const {% endif %}{{pv.type}} {{pv.identifier}};
 {% endfor %}
 
 {% for mv in member_variables %}

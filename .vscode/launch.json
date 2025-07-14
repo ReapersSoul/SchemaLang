@@ -12,7 +12,9 @@
 				"-sqlite",
 				"-mysql",
 				"-cpp",
-				"-lua"
+				"-lua",
+				"-cppUseAngleBrackets",
+				"-cppIncludePrefix=."
 			],
 			"stopAtEntry": false,
 			"cwd": "${workspaceFolder}/bin",

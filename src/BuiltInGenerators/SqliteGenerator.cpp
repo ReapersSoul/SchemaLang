@@ -260,7 +260,7 @@ std::string generate_bind(Generator *gen,ProgramStructure *ps, MemberVariableDef
 	{
 		std::string local_type = gen->convert_to_local_type(ps, mv.type);
 		local_type = local_type.substr(0, local_type.size() - 2);
-		ret+= local_type + "(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ");\n";
+		ret+= "int(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ");\n";
 	}
 	else if (mv.type.is_real())
 	{
@@ -355,9 +355,9 @@ void SqliteGenerator::generate_select_all_statement_function_member_variable(Gen
 			}
 			else if (mv_field.type.is_integer())
 			{
-				std::string local_type = gen->convert_to_local_type(ps, mv_field.type);
-				local_type = local_type.substr(0, local_type.size() - 2);
-				structFile << "\t\tresult->set" << mv_field.identifier << "(sqlite3_column_" << local_type << "(stmt, " << mv_field.identifier << "_index));\n";
+				//std::string local_type = gen->convert_to_local_type(ps, mv_field.type);
+				//local_type = local_type.substr(0, local_type.size() - 2);
+				structFile << "\t\tresult->set" << mv_field.identifier << "(sqlite3_column_int(stmt, " << mv_field.identifier << "_index));\n";
 			}
 			else if (mv_field.type.is_real())
 			{
@@ -1015,7 +1015,7 @@ bool SqliteGenerator::add_generator_specific_content_to_struct(Generator *gen, P
 		};
 		s.functions.push_back(registerUpdateListener);
 
-		s.before_setter_lines.push_back({name,"if(!SQLiteUpdate(db, *this)){\n"
+		s.before_setter_lines.push_back({name,"if(!SQLiteUpdate()){\n"
 			"\t\tstd::cerr << \"Failed to update " + s.identifier + " in SQLite database.\" << std::endl;\n"
 			"\t\treturn;\n"
 			"\t}\n"});

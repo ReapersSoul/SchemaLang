@@ -4,8 +4,39 @@
 #include <StructDefinition.hpp>
 #include <EnumDefinition.hpp>
 
+struct SourcePosition
+{
+	std::string file_path;
+	int line;
+	int column;
+	
+	SourcePosition() : line(1), column(1) {}
+	SourcePosition(const std::string& file, int l, int c) : file_path(file), line(l), column(c) {}
+};
+
+struct Token
+{
+	std::string value;
+	SourcePosition position;
+	
+	Token() {}
+	Token(const std::string& val, const SourcePosition& pos) : value(val), position(pos) {}
+	
+	// Comparison operators for convenience
+	bool operator==(const std::string& str) const { return value == str; }
+	bool operator!=(const std::string& str) const { return value != str; }
+	bool operator==(const char* str) const { return value == str; }
+	bool operator!=(const char* str) const { return value != str; }
+	
+	// Implicit conversion to string for compatibility
+	operator const std::string&() const { return value; }
+};
+
 struct ProgramStructure
 {
+	// Current parsing context
+	std::string current_file;
+	SourcePosition current_position;
 
 	bool isInt(std::string str);
 
@@ -17,17 +48,22 @@ struct ProgramStructure
 
 	bool isSpecialBreakChar(char c);
 
-	std::vector<std::string> tokenize(std::string str);
+	std::vector<Token> tokenizeWithPosition(std::string str, const std::string& file_path);
+	std::vector<std::string> tokenize(std::string str); // Keep for backward compatibility
 
-	bool readMemberVariable(std::vector<std::string> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition);
+	void reportError(const std::string& message);
+	void reportError(const std::string& message, const SourcePosition& position);
+	void reportError(const std::string& message, const Token& token);
 
-	bool readStruct(std::vector<std::string> tokens, int &i, StructDefinition &current_struct);
+	bool readMemberVariable(std::vector<Token> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition);
 
-	bool readEnumValue(std::vector<std::string> tokens, int &i, EnumDefinition &current_enum, int &curent_index);
+	bool readStruct(std::vector<Token> tokens, int &i, StructDefinition &current_struct);
 
-	bool readEnum(std::vector<std::string> tokens, int &i, EnumDefinition &current_enum);
+	bool readEnumValue(std::vector<Token> tokens, int &i, EnumDefinition &current_enum, int &curent_index);
 
-	bool readConfig(std::vector<std::string> tokens, int &i);
+	bool readEnum(std::vector<Token> tokens, int &i, EnumDefinition &current_enum);
+
+	bool readConfig(std::vector<Token> tokens, int &i);
 
 	bool validate();
 
@@ -48,7 +84,7 @@ public:
 
 	EnumDefinition &getEnum(std::string identifier);
 
-    bool parseTypeNames(std::vector<std::string> tokens);
+    bool parseTypeNames(std::vector<Token> tokens);
 
     bool readFile(std::string file_path);
 

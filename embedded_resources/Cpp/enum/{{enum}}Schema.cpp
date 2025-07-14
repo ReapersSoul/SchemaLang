@@ -1,4 +1,4 @@
-#include "{{enum}}Schema.hpp"
+{{enum_include}}
 
 std::string {{enum}}SchemaToString({{enum}}Schema e) {
     switch(e) {

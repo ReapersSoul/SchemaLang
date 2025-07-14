@@ -26,6 +26,102 @@ bool ProgramStructure::isSpecialBreakChar(char c)
 	return c == '{' || c == '}' || c == '(' || c == ')' || c == ',' || c == ';' || c == ':' || c == '<' || c == '>' || c == '=' || c == '.';
 }
 
+void ProgramStructure::reportError(const std::string& message)
+{
+	reportError(message, current_position);
+}
+
+void ProgramStructure::reportError(const std::string& message, const SourcePosition& position)
+{
+	printf("Error: %s:%d:%d: %s\n", position.file_path.c_str(), position.line, position.column, message.c_str());
+}
+
+void ProgramStructure::reportError(const std::string& message, const Token& token)
+{
+	reportError(message, token.position);
+}
+
+std::vector<Token> ProgramStructure::tokenizeWithPosition(std::string str, const std::string& file_path)
+{
+	std::vector<Token> tokens;
+	std::string token_value = "";
+	SourcePosition position(file_path, 1, 1);
+	bool in_string = false;
+	bool skip_next = false;
+
+	for (char c : str)
+	{
+		if (c == '\\')
+		{
+			skip_next = true;
+			position.column++;
+			continue;
+		}
+		if (skip_next)
+		{
+			skip_next = false;
+			position.column++;
+			continue;
+		}
+
+		if (c == '"')
+		{
+			in_string = !in_string;
+			if (!in_string)
+			{
+				tokens.emplace_back(token_value, position);
+				token_value.clear();
+			}
+			position.column++;
+			continue;
+		}
+		if (!in_string)
+		{
+			if ((isBreakChar(c) || isSpecialBreakChar(c)))
+			{
+				if (!token_value.empty())
+				{
+					tokens.emplace_back(token_value, position);
+					token_value.clear();
+				}
+				if (isSpecialBreakChar(c))
+				{
+					tokens.emplace_back(std::string(1, c), position);
+				}
+				if (c == '\n')
+				{
+					position.line++;
+					position.column = 1;
+				}
+				else
+				{
+					position.column++;
+				}
+				continue;
+			}
+		}
+		token_value += c;
+		position.column++;
+	}
+	if (!token_value.empty())
+	{
+		tokens.emplace_back(token_value, position);
+	}
+	// remove empty tokens
+	for (auto it = tokens.begin(); it != tokens.end();)
+	{
+		if (it->value.empty())
+		{
+			it = tokens.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+	return tokens;
+}
+
 std::vector<std::string> ProgramStructure::tokenize(std::string str)
 {
 	std::vector<std::string> tokens;
@@ -92,13 +188,13 @@ std::vector<std::string> ProgramStructure::tokenize(std::string str)
 	return tokens;
 }
 
-bool ProgramStructure::readMemberVariable(std::vector<std::string> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition)
+bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition)
 {
-	std::vector<std::string> member_variable_tokens;
-	if (tokenIsValidTypeName(tokens[i]))
+	std::vector<Token> member_variable_tokens;
+	if (tokenIsValidTypeName(tokens[i].value))
 	{
 		// collect the type
-		current_MemberVariableDefinition.type.identifier() = tokens[i];
+		current_MemberVariableDefinition.type.identifier() = tokens[i].value;
 		i++;
 		// if array
 		if (current_MemberVariableDefinition.type.is_array())
@@ -107,9 +203,9 @@ bool ProgramStructure::readMemberVariable(std::vector<std::string> tokens, int &
 			if (tokens[i] == "<")
 			{
 				i++;
-				if (tokenIsValidTypeName(tokens[i]))
+				if (tokenIsValidTypeName(tokens[i].value))
 				{
-					current_MemberVariableDefinition.type.element_type().identifier() = tokens[i];
+					current_MemberVariableDefinition.type.element_type().identifier() = tokens[i].value;
 					current_MemberVariableDefinition.generate_initializer = [](ProgramStructure *ps, MemberVariableDefinition &mv, std::ofstream &structFile) -> bool
 					{
 						structFile << "{}";
@@ -119,14 +215,14 @@ bool ProgramStructure::readMemberVariable(std::vector<std::string> tokens, int &
 				}
 				else
 				{
-					printf("Error: Expected array element type for %s\n", tokens[i + 3].c_str());
+					reportError("Expected array element type for " + tokens[i + 3].value, tokens[i]);
 					return false;
 				}
 				i++;
 				// check for '>'
 				if (tokens[i] != ">")
 				{
-					printf("Error: Expected '>' after array type %s for %s\n", current_MemberVariableDefinition.type.element_type().identifier().c_str(), current_MemberVariableDefinition.identifier.c_str());
+					reportError("Expected '>' after array type " + current_MemberVariableDefinition.type.element_type().identifier() + " for " + current_MemberVariableDefinition.identifier, tokens[i]);
 					return false;
 				}
 				i++;
@@ -136,17 +232,17 @@ bool ProgramStructure::readMemberVariable(std::vector<std::string> tokens, int &
 		// check for ':'
 		if (tokens[i] != ":")
 		{
-			printf("Error: Expected ':' after member variable type %s\n", current_MemberVariableDefinition.type.identifier().c_str());
+			reportError("Expected ':' after member variable type " + current_MemberVariableDefinition.type.identifier(), tokens[i]);
 			return false;
 		}
 		i++;
 		// collect the identifier
-		current_MemberVariableDefinition.identifier = tokens[i];
+		current_MemberVariableDefinition.identifier = tokens[i].value;
 		i++;
 		// check for ':'
 		if (tokens[i] != ":")
 		{
-			printf("Error: Expected ':' after member variable identifier %s\n", current_MemberVariableDefinition.identifier.c_str());
+			reportError("Expected ':' after member variable identifier " + current_MemberVariableDefinition.identifier, tokens[i]);
 			return false;
 		}
 		i++;
@@ -163,7 +259,7 @@ bool ProgramStructure::readMemberVariable(std::vector<std::string> tokens, int &
 			{
 				if (!next_token_should_be_colon)
 				{
-					printf("Error: Unexpected ':' after %s\n", current_MemberVariableDefinition.identifier.c_str());
+					reportError("Unexpected ':' after " + current_MemberVariableDefinition.identifier, tokens[i]);
 					return false;
 				}
 				else
@@ -202,20 +298,20 @@ bool ProgramStructure::readMemberVariable(std::vector<std::string> tokens, int &
 				j++;
 				if (member_variable_tokens[j] != "(")
 				{
-					printf("Error: Expected '(' after min_items\n");
+					reportError("Expected '(' after min_items", member_variable_tokens[j]);
 					return false;
 				}
 				j++;
-				if (!isInt(member_variable_tokens[j]))
+				if (!isInt(member_variable_tokens[j].value))
 				{
-					printf("Error: Expected number after min_items(\n");
+					reportError("Expected number after min_items(", member_variable_tokens[j]);
 					return false;
 				}
-				current_MemberVariableDefinition.min_items = std::stoi(member_variable_tokens[j]);
+				current_MemberVariableDefinition.min_items = std::stoi(member_variable_tokens[j].value);
 				j++;
 				if (member_variable_tokens[j] != ")")
 				{
-					printf("Error: Expected ')' after min_items number\n");
+					reportError("Expected ')' after min_items number", member_variable_tokens[j]);
 					return false;
 				}
 			}
@@ -224,20 +320,20 @@ bool ProgramStructure::readMemberVariable(std::vector<std::string> tokens, int &
 				j++;
 				if (member_variable_tokens[j] != "(")
 				{
-					printf("Error: Expected '(' after min_items\n");
+					reportError("Expected '(' after min_items", member_variable_tokens[j]);
 					return false;
 				}
 				j++;
-				if (!isInt(member_variable_tokens[j]))
+				if (!isInt(member_variable_tokens[j].value))
 				{
-					printf("Error: Expected number after min_items(\n");
+					reportError("Expected number after min_items(", member_variable_tokens[j]);
 					return false;
 				}
-				current_MemberVariableDefinition.min_items = std::stoi(member_variable_tokens[j]);
+				current_MemberVariableDefinition.min_items = std::stoi(member_variable_tokens[j].value);
 				j++;
 				if (member_variable_tokens[j] != ")")
 				{
-					printf("Error: Expected ')' after min_items number\n");
+					reportError("Expected ')' after min_items number", member_variable_tokens[j]);
 					return false;
 				}
 			}
@@ -246,20 +342,20 @@ bool ProgramStructure::readMemberVariable(std::vector<std::string> tokens, int &
 				j++;
 				if (member_variable_tokens[j] != "(")
 				{
-					printf("Error: Expected '(' after max_items\n");
+					reportError("Expected '(' after max_items", member_variable_tokens[j]);
 					return false;
 				}
 				j++;
-				if (!isInt(member_variable_tokens[j]))
+				if (!isInt(member_variable_tokens[j].value))
 				{
-					printf("Error: Expected number after max_items(\n");
+					reportError("Expected number after max_items(", member_variable_tokens[j]);
 					return false;
 				}
-				current_MemberVariableDefinition.max_items = std::stoi(member_variable_tokens[j]);
+				current_MemberVariableDefinition.max_items = std::stoi(member_variable_tokens[j].value);
 				j++;
 				if (member_variable_tokens[j] != ")")
 				{
-					printf("Error: Expected ')' after max_items number\n");
+					reportError("Expected ')' after max_items number", member_variable_tokens[j]);
 					return false;
 				}
 			}
@@ -274,23 +370,23 @@ bool ProgramStructure::readMemberVariable(std::vector<std::string> tokens, int &
 				{
 					if (member_variable_tokens[j] != "(")
 					{
-						printf("Error: Expected '(' after reference\n");
+						reportError("Expected '(' after reference", member_variable_tokens[j]);
 						return false;
 					}
 					j++;
-					current_MemberVariableDefinition.reference.struct_name = member_variable_tokens[j];
+					current_MemberVariableDefinition.reference.struct_name = member_variable_tokens[j].value;
 					j++;
 					if (member_variable_tokens[j] != ".")
 					{
-						printf("Error: Expected '.' after reference struct name\n");
+						reportError("Expected '.' after reference struct name", member_variable_tokens[j]);
 						return false;
 					}
 					j++;
-					current_MemberVariableDefinition.reference.variable_name = member_variable_tokens[j];
+					current_MemberVariableDefinition.reference.variable_name = member_variable_tokens[j].value;
 					j++;
 					if (member_variable_tokens[j] != ")")
 					{
-						printf("Error: Expected ')' after reference member variable name\n");
+						reportError("Expected ')' after reference member variable name", member_variable_tokens[j]);
 						return false;
 					}
 				}
@@ -300,52 +396,52 @@ bool ProgramStructure::readMemberVariable(std::vector<std::string> tokens, int &
 				j++;
 				if (member_variable_tokens[j] != "(")
 				{
-					printf("Error: Expected '(' after description\n");
+					reportError("Expected '(' after description", member_variable_tokens[j]);
 					return false;
 				}
 				j++;
-				current_MemberVariableDefinition.description = member_variable_tokens[j];
+				current_MemberVariableDefinition.description = member_variable_tokens[j].value;
 				j++;
 				if (member_variable_tokens[j] != ")")
 				{
-					printf("Error: Expected ')' after description\n");
+					reportError("Expected ')' after description", member_variable_tokens[j]);
 					return false;
 				}
 			}
 			else
 			{
-				printf("Error: Unexpected token %s after %s\n", member_variable_tokens[j].c_str(), current_MemberVariableDefinition.identifier.c_str());
+				reportError("Unexpected token " + member_variable_tokens[j].value + " after " + current_MemberVariableDefinition.identifier, member_variable_tokens[j]);
 				return false;
 			}
 		}
 	}
 	else
 	{
-		printf("Error: Expected member variable type After {");
+		reportError("Expected member variable type After {", tokens[i]);
 		return false;
 	}
 	return true;
 }
 
-bool ProgramStructure::readStruct(std::vector<std::string> tokens, int &i, StructDefinition &current_struct)
+bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefinition &current_struct)
 {
 	if (tokens[i] != "struct")
 	{
-		printf("Error: Expected 'struct' keyword\n");
+		reportError("Expected 'struct' keyword", tokens[i]);
 		return false;
 	}
 	i++;
-	current_struct.identifier = tokens[i];
+	current_struct.identifier = tokens[i].value;
 	i++;
 	if (tokens[i] != "{")
 	{
-		printf("Error: Expected '{' after struct identifier\n");
+		reportError("Expected '{' after struct identifier", tokens[i]);
 		return false;
 	}
 	i++;
 	while (tokens[i] != "}")
 	{
-		if (tokenIsValidTypeName(tokens[i]))
+		if (tokenIsValidTypeName(tokens[i].value))
 		{
 			MemberVariableDefinition current_MemberVariableDefinition;
 			if (!readMemberVariable(tokens, i, current_MemberVariableDefinition))
@@ -356,7 +452,7 @@ bool ProgramStructure::readStruct(std::vector<std::string> tokens, int &i, Struc
 		}
 		else
 		{
-			printf("Error: Expected member variable type %s is not a valid type for struct %s member variable %s\n", tokens[i].c_str(), current_struct.identifier.c_str(), tokens[i + 2].c_str());
+			reportError("Expected member variable type " + tokens[i].value + " is not a valid type for struct " + current_struct.identifier + " member variable " + tokens[i + 2].value, tokens[i]);
 			return false;
 		}
 	}
@@ -373,7 +469,7 @@ bool ProgramStructure::readStruct(std::vector<std::string> tokens, int &i, Struc
 	}
 	if (id_index != -1)
 	{
-		printf("Error: Struct %s can not have an 'id' member variable this is reserved for the primary key.\n", current_struct.identifier.c_str());
+		reportError("Struct " + current_struct.identifier + " can not have an 'id' member variable this is reserved for the primary key.");
 		return false;
 	}
 
@@ -397,20 +493,20 @@ bool ProgramStructure::readStruct(std::vector<std::string> tokens, int &i, Struc
 	return true;
 }
 
-bool ProgramStructure::readEnumValue(std::vector<std::string> tokens, int &i, EnumDefinition &current_enum, int &curent_index)
+bool ProgramStructure::readEnumValue(std::vector<Token> tokens, int &i, EnumDefinition &current_enum, int &curent_index)
 {
-	std::string identifier = tokens[i];
+	std::string identifier = tokens[i].value;
 	i++;
 	if (tokens[i] == "=")
 	{
 		i++;
 		// validate that the next token is a number
-		if (!isInt(tokens[i]))
+		if (!isInt(tokens[i].value))
 		{
-			printf("Error: Expected number after '='\n");
+			reportError("Expected number after '='", tokens[i]);
 			return false;
 		}
-		curent_index = std::stoi(tokens[i]);
+		curent_index = std::stoi(tokens[i].value);
 		i++;
 		if (tokens[i] == ",")
 		{
@@ -418,7 +514,7 @@ bool ProgramStructure::readEnumValue(std::vector<std::string> tokens, int &i, En
 		}
 		else
 		{
-			printf("Error: Expected ',' after enum value for identifier %s\n", identifier.c_str());
+			reportError("Expected ',' after enum value for identifier " + identifier, tokens[i]);
 			return false;
 		}
 	}
@@ -434,7 +530,7 @@ bool ProgramStructure::readEnumValue(std::vector<std::string> tokens, int &i, En
 	}
 	else
 	{
-		printf("Error: Expected ',' or '=' after enum value identifier %s\n", identifier.c_str());
+		reportError("Expected ',' or '=' after enum value identifier " + identifier, tokens[i]);
 		return false;
 	}
 
@@ -443,19 +539,19 @@ bool ProgramStructure::readEnumValue(std::vector<std::string> tokens, int &i, En
 	return true;
 }
 
-bool ProgramStructure::readEnum(std::vector<std::string> tokens, int &i, EnumDefinition &current_enum)
+bool ProgramStructure::readEnum(std::vector<Token> tokens, int &i, EnumDefinition &current_enum)
 {
 	if (tokens[i] != "enum")
 	{
-		printf("Error: Expected 'enum' keyword\n");
+		reportError("Expected 'enum' keyword", tokens[i]);
 		return false;
 	}
 	i++;
-	current_enum.identifier = tokens[i];
+	current_enum.identifier = tokens[i].value;
 	i++;
 	if (tokens[i] != "{")
 	{
-		printf("Error: Expected '{' after enum identifier\n");
+		reportError("Expected '{' after enum identifier", tokens[i]);
 		return false;
 	}
 	i++;
@@ -470,19 +566,19 @@ bool ProgramStructure::readEnum(std::vector<std::string> tokens, int &i, EnumDef
 	return true;
 }
 
-bool ProgramStructure::readConfig(std::vector<std::string> tokens, int &i)
+bool ProgramStructure::readConfig(std::vector<Token> tokens, int &i)
 {
 	// This function is a placeholder for future configuration parsing
 	// Currently, it does nothing and just returns true
 	if (tokens[i] != "config")
 	{
-		printf("Error: Expected 'config' keyword\n");
+		reportError("Expected 'config' keyword", tokens[i]);
 		return false;
 	}
 	i++;
 	if (tokens[i] != "{")
 	{
-		printf("Error: Expected '{' after config keyword\n");
+		reportError("Expected '{' after config keyword", tokens[i]);
 		return false;
 	}
 	i++;
@@ -502,18 +598,13 @@ bool ProgramStructure::validate()
 		{
 			if(mv.type.identifier()==s.identifier)
 			{
-				printf("Error: Member variable %s in struct %s can not have the same type as the struct itself.\n"
+				reportError("Member variable " + mv.identifier + " in struct " + s.identifier + " can not have the same type as the struct itself.\n"
 					"This is a recursive dependency and will cause issues with certain generators.\n"
 					"Please use the 'reference' modifier to resolve this issue.\n"
 					"Example:\n"
-					"\tstruct %s{\n"
-					"\t\t%s: %s: reference;\n"
-					"\t}\n",
-					mv.identifier.c_str(),
-					s.identifier.c_str(),
-					s.identifier.c_str(),
-					mv.type.identifier().c_str(),
-					mv.identifier.c_str());
+					"\tstruct " + s.identifier + "{\n"
+					"\t\t" + mv.type.identifier() + ": " + mv.identifier + ": reference;\n"
+					"\t}");
 				return false;
 			}
 
@@ -528,40 +619,24 @@ bool ProgramStructure::validate()
 						bool other_mv_has_ref = !(other_mv.reference.struct_name.empty() && other_mv.reference.variable_name.empty());
 						if (mv_has_ref && other_mv_has_ref)
 						{
-							printf("Error: Circular dependancy detected. use the 'reference' modifyer to resolve. Resolution examples:\n"
-								   "\tstruct %s{\n"
-								   "\t\t%s: %s: reference;\n"
+							reportError("Circular dependancy detected. use the 'reference' modifyer to resolve. Resolution examples:\n"
+								   "\tstruct " + s.identifier + "{\n"
+								   "\t\t" + mv.type.identifier() + ": " + mv.identifier + ": reference;\n"
 								   "\t}\n"
 								   "\n"
-								   "\tstruct %s{\n"
-								   "\t\t%s: %s;\n"
+								   "\tstruct " + struct_def.identifier + "{\n"
+								   "\t\t" + other_mv.type.identifier() + ": " + other_mv.identifier + ";\n"
 								   "\t}\n"
 								   "\n"
 								   "or\n"
 								   "\n"
-								   "\tstruct %s{\n"
-								   "\t\t%s: %s: reference;\n"
+								   "\tstruct " + s.identifier + "{\n"
+								   "\t\t" + mv.type.identifier() + ": " + mv.identifier + ": reference;\n"
 								   "\t}\n"
 								   "\n"
-								   "\tstruct %s{\n"
-								   "\t\t%s: %s: reference;\n"
-								   "\t}\n"
-								   "\n",
-								   s.identifier.c_str(),
-								   mv.type.identifier().c_str(),
-								   mv.identifier.c_str(),
-
-								   struct_def.identifier.c_str(),
-								   other_mv.type.identifier().c_str(),
-								   other_mv.identifier.c_str(),
-
-								   s.identifier.c_str(),
-								   mv.type.identifier().c_str(),
-								   mv.identifier.c_str(),
-
-								   struct_def.identifier.c_str(),
-								   other_mv.type.identifier().c_str(),
-								   other_mv.identifier.c_str());
+								   "\tstruct " + struct_def.identifier + "{\n"
+								   "\t\t" + other_mv.type.identifier() + ": " + other_mv.identifier + ": reference;\n"
+								   "\t}");
 							return false;
 						}
 					}
@@ -569,25 +644,25 @@ bool ProgramStructure::validate()
 			}
 			if (mv.type.is_array() && mv.type.element_type().identifier().empty())
 			{
-				printf("Error: Expected array element type for %s\n", mv.identifier.c_str());
+				reportError("Expected array element type for " + mv.identifier);
 				return false;
 			}
 			if (!mv.reference.struct_name.empty())
 			{
 				if (!tokenIsStruct(mv.reference.struct_name))
 				{
-					printf("Error: Expected struct name for reference of %s\n", mv.identifier.c_str());
+					reportError("Expected struct name for reference of " + mv.identifier);
 					return false;
 				}
 				if (mv.reference.variable_name.empty())
 				{
-					printf("Error: Expected member variable name for reference of %s\n", mv.identifier.c_str());
+					reportError("Expected member variable name for reference of " + mv.identifier);
 					return false;
 				}
 				// if struct does not have member variable with name of reference variable name
 				if (!getStruct(mv.reference.struct_name).has_MemberVariableDefinition(mv.reference.variable_name))
 				{
-					printf("Error: Struct %s does not have member variable %s\n", mv.reference.struct_name.c_str(), mv.reference.variable_name.c_str());
+					reportError("Struct " + mv.reference.struct_name + " does not have member variable " + mv.reference.variable_name);
 					return false;
 				}
 			}
@@ -660,7 +735,7 @@ EnumDefinition &ProgramStructure::getEnum(std::string identifier)
 	}
 }
 
-bool ProgramStructure::parseTypeNames(std::vector<std::string> tokens)
+bool ProgramStructure::parseTypeNames(std::vector<Token> tokens)
 {
 	for (int i = 0; i < tokens.size(); i++)
 	{
@@ -669,11 +744,11 @@ bool ProgramStructure::parseTypeNames(std::vector<std::string> tokens)
 			i++;
 			if (i < tokens.size())
 			{
-				type_names.push_back(tokens[i]);
+				type_names.push_back(tokens[i].value);
 			}
 			else
 			{
-				printf("Error: Expected type name after 'struct' or 'enum'\n");
+				reportError("Expected type name after 'struct' or 'enum'", tokens[i-1]);
 				return false;
 			}
 			continue;
@@ -688,19 +763,26 @@ bool ProgramStructure::readFile(std::string file_path)
 	file.open(file_path, std::ios::in);
 	if (!file.is_open())
 	{
-		printf("Error: Failed to open file %s\n", file_path.c_str());
+		current_position.file_path = file_path;
+		reportError("Failed to open file " + file_path);
 		return false;
 	}
+	
+	// Set current file context
+	current_file = file_path;
+	current_position = SourcePosition(file_path, 1, 1);
+	
 	std::string whole_file;
 	file.seekg(0, std::ios::end);
 	whole_file.reserve(file.tellg());
 	file.seekg(0, std::ios::beg);
 	whole_file.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 	file.close();
-	std::vector<std::string> tokens = tokenize(whole_file);
+	
+	std::vector<Token> tokens = tokenizeWithPosition(whole_file, file_path);
 	if (!parseTypeNames(tokens))
 	{
-		printf("Error: Failed to parse type and enum names from file %s\n", file_path.c_str());
+		reportError("Failed to parse type and enum names from file " + file_path);
 		return false;
 	}
 
@@ -709,11 +791,14 @@ bool ProgramStructure::readFile(std::string file_path)
 	MemberVariableDefinition current_MemberVariableDefinition;
 	for (int i = 0; i < tokens.size(); i++)
 	{
-		std::string token = tokens[i];
+		// Update current parsing position
+		current_position = tokens[i].position;
+		
+		std::string token = tokens[i].value;
 		if (token == "include")
 		{
 			i++;
-			std::string include_file = tokens[i];
+			std::string include_file = tokens[i].value;
 			//check if this is absolute path or relative path
 			if (include_file[0] == '/')
 			{
@@ -730,7 +815,7 @@ bool ProgramStructure::readFile(std::string file_path)
 				current_file_path += "/" + include_file;
 				if (!readFile(current_file_path))
 				{
-					printf("Error: Failed to read included file %s\n", current_file_path.c_str());
+					reportError("Failed to read included file " + current_file_path, tokens[i]);
 					return false;
 				}
 			}
