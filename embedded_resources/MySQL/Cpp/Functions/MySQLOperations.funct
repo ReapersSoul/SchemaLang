@@ -1,0 +1,232 @@
+{% if header %}
+static bool MySQLSetConnection(mysqlx::Session* session);
+static mysqlx::Session* MySQLGetConnection();
+static bool MySQLCreateTable();
+bool MySQLInsert();
+bool MySQLUpdate();
+bool MySQLDelete();
+static std::vector<{{struct}}Schema*> MySQLSelectAll();
+{% for mv in member_variables %}
+static std::vector<{{struct}}Schema*> MySQLSelectBy{{mv.identifier}}({{mv.type}} {{mv.identifier}});
+{% endfor %}
+{% else %}
+bool {{struct}}Schema::MySQLSetConnection(mysqlx::Session* session)
+{
+    if(session == nullptr) {
+        std::cerr << "MySQL session pointer is null!" << std::endl;
+        return false;
+    }
+    {{struct}}Schema::mysql_session = session;
+    if(!MySQLCreateTable()) {
+        std::cerr << "Failed to create table for {{struct}} in MySQL database." << std::endl;
+        return false;
+    }
+    std::cout << "MySQL connection set for {{struct}} schema." << std::endl;
+    return true;
+}
+
+mysqlx::Session* {{struct}}Schema::MySQLGetConnection()
+{
+    return {{struct}}Schema::mysql_session;
+}
+
+bool {{struct}}Schema::MySQLCreateTable()
+{
+    if(mysql_session == nullptr) {
+        std::cerr << "MySQL session not set! Call MySQLSetConnection first." << std::endl;
+        return false;
+    }
+    
+    try {
+        auto schema = mysql_session->getSchema("{{database_name}}");
+        std::string create_sql = "CREATE TABLE IF NOT EXISTS {{struct}} ("
+{% for mv in member_variables %}
+                            "{{mv.identifier}} {% if mv.type.is_integer() %}INT{% elif mv.type.is_real() %}DOUBLE{% elif mv.type.is_string() %}VARCHAR(255){% elif mv.type.is_bool() %}BOOLEAN{% else %}TEXT{% endif %}{% if mv.primary_key %} PRIMARY KEY{% endif %}{% if mv.auto_increment %} AUTO_INCREMENT{% endif %}{% if mv.required %} NOT NULL{% endif %}{% if not loop.is_last %}, {% endif %}"
+{% endfor %}
+                            ")";
+        
+        mysql_session->sql(create_sql).execute();
+        return true;
+    }
+    catch (const mysqlx::Error& e) {
+        std::cerr << "MySQL error: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+bool {{struct}}Schema::MySQLInsert()
+{
+    if(mysql_session == nullptr) {
+        std::cerr << "MySQL session not set! Call MySQLSetConnection first." << std::endl;
+        return false;
+    }
+    
+    try {
+        auto schema = mysql_session->getSchema("{{database_name}}");
+        auto table = schema.getTable("{{struct}}");
+        
+        auto insert = table.insert({% for mv in member_variables %}"{{mv.identifier}}"{% if not loop.is_last %}, {% endif %}{% endfor %});
+        insert.values({% for mv in member_variables %}this->{{mv.identifier}}{% if not mv.required %}.value_or({{mv.type}}{}){% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %});
+        insert.execute();
+        return true;
+    }
+    catch (const mysqlx::Error& e) {
+        std::cerr << "MySQL insert error: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+bool {{struct}}Schema::MySQLUpdate()
+{
+    if(mysql_session == nullptr) {
+        std::cerr << "MySQL session not set! Call MySQLSetConnection first." << std::endl;
+        return false;
+    }
+    
+    try {
+        auto schema = mysql_session->getSchema("{{database_name}}");
+        auto table = schema.getTable("{{struct}}");
+        
+        auto update = table.update();
+{% for mv in member_variables %}
+{% if not mv.primary_key %}
+        update.set("{{mv.identifier}}", this->{{mv.identifier}}{% if not mv.required %}.value_or({{mv.type}}{}){% endif %});
+{% endif %}
+{% endfor %}
+        
+        // Add WHERE clause for primary key
+{% for mv in member_variables %}
+{% if mv.primary_key %}
+        update.where("{{mv.identifier}} = :pk").bind("pk", this->{{mv.identifier}}{% if not mv.required %}.value_or({{mv.type}}{}){% endif %});
+{% endif %}
+{% endfor %}
+        
+        update.execute();
+        return true;
+    }
+    catch (const mysqlx::Error& e) {
+        std::cerr << "MySQL update error: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+bool {{struct}}Schema::MySQLDelete()
+{
+    if(mysql_session == nullptr) {
+        std::cerr << "MySQL session not set! Call MySQLSetConnection first." << std::endl;
+        return false;
+    }
+    
+    try {
+        auto schema = mysql_session->getSchema("{{database_name}}");
+        auto table = schema.getTable("{{struct}}");
+        
+        auto remove = table.remove();
+        
+        // Add WHERE clause for primary key
+{% for mv in member_variables %}
+{% if mv.primary_key %}
+        remove.where("{{mv.identifier}} = :pk").bind("pk", this->{{mv.identifier}}{% if not mv.required %}.value_or({{mv.type}}{}){% endif %});
+{% endif %}
+{% endfor %}
+        
+        remove.execute();
+        return true;
+    }
+    catch (const mysqlx::Error& e) {
+        std::cerr << "MySQL delete error: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+std::vector<{{struct}}Schema*> {{struct}}Schema::MySQLSelectAll()
+{
+    std::vector<{{struct}}Schema*> results;
+    
+    if(mysql_session == nullptr) {
+        std::cerr << "MySQL session not set! Call MySQLSetConnection first." << std::endl;
+        return results;
+    }
+    
+    try {
+        auto schema = mysql_session->getSchema("{{database_name}}");
+        auto table = schema.getTable("{{struct}}");
+        
+        auto select = table.select({% for mv in member_variables %}"{{mv.identifier}}"{% if not loop.is_last %}, {% endif %}{% endfor %});
+        auto result = select.execute();
+        
+        while (auto row = result.fetchOne()) {
+            {{struct}}Schema* obj = new {{struct}}Schema();
+{% for mv in member_variables %}
+            // Set {{mv.identifier}}
+{% if mv.type.is_integer() %}
+            obj->set{{mv.identifier}}(row[{{loop.index0}}].get<int>());
+{% elif mv.type.is_real() %}
+            obj->set{{mv.identifier}}(row[{{loop.index0}}].get<double>());
+{% elif mv.type.is_string() %}
+            obj->set{{mv.identifier}}(row[{{loop.index0}}].get<std::string>());
+{% elif mv.type.is_bool() %}
+            obj->set{{mv.identifier}}(row[{{loop.index0}}].get<bool>());
+{% else %}
+            obj->set{{mv.identifier}}(row[{{loop.index0}}].get<{{mv.type}}>());
+{% endif %}
+{% endfor %}
+            results.push_back(obj);
+        }
+        
+        return results;
+    }
+    catch (const mysqlx::Error& e) {
+        std::cerr << "MySQL select error: " << e.what() << std::endl;
+        return results;
+    }
+}
+
+{% for mv in member_variables %}
+std::vector<{{struct}}Schema*> {{struct}}Schema::MySQLSelectBy{{mv.identifier}}({{mv.type}} {{mv.identifier}})
+{
+    std::vector<{{struct}}Schema*> results;
+    
+    if(mysql_session == nullptr) {
+        std::cerr << "MySQL session not set! Call MySQLSetConnection first." << std::endl;
+        return results;
+    }
+    
+    try {
+        auto schema = mysql_session->getSchema("{{database_name}}");
+        auto table = schema.getTable("{{struct}}");
+        
+        auto select = table.select({% for mv2 in member_variables %}"{{mv2.identifier}}"{% if not loop.is_last %}, {% endif %}{% endfor %})
+                          .where("{{mv.identifier}} = :value")
+                          .bind("value", {{mv.identifier}});
+        auto result = select.execute();
+        
+        while (auto row = result.fetchOne()) {
+            {{struct}}Schema* obj = new {{struct}}Schema();
+{% for mv2 in member_variables %}
+            // Set {{mv2.identifier}}
+{% if mv2.type.is_integer() %}
+            obj->set{{mv2.identifier}}(row[{{loop.index0}}].get<int>());
+{% elif mv2.type.is_real() %}
+            obj->set{{mv2.identifier}}(row[{{loop.index0}}].get<double>());
+{% elif mv2.type.is_string() %}
+            obj->set{{mv2.identifier}}(row[{{loop.index0}}].get<std::string>());
+{% elif mv2.type.is_bool() %}
+            obj->set{{mv2.identifier}}(row[{{loop.index0}}].get<bool>());
+{% else %}
+            obj->set{{mv2.identifier}}(row[{{loop.index0}}].get<{{mv2.type}}>());
+{% endif %}
+{% endfor %}
+            results.push_back(obj);
+        }
+        
+        return results;
+    }
+    catch (const mysqlx::Error& e) {
+        std::cerr << "MySQL select error: " << e.what() << std::endl;
+        return results;
+    }
+}
+
+{% endfor %}
+{% endif %}

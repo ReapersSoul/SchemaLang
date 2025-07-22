@@ -1,0 +1,24 @@
+{% if header %}
+static bool SQLiteSetDatabase(sqlite3* db);
+static sqlite3* SQLiteGetDatabase();
+{% else %}
+bool {{struct}}Schema::SQLiteSetDatabase(sqlite3* db)
+{
+    if(db == nullptr) {
+        std::cerr << "Database pointer is null!" << std::endl;
+        return false;
+    }
+    {{struct}}Schema::db = db;
+    if(!SQLiteCreateTable(db)) {
+        std::cerr << "Failed to create table for {{struct}} in SQLite database." << std::endl;
+        return false;
+    }
+    std::cout << "Database set for {{struct}} schema." << std::endl;
+    return true;
+}
+
+sqlite3* {{struct}}Schema::SQLiteGetDatabase()
+{
+    return {{struct}}Schema::db;
+}
+{% endif %}

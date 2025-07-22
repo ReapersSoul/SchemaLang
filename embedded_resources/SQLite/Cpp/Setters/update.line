@@ -1,0 +1,7 @@
+{% if not header %}
+if(db != nullptr) {
+    if(!SQLiteUpdate()) {
+        std::cerr << "Failed to update {{struct}} in SQLite database." << std::endl;
+    }
+}
+{% endif %}

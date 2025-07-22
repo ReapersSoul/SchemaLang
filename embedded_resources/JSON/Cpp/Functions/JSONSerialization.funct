@@ -1,0 +1,76 @@
+{% if header %}
+std::string toJSON() const;
+static {{struct}}Schema fromJSON(const std::string& json_str);
+std::string getJSONSchema() const;
+{% else %}
+std::string {{struct}}Schema::toJSON() const
+{
+    std::string json = "{";
+{% for mv in member_variables %}
+    json += "\"{{mv.identifier}}\": ";
+{% if mv.type.is_string() %}
+    json += "\"" + {% if not mv.required %}({{mv.identifier}}.has_value() ? {{mv.identifier}}.value() : ""){% else %}{{mv.identifier}}{% endif %} + "\"";
+{% elif mv.type.is_integer() or mv.type.is_real() %}
+    json += std::to_string({% if not mv.required %}{{mv.identifier}}.value_or(0){% else %}{{mv.identifier}}{% endif %});
+{% elif mv.type.is_bool() %}
+    json += ({% if not mv.required %}{{mv.identifier}}.value_or(false){% else %}{{mv.identifier}}{% endif %} ? "true" : "false");
+{% else %}
+    json += "\"" + std::to_string({% if not mv.required %}{{mv.identifier}}.value_or(0){% else %}{{mv.identifier}}{% endif %}) + "\"";
+{% endif %}
+{% if not loop.is_last %}
+    json += ", ";
+{% endif %}
+{% endfor %}
+    json += "}";
+    return json;
+}
+
+{{struct}}Schema {{struct}}Schema::fromJSON(const std::string& json_str)
+{
+    {{struct}}Schema obj;
+    // Simple JSON parsing - you might want to use a proper JSON library like nlohmann::json
+    // This is a basic implementation for demonstration
+    
+    // For now, return empty object - implement proper JSON parsing as needed
+    return obj;
+}
+
+std::string {{struct}}Schema::getJSONSchema() const
+{
+    std::string schema = "{";
+    schema += "\"type\": \"object\", ";
+    schema += "\"properties\": {";
+{% for mv in member_variables %}
+    schema += "\"{{mv.identifier}}\": {";
+{% if mv.type.is_string() %}
+    schema += "\"type\": \"string\"";
+{% elif mv.type.is_integer() %}
+    schema += "\"type\": \"integer\"";
+{% elif mv.type.is_real() %}
+    schema += "\"type\": \"number\"";
+{% elif mv.type.is_bool() %}
+    schema += "\"type\": \"boolean\"";
+{% else %}
+    schema += "\"type\": \"string\"";
+{% endif %}
+{% if mv.required %}
+    schema += ", \"required\": true";
+{% endif %}
+    schema += "}";
+{% if not loop.is_last %}
+    schema += ", ";
+{% endif %}
+{% endfor %}
+    schema += "}, ";
+    schema += "\"required\": [";
+{% set comma = joiner(", ") %}
+{% for mv in member_variables %}
+{% if mv.required %}
+{{ comma() }}"{{mv.identifier}}"
+{% endif %}
+{% endfor %}
+    schema += "]";
+    schema += "}";
+    return schema;
+}
+{% endif %}

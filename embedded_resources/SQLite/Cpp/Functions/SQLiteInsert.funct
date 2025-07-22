@@ -1,0 +1,50 @@
+{% if header %}
+bool SQLiteInsert();
+static bool SQLiteInsert(sqlite3* db{% for mv in member_variables %}, {{mv.type}} {{mv.identifier}}{% endfor %});
+{% else %}
+bool {{struct}}Schema::SQLiteInsert()
+{
+    if(db == nullptr) {
+        std::cerr << "Database not set! Call SQLiteSetDatabase first." << std::endl;
+        return false;
+    }
+    return SQLiteInsert(db{% for mv in member_variables %}, this->{{mv.identifier}}{% if mv.required %}{% else %}.value_or({{mv.type}}{}){% endif %}{% endfor %});
+}
+
+bool {{struct}}Schema::SQLiteInsert(sqlite3* db{% for mv in member_variables %}, {{mv.type}} {{mv.identifier}}{% endfor %})
+{
+    std::string sql = "INSERT INTO {{struct}} ({% for mv in member_variables %}{{mv.identifier}}{% if not loop.is_last %}, {% endif %}{% endfor %}) VALUES ({% for mv in member_variables %}?{% if not loop.is_last %}, {% endif %}{% endfor %})";
+    
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, NULL);
+    if(rc != SQLITE_OK) {
+        std::cerr << "SQLite prepare error: " << sqlite3_errmsg(db) << std::endl;
+        return false;
+    }
+    
+{% for mv in member_variables %}
+    // Bind parameter {{loop.index}}: {{mv.identifier}}
+{% if mv.type.is_integer() %}
+    sqlite3_bind_int(stmt, {{loop.index}}, {{mv.identifier}});
+{% elif mv.type.is_real() %}
+    sqlite3_bind_double(stmt, {{loop.index}}, {{mv.identifier}});
+{% elif mv.type.is_string() %}
+    sqlite3_bind_text(stmt, {{loop.index}}, {{mv.identifier}}.c_str(), -1, SQLITE_STATIC);
+{% elif mv.type.is_bool() %}
+    sqlite3_bind_int(stmt, {{loop.index}}, {{mv.identifier}} ? 1 : 0);
+{% else %}
+    sqlite3_bind_text(stmt, {{loop.index}}, std::to_string({{mv.identifier}}).c_str(), -1, SQLITE_STATIC);
+{% endif %}
+{% endfor %}
+    
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    
+    if(rc != SQLITE_DONE) {
+        std::cerr << "SQLite insert error: " << sqlite3_errmsg(db) << std::endl;
+        return false;
+    }
+    
+    return true;
+}
+{% endif %}

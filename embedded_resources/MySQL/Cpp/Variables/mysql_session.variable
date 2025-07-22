@@ -1,0 +1,3 @@
+{% if header %}
+static mysqlx::Session* mysql_session;
+{% endif %}

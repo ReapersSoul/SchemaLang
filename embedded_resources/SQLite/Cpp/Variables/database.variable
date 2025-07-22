@@ -1,0 +1,3 @@
+{% if header %}
+static sqlite3* db;
+{% endif %}
