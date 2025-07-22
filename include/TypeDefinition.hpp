@@ -6,12 +6,14 @@ class TypeDefinition
 {
 	std::string ident;
 	TypeDefinition *elem_type;
+	bool defaulted = false;
 
 public:
 	TypeDefinition();
 	TypeDefinition(std::string ident);
-	TypeDefinition(std::string ident, TypeDefinition elem_type);
-	std::string &identifier();
+    TypeDefinition(std::string ident, bool defaulted);
+    TypeDefinition(std::string ident, TypeDefinition elem_type);
+    std::string &identifier();
 	bool is_array();
 	bool is_struct(ProgramStructure*ps);
 	bool is_enum(ProgramStructure*ps);
@@ -31,5 +33,8 @@ public:
 	bool is_array_of_bool();
 	bool is_array_of_string();
 	bool is_array_of_char();
+	bool is_optional();
+	bool is_defaulted() const { return defaulted; }
+	void setDefaulted(bool value) { defaulted = value; }
 	TypeDefinition &element_type();
 };

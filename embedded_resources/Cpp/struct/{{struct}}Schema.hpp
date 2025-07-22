@@ -54,13 +54,13 @@ public:
 {% endfor %}
 
 {% for f in functions %}
-	{% if f.static %}static {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if not loop.is_last %}, {% endif %}{% endfor %});
+	{% if f.static %}static {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if param.defaultArg %}={{param.defaultArg}}{% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %});
 {% endfor %}
 
 {% for key,g in generators %}
 	// Generator: {{key}}
 {% for f in g.functions %}
-	{% if f.static %}static {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if not loop.is_last %}, {% endif %}{% endfor %});
+	{% if f.static %}static {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if param.defaultArg %}={{param.defaultArg}}{% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %});
 {% endfor %}
 
 {% endfor %}
@@ -68,7 +68,7 @@ public:
 {% for bc in base_classes %}
     // Base class: {{bc.identifier}}
 {% for f in bc.functions %}
-    {% if f.static %}static {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if not loop.is_last %}, {% endif %}{% endfor %}) override;
+    {% if f.static %}static {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if param.defaultArg %}={{param.defaultArg}}{% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %}) override;
 {% endfor %}
 
 {% endfor %}

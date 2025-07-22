@@ -18,6 +18,8 @@ public:
 
 	std::string convert_to_local_type(ProgramStructure *ps, TypeDefinition type);
 
+	std::string get_default_of_type(ProgramStructure *ps, TypeDefinition type);
+
 	// Helper method to format includes with prefix and bracket type
 	std::string format_include(const std::string& filename) const;
 

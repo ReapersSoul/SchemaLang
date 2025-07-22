@@ -194,22 +194,46 @@ std::string MysqlGenerator::generate_select_by_member_variable_statement_string(
 std::string MysqlGenerator::generate_insert_statement_string_struct(StructDefinition &s)
 {
 	std::string sql = "INSERT INTO " + escape_identifier(s.getIdentifier()) + " (";
+	bool first = true;
 	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
-		sql += escape_identifier(s.getMemberVariables()[i].second.identifier);
-		if (i < s.getMemberVariables().size() - 1)
+		// Skip array fields - arrays are handled by foreign key relationships
+		if (s.getMemberVariables()[i].second.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!s.getMemberVariables()[i].second.reference.variable_name.empty())
+		{
+			continue;
+		}
+		if (!first)
 		{
 			sql += ", ";
 		}
+		sql += escape_identifier(s.getMemberVariables()[i].second.identifier);
+		first = false;
 	}
 	sql += ") VALUES (";
+	first = true;
 	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
-		sql += "?";
-		if (i < s.getMemberVariables().size() - 1)
+		// Skip array fields - arrays are handled by foreign key relationships
+		if (s.getMemberVariables()[i].second.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!s.getMemberVariables()[i].second.reference.variable_name.empty())
+		{
+			continue;
+		}
+		if (!first)
 		{
 			sql += ", ";
 		}
+		sql += "?";
+		first = false;
 	}
 	sql += ");";
 	return sql;
@@ -221,6 +245,16 @@ std::string MysqlGenerator::generate_update_all_statement_string_struct(StructDe
 	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
 		if (s.getMemberVariables()[i].second.primary_key)
+		{
+			continue;
+		}
+		// Skip array fields - arrays are handled by foreign key relationships
+		if (s.getMemberVariables()[i].second.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!s.getMemberVariables()[i].second.reference.variable_name.empty())
 		{
 			continue;
 		}
@@ -384,9 +418,46 @@ void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, 
 	insert_statement.return_type.identifier() = "bool";
 	insert_statement.static_function = true;
 	insert_statement.parameters.push_back(std::make_pair(mysql_session, "session"));
+	
+	// First, add all required parameters
 	for (auto& [generator, mv] : s.getMemberVariables())
 	{
-		insert_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+		// Skip array fields - arrays are handled by foreign key relationships
+		if (mv.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!mv.reference.variable_name.empty())
+		{
+			continue;
+		}
+		// Only add required parameters in this pass
+		if (mv.required)
+		{
+			insert_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+		}
+	}
+	
+	// Then, add all optional parameters with default values
+	for (auto& [generator, mv] : s.getMemberVariables())
+	{
+		// Skip array fields - arrays are handled by foreign key relationships
+		if (mv.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!mv.reference.variable_name.empty())
+		{
+			continue;
+		}
+		// Only add optional parameters in this pass
+		if (!mv.required)
+		{
+			std::string param_type = "std::optional<" + gen->convert_to_local_type(ps, mv.type) + ">";
+			insert_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type,true), mv.identifier));
+		}
 	}
 	insert_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
@@ -394,23 +465,54 @@ void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, 
 		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
 		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.getIdentifier()) << "\");\n";
 		structFile << "\t\ttable.insert(";
+		bool first = true;
 		for (int i = 0; i < s.getMemberVariables().size(); i++)
 		{
-			structFile << "\"" << escape_identifier(s.getMemberVariables()[i].second.identifier) << "\"";
-			if (i < s.getMemberVariables().size() - 1)
+			// Skip array fields - arrays are handled by foreign key relationships
+			if (s.getMemberVariables()[i].second.type.is_array())
+			{
+				continue;
+			}
+			// Skip reference fields - TODO: Update to handle reference field updates properly
+			if (!s.getMemberVariables()[i].second.reference.variable_name.empty())
+			{
+				continue;
+			}
+			if (!first)
 			{
 				structFile << ", ";
 			}
+			structFile << "\"" << escape_identifier(s.getMemberVariables()[i].second.identifier) << "\"";
+			first = false;
 		}
 		structFile << ")\n";
 		structFile << "\t\t\t.values(";
+		first = true;
 		for (int i = 0; i < s.getMemberVariables().size(); i++)
 		{
-			structFile << s.getMemberVariables()[i].second.identifier;
-			if (i < s.getMemberVariables().size() - 1)
+			// Skip array fields - arrays are handled by foreign key relationships
+			if (s.getMemberVariables()[i].second.type.is_array())
+			{
+				continue;
+			}
+			// Skip reference fields - TODO: Update to handle reference field updates properly
+			if (!s.getMemberVariables()[i].second.reference.variable_name.empty())
+			{
+				continue;
+			}
+			if (!first)
 			{
 				structFile << ", ";
 			}
+			if (s.getMemberVariables()[i].second.required)
+			{
+				structFile << s.getMemberVariables()[i].second.identifier;
+			}
+			else
+			{
+				structFile << "(" << s.getMemberVariables()[i].second.identifier << ".has_value() ? " << s.getMemberVariables()[i].second.identifier << ".value() : mysqlx::nullvalue)";
+			}
+			first = false;
 		}
 		structFile << ")\n";
 		structFile << "\t\t\t.execute();\n";
@@ -428,30 +530,60 @@ void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, 
 	insert_statement_no_args.identifier = "MySQLInsert";
 	insert_statement_no_args.return_type.identifier() = "bool";
 	insert_statement_no_args.static_function = false;
-	insert_statement_no_args.parameters.push_back(std::make_pair(mysql_session, "session"));
 	insert_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
-		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
+		structFile << "\t\tmysqlx::Schema db = session->getSchema(\"" << s.getIdentifier() << "_db\");\n";
 		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.getIdentifier()) << "\");\n";
 		structFile << "\t\ttable.insert(";
+		bool first = true;
 		for (int i = 0; i < s.getMemberVariables().size(); i++)
 		{
-			structFile << "\"" << escape_identifier(s.getMemberVariables()[i].second.identifier) << "\"";
-			if (i < s.getMemberVariables().size() - 1)
+			// Skip array fields - arrays are handled by foreign key relationships
+			if (s.getMemberVariables()[i].second.type.is_array())
+			{
+				continue;
+			}
+			// Skip reference fields - TODO: Update to handle reference field updates properly
+			if (!s.getMemberVariables()[i].second.reference.variable_name.empty())
+			{
+				continue;
+			}
+			if (!first)
 			{
 				structFile << ", ";
 			}
+			structFile << "\"" << escape_identifier(s.getMemberVariables()[i].second.identifier) << "\"";
+			first = false;
 		}
 		structFile << ")\n";
 		structFile << "\t\t\t.values(";
+		first = true;
 		for (int i = 0; i < s.getMemberVariables().size(); i++)
 		{
-			structFile << "this->" << s.getMemberVariables()[i].second.identifier;
-			if (i < s.getMemberVariables().size() - 1)
+			// Skip array fields - arrays are handled by foreign key relationships
+			if (s.getMemberVariables()[i].second.type.is_array())
+			{
+				continue;
+			}
+			// Skip reference fields - TODO: Update to handle reference field updates properly
+			if (!s.getMemberVariables()[i].second.reference.variable_name.empty())
+			{
+				continue;
+			}
+			if (!first)
 			{
 				structFile << ", ";
 			}
+			if (s.getMemberVariables()[i].second.required)
+			{
+				structFile << "this->" << s.getMemberVariables()[i].second.identifier;
+			}
+			else
+			{
+				structFile << "(this->" << s.getMemberVariables()[i].second.identifier << ".has_value() ? this->" << s.getMemberVariables()[i].second.identifier << ".value() : mysqlx::nullvalue)";
+			}
+			first = false;
 		}
 		structFile << ")\n";
 		structFile << "\t\t\t.execute();\n";
@@ -473,9 +605,46 @@ void MysqlGenerator::generate_update_all_statement_function_struct(Generator *ge
 	update_all_statement.return_type.identifier() = "bool";
 	update_all_statement.static_function = true;
 	update_all_statement.parameters.push_back(std::make_pair(mysql_session, "session"));
+	
+	// First, add all required parameters
 	for (auto& [generator, mv] : s.getMemberVariables())
 	{
-		update_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+		// Skip array fields - arrays are handled by foreign key relationships
+		if (mv.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!mv.reference.variable_name.empty())
+		{
+			continue;
+		}
+		// Only add required parameters in this pass
+		if (mv.required)
+		{
+			update_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+		}
+	}
+	
+	// Then, add all optional parameters with default values
+	for (auto& [generator, mv] : s.getMemberVariables())
+	{
+		// Skip array fields - arrays are handled by foreign key relationships
+		if (mv.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!mv.reference.variable_name.empty())
+		{
+			continue;
+		}
+		// Only add optional parameters in this pass
+		if (!mv.required)
+		{
+			std::string param_type = "std::optional<" + gen->convert_to_local_type(ps, mv.type) + ">";
+			update_all_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type,true), mv.identifier));
+		}
 	}
 	update_all_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
@@ -501,7 +670,26 @@ void MysqlGenerator::generate_update_all_statement_function_struct(Generator *ge
 		{
 			if (!mv.primary_key)
 			{
-				structFile << "\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", " << mv.identifier << ");\n";
+				// Skip array fields - arrays are handled by foreign key relationships
+				if (mv.type.is_array())
+				{
+					continue;
+				}
+				// Skip reference fields - TODO: Update to handle reference field updates properly
+				if (!mv.reference.variable_name.empty())
+				{
+					continue;
+				}
+				if (mv.required)
+				{
+					structFile << "\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", " << mv.identifier << ");\n";
+				}
+				else
+				{
+					structFile << "\t\tif (" << mv.identifier << ".has_value()) {\n";
+					structFile << "\t\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", " << mv.identifier << ".value());\n";
+					structFile << "\t\t}\n";
+				}
 			}
 		}
 		
@@ -533,13 +721,44 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 	update_statement.return_type.identifier() = "bool";
 	update_statement.static_function = true;
 	update_statement.parameters.push_back(std::make_pair(mysql_session, "session"));
+	
+	// First, add all required parameters
 	for (auto& [generator, mv] : s.getMemberVariables())
 	{
 		if (mv.type.is_array())
 		{
 			continue;
 		}
-		update_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!mv.reference.variable_name.empty())
+		{
+			continue;
+		}
+		// Only add required parameters in this pass
+		if (mv.required)
+		{
+			update_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+		}
+	}
+	
+	// Then, add all optional parameters with default values
+	for (auto& [generator, mv] : s.getMemberVariables())
+	{
+		if (mv.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!mv.reference.variable_name.empty())
+		{
+			continue;
+		}
+		// Only add optional parameters in this pass
+		if (!mv.required)
+		{
+			std::string param_type = "std::optional<" + gen->convert_to_local_type(ps, mv.type) + ">";
+			update_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type,true), mv.identifier));
+		}
 	}
 	update_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
@@ -555,7 +774,21 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 			{
 				continue;
 			}
-			structFile << "\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", " << mv.identifier << ");\n";
+			// Skip reference fields - TODO: Update to handle reference field updates properly
+			if (!mv.reference.variable_name.empty())
+			{
+				continue;
+			}
+			if (mv.required)
+			{
+				structFile << "\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", " << mv.identifier << ");\n";
+			}
+			else
+			{
+				structFile << "\t\tif (" << mv.identifier << ".has_value()) {\n";
+				structFile << "\t\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", " << mv.identifier << ".value());\n";
+				structFile << "\t\t}\n";
+			}
 		}
 		
 		// Add WHERE clause for primary key
@@ -584,19 +817,53 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 	update_statement_no_args.identifier = "MySQLUpdate";
 	update_statement_no_args.return_type.identifier() = "bool";
 	update_statement_no_args.static_function = false;
-	update_statement_no_args.parameters.push_back(std::make_pair(mysql_session, "session"));
 	update_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
-		structFile << "\treturn MySQLUpdate(session";
+		structFile << "\ttry {\n";
+		structFile << "\t\tmysqlx::Schema db = session->getSchema(\"" << s.getIdentifier() << "_db\");\n";
+		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.getIdentifier()) << "\");\n";
+		structFile << "\t\tmysqlx::TableUpdate update = table.update();\n";
+		
+		// Set all non-primary key fields
 		for (auto& [generator, mv] : s.getMemberVariables())
 		{
-			if (mv.type.is_array())
+			if (mv.type.is_array() || mv.primary_key)
 			{
 				continue;
 			}
-			structFile << ", " << mv.identifier;
+			// Skip reference fields - TODO: Update to handle reference field updates properly
+			if (!mv.reference.variable_name.empty())
+			{
+				continue;
+			}
+			if (mv.required)
+			{
+				structFile << "\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", this->" << mv.identifier << ");\n";
+			}
+			else
+			{
+				structFile << "\t\tif (this->" << mv.identifier << ".has_value()) {\n";
+				structFile << "\t\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", this->" << mv.identifier << ".value());\n";
+				structFile << "\t\t}\n";
+			}
 		}
-		structFile << ");\n";
+		
+		// Add WHERE clause for primary key
+		for (auto& [generator, mv] : s.getMemberVariables())
+		{
+			if (mv.primary_key)
+			{
+				structFile << "\t\tupdate.where(\"" << escape_identifier(mv.identifier) << " = :pk\").bind(\"pk\", this->" << mv.identifier << ");\n";
+				break;
+			}
+		}
+		
+		structFile << "\t\tmysqlx::Result result = update.execute();\n";
+		structFile << "\t\treturn result.getAffectedItemsCount() > 0;\n";
+		structFile << "\t} catch (const std::exception& e) {\n";
+		structFile << "\t\tstd::cerr << \"MySQL Update error: \" << e.what() << std::endl;\n";
+		structFile << "\t\treturn false;\n";
+		structFile << "\t}\n";
 		return true;
 	};
 	s.add_function(update_statement_no_args);
@@ -681,20 +948,26 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 	delete_statement_no_args.identifier = "MySQLDelete";
 	delete_statement_no_args.return_type.identifier() = "bool";
 	delete_statement_no_args.static_function = false;
-	delete_statement_no_args.parameters.push_back(std::make_pair(mysql_session, "session"));
 	delete_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
-		structFile << "\treturn MySQLDelete(session";
-		// Find primary key
+		structFile << "\ttry {\n";
+		structFile << "\t\tmysqlx::Schema db = session->getSchema(\"" << s.getIdentifier() << "_db\");\n";
+		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.getIdentifier()) << "\");\n";
+		
+		// Find primary key field for WHERE clause
 		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			if (mv.primary_key)
 			{
-				structFile << ", " << mv.identifier;
+				structFile << "\t\tmysqlx::Result result = table.remove()\n";
+				structFile << "\t\t\t.where(\"" << escape_identifier(mv.identifier) << " = :pk\")\n";
+				structFile << "\t\t\t.bind(\"pk\", this->" << mv.identifier << ")\n";
+				structFile << "\t\t\t.execute();\n";
 				break;
 			}
 		}
-		// If no primary key, use first field
+		
+		// If no primary key found, use first field
 		if (!s.getMemberVariables().empty())
 		{
 			bool has_primary_key = false;
@@ -708,10 +981,18 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 			}
 			if (!has_primary_key)
 			{
-				structFile << ", " << s.getMemberVariables()[0].second.identifier;
+				structFile << "\t\tmysqlx::Result result = table.remove()\n";
+				structFile << "\t\t\t.where(\"" << escape_identifier(s.getMemberVariables()[0].second.identifier) << " = :param\")\n";
+				structFile << "\t\t\t.bind(\"param\", this->" << s.getMemberVariables()[0].second.identifier << ")\n";
+				structFile << "\t\t\t.execute();\n";
 			}
 		}
-		structFile << ");\n";
+		
+		structFile << "\t\treturn result.getAffectedItemsCount() > 0;\n";
+		structFile << "\t} catch (const std::exception& e) {\n";
+		structFile << "\t\tstd::cerr << \"MySQL Delete error: \" << e.what() << std::endl;\n";
+		structFile << "\t\treturn false;\n";
+		structFile << "\t}\n";
 		return true;
 	};
 	s.add_function(delete_statement_no_args);
@@ -1002,49 +1283,147 @@ std::string MysqlGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefi
 
 bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
-	// Add necessary includes for MySQL X DevAPI
-	s.add_include("<mysqlx/xdevapi.h>","MySQL");
-	s.add_include("<string>","MySQL");
-	s.add_include("<vector>","MySQL");
-	s.add_include("<iostream>","MySQL");
+	if(gen->name=="Cpp"){
+		// Add necessary includes for MySQL X DevAPI
+		s.add_include("<mysqlx/xdevapi.h>","MySQL");
+		s.add_include("<string>","MySQL");
+		s.add_include("<vector>","MySQL");
+		s.add_include("<iostream>","MySQL");
 
-	generate_select_statements_function_struct(gen, ps, s);
-	generate_insert_statements_function_struct(gen, ps, s);
-	generate_update_all_statement_function_struct(gen, ps, s);
-	generate_update_statements_function_struct(gen, ps, s);
-	generate_delete_statement_function_struct(gen, ps, s);
+		// add index private variables for each member variable
+		bool has_primary_key = false;
 
-	// Add MySQL create table functions
-	FunctionDefinition getMySQLCreateTableStatement;
-	getMySQLCreateTableStatement.generator = "MySQL";
-	getMySQLCreateTableStatement.identifier = "getMySQLCreateTableStatement";
-	getMySQLCreateTableStatement.static_function = true;
-	getMySQLCreateTableStatement.return_type.identifier() = STRING;
-	getMySQLCreateTableStatement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
-	{
-		structFile << "\treturn \"" << escape_string(generate_create_table_statement_string_struct(ps, s)) << "\";\n";
-		return true;
-	};
-	s.add_function(getMySQLCreateTableStatement);
+		int i = 0;
+		for (auto& [generator, mv] : s.getMemberVariables())
+		{
+			if (mv.primary_key)
+			{
+				PrivateVariableDefinition primary_key_index;
+				primary_key_index.type = TypeDefinition("int");
+				primary_key_index.identifier = "primary_key_index";
+				primary_key_index.in_class_init = true;
+				primary_key_index.static_member = true;
+				primary_key_index.const_member = true;
+				primary_key_index.generate_initializer = [i](ProgramStructure *ps, PrivateVariableDefinition &mv, std::ostream &structFile)
+				{
+					structFile << std::to_string(i);
+					return true;
+				};
+				s.add_private_variable(primary_key_index,"MySQL");
+				has_primary_key = true;
+			}
+			PrivateVariableDefinition index;
+			index.type = TypeDefinition("int");
+			index.identifier = mv.identifier + "_index";
+			index.in_class_init = true;
+			index.static_member = true;
+			index.const_member = true;
+			index.generate_initializer = [i](ProgramStructure *ps, PrivateVariableDefinition &mv, std::ostream &structFile)
+			{
+				structFile << std::to_string(i);
+				return true;
+			};
+			s.add_private_variable(index,"MySQL");
+			i++;
+		}
 
-	FunctionDefinition createMySQLTable;
-	createMySQLTable.generator = "MySQL";
-	createMySQLTable.identifier = "MySQLCreateTable";
-	createMySQLTable.static_function = true;
-	createMySQLTable.return_type.identifier() = BOOL;
-	createMySQLTable.parameters.push_back(std::make_pair(mysql_session, "session"));
-	createMySQLTable.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
-	{
-		structFile << "\ttry {\n";
-		structFile << "\t\tsession.sql(getMySQLCreateTableStatement()).execute();\n";
-		structFile << "\t\treturn true;\n";
-		structFile << "\t} catch (const mysqlx::Error &err) {\n";
-		structFile << "\t\tstd::cout << \"MySQL error: \" << err.what() << std::endl;\n";
-		structFile << "\t\treturn false;\n";
-		structFile << "\t}\n";
-		return true;
-	};
-	s.add_function(createMySQLTable);
+		PrivateVariableDefinition session;
+		session.type = TypeDefinition("mysqlx::Session*");
+		session.identifier = "session";
+		session.static_member = true;
+		s.add_private_variable(session,"MySQL");
+
+		// Add getter for session
+		FunctionDefinition getSession;
+		getSession.generator = name;
+		getSession.identifier = "getSession";
+		getSession.return_type = TypeDefinition("mysqlx::Session*");
+		getSession.static_function = true;
+		getSession.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+		{
+			structFile << "\treturn session;\n";
+			return true;
+		};
+		s.add_function(getSession);
+
+		// Add setter for session
+		FunctionDefinition setSession;
+		setSession.generator = name;
+		setSession.identifier = "setSession";
+		setSession.return_type.identifier() = "void";
+		setSession.static_function = true;
+		setSession.parameters.push_back(std::make_pair(TypeDefinition("mysqlx::Session*"), "newSession"));
+		setSession.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+		{
+			structFile << "\tsession = newSession;\n";
+			return true;
+		};
+		s.add_function(setSession);
+
+		// add select statements
+		generate_select_statements_function_struct(gen, ps, s);
+		// add insert statement
+		generate_insert_statements_function_struct(gen, ps, s);
+		// add update statements
+		generate_update_all_statement_function_struct(gen, ps, s);
+		generate_update_statements_function_struct(gen, ps, s);
+		// add delete statements
+		generate_delete_statement_function_struct(gen, ps, s);
+
+		FunctionDefinition getMySQLCreateTableStatement;
+		getMySQLCreateTableStatement.generator = name;
+		getMySQLCreateTableStatement.identifier = "getMySQLCreateTableStatement";
+		getMySQLCreateTableStatement.static_function = true;
+		getMySQLCreateTableStatement.return_type.identifier() = STRING;
+		getMySQLCreateTableStatement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+		{
+			structFile << "\treturn \"" << escape_string(generate_create_table_statement_string_struct(ps, s)) << "\";\n";
+			return true;
+		};
+		s.add_function(getMySQLCreateTableStatement);
+
+		FunctionDefinition createMySQLTable;
+		createMySQLTable.generator = name;
+		createMySQLTable.identifier = "MySQLCreateTable";
+		createMySQLTable.static_function = true;
+		createMySQLTable.return_type.identifier() = BOOL;
+		createMySQLTable.parameters.push_back(std::make_pair(mysql_session, "session"));
+		createMySQLTable.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+		{
+			structFile << "\ttry {\n";
+			structFile << "\t\tsession.sql(getMySQLCreateTableStatement()).execute();\n";
+			structFile << "\t\treturn true;\n";
+			structFile << "\t} catch (const mysqlx::Error &err) {\n";
+			structFile << "\t\tstd::cout << \"MySQL error: \" << err.what() << std::endl;\n";
+			structFile << "\t\treturn false;\n";
+			structFile << "\t}\n";
+			return true;
+		};
+		s.add_function(createMySQLTable);
+
+		//register update listener
+		FunctionDefinition registerUpdateListener;
+		registerUpdateListener.generator = name;
+		registerUpdateListener.identifier = "MySQLRegisterUpdateListener";
+		registerUpdateListener.static_function = true;
+		registerUpdateListener.return_type.identifier() = "bool";
+		registerUpdateListener.parameters.push_back(std::make_pair(mysql_session, "session"));
+		registerUpdateListener.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+		{
+			structFile << "\t// Register update listener for MySQL database\n";
+			structFile << "\t// This is a placeholder for actual implementation\n";
+			structFile << "\treturn true;\n";
+			return true;
+		};
+		s.add_function(registerUpdateListener);
+
+		s.add_before_setter_line("if(!MySQLUpdate()){\n"
+			"\t\tstd::cerr << \"Failed to update " + s.getIdentifier() + " in MySQL database.\" << std::endl;\n"
+			"\t\treturn;\n"
+			"\t}\n",name);
+	}else{
+		std::cout << "Warning: MysqlGenerator only supports C++ code generation. cant add generator specific content to struct for generator: " << gen->name << std::endl;
+	}
 
 	return true;
 }

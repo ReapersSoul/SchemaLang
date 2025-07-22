@@ -177,22 +177,46 @@ std::string SqliteGenerator::generate_select_by_member_variable_statement_string
 std::string SqliteGenerator::generat_insert_statement_string_struct(StructDefinition &s)
 {
 	std::string sql = "INSERT INTO " + s.getIdentifier() + " (";
+	bool first = true;
 	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
-		sql += s.getMemberVariables()[i].second.identifier;
-		if (i < s.getMemberVariables().size() - 1)
+		// Skip array fields - arrays are handled by foreign key relationships
+		if (s.getMemberVariables()[i].second.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!s.getMemberVariables()[i].second.reference.variable_name.empty())
+		{
+			continue;
+		}
+		if (!first)
 		{
 			sql += ", ";
 		}
+		sql += s.getMemberVariables()[i].second.identifier;
+		first = false;
 	}
 	sql += ") VALUES (";
+	first = true;
 	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
-		sql += "?";
-		if (i < s.getMemberVariables().size() - 1)
+		// Skip array fields - arrays are handled by foreign key relationships
+		if (s.getMemberVariables()[i].second.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!s.getMemberVariables()[i].second.reference.variable_name.empty())
+		{
+			continue;
+		}
+		if (!first)
 		{
 			sql += ", ";
 		}
+		sql += "?";
+		first = false;
 	}
 	sql += ")";
 	return sql;
@@ -203,6 +227,20 @@ std::string SqliteGenerator::generate_update_all_statement_string_struct(StructD
 	std::string sql = "UPDATE " + s.getIdentifier() + " SET ";
 	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
+		if (s.getMemberVariables()[i].second.primary_key)
+		{
+			continue;
+		}
+		// Skip array fields - arrays are handled by foreign key relationships
+		if (s.getMemberVariables()[i].second.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!s.getMemberVariables()[i].second.reference.variable_name.empty())
+		{
+			continue;
+		}
 		sql += s.getMemberVariables()[i].second.identifier + " = ?";
 		if (i < s.getMemberVariables().size() - 1)
 		{
@@ -281,6 +319,9 @@ std::string generate_bind(Generator *gen,ProgramStructure *ps, MemberVariableDef
 	else if (mv.type.is_array())
 	{
 		ret+= "text(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".c_str());\n";
+	}
+	else if (mv.type.is_optional()){
+		throw std::runtime_error("Optional types are not supported in SQLite generator.");
 	}
 	else
 	{
@@ -454,9 +495,46 @@ void SqliteGenerator::generate_insert_statements_function_struct(Generator *gen,
 	insert_statement.return_type.identifier() = BOOL;
 	insert_statement.static_function = true;
 	insert_statement.parameters.push_back(std::make_pair(sqlite_db, "db"));
+	
+	// First, add all required parameters
 	for (auto& [generator, mv] : s.getMemberVariables())
 	{
-		insert_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+		// Skip array fields - arrays are handled by foreign key relationships
+		if (mv.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!mv.reference.variable_name.empty())
+		{
+			continue;
+		}
+		// Only add required parameters in this pass
+		if (mv.required)
+		{
+			insert_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+		}
+	}
+	
+	// Then, add all optional parameters with default values
+	for (auto& [generator, mv] : s.getMemberVariables())
+	{
+		// Skip array fields - arrays are handled by foreign key relationships
+		if (mv.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!mv.reference.variable_name.empty())
+		{
+			continue;
+		}
+		// Only add optional parameters in this pass
+		if (!mv.required)
+		{
+			std::string param_type = "std::optional<" + gen->convert_to_local_type(ps, mv.type) + ">";
+			insert_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type,true), mv.identifier));
+		}
 	}
 	insert_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
@@ -477,6 +555,11 @@ void SqliteGenerator::generate_insert_statements_function_struct(Generator *gen,
 				continue;
 			}
 			if (s.getMemberVariables()[i].second.type.is_array())
+			{
+				continue;
+			}
+			// Skip reference fields - TODO: Update to handle reference field updates properly
+			if (!s.getMemberVariables()[i].second.reference.variable_name.empty())
 			{
 				continue;
 			}
@@ -519,6 +602,11 @@ void SqliteGenerator::generate_insert_statements_function_struct(Generator *gen,
 			{
 				continue;
 			}
+			// Skip reference fields - TODO: Update to handle reference field updates properly
+			if (!s.getMemberVariables()[i].second.reference.variable_name.empty())
+			{
+				continue;
+			}
 			structFile << generate_bind(gen,ps,s.getMemberVariables()[i].second, i);
 		}
 		structFile << "\tif(sqlite3_step(stmt) != SQLITE_DONE){\n";
@@ -540,7 +628,26 @@ void SqliteGenerator::generate_update_all_statement_function_struct(Generator *g
 	update_all_statement.return_type.identifier() = BOOL;
 	for (auto& [generator, mv] : s.getMemberVariables())
 	{
-		update_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+		// Skip array fields - arrays are handled by foreign key relationships
+		if (mv.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!mv.reference.variable_name.empty())
+		{
+			continue;
+		}
+		// For optional fields, use std::optional<T> with default std::nullopt
+		if (!mv.required)
+		{
+			std::string param_type = "std::optional<" + gen->convert_to_local_type(ps, mv.type) + ">";
+			update_all_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type,true), mv.identifier));
+		}
+		else
+		{
+			update_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+		}
 	}
 	update_all_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
@@ -573,13 +680,44 @@ void SqliteGenerator::generate_update_statements_function_struct(Generator *gen,
 	update_statement.return_type.identifier() = "bool";
 	update_statement.static_function = true;
 	update_statement.parameters.push_back(std::make_pair(sqlite_db, "db"));
+	
+	// First, add all required parameters
 	for (auto& [generator, mv] : s.getMemberVariables())
 	{
 		if (mv.type.is_array())
 		{
 			continue;
 		}
-		update_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!mv.reference.variable_name.empty())
+		{
+			continue;
+		}
+		// Only add required parameters in this pass
+		if (mv.required)
+		{
+			update_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+		}
+	}
+	
+	// Then, add all optional parameters with default values
+	for (auto& [generator, mv] : s.getMemberVariables())
+	{
+		if (mv.type.is_array())
+		{
+			continue;
+		}
+		// Skip reference fields - TODO: Update to handle reference field updates properly
+		if (!mv.reference.variable_name.empty())
+		{
+			continue;
+		}
+		// Only add optional parameters in this pass
+		if (!mv.required)
+		{
+			std::string param_type = "std::optional<" + gen->convert_to_local_type(ps, mv.type) + ">";
+			update_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type,true), mv.identifier));
+		}
 	}
 	update_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
@@ -595,6 +733,11 @@ void SqliteGenerator::generate_update_statements_function_struct(Generator *gen,
 		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			if (mv.type.is_array() || mv.primary_key)
+			{
+				continue;
+			}
+			// Skip reference fields - TODO: Update to handle reference field updates properly
+			if (!mv.reference.variable_name.empty())
 			{
 				continue;
 			}
@@ -631,6 +774,11 @@ void SqliteGenerator::generate_update_statements_function_struct(Generator *gen,
 		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			if (mv.type.is_array())
+			{
+				continue;
+			}
+			// Skip reference fields - TODO: Update to handle reference field updates properly
+			if (!mv.reference.variable_name.empty())
 			{
 				continue;
 			}
@@ -912,10 +1060,10 @@ std::string SqliteGenerator::convert_to_local_type(ProgramStructure *ps, TypeDef
 bool SqliteGenerator::add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
 	if(gen->name=="Cpp"){
-		s.add_include({"SQLite","<sqlite3.h>"});
-		s.add_include({"","<iostream>"});
-		s.add_include({"","<string>"});
-		s.add_include({"","<vector>"});
+		s.add_include("<sqlite3.h>","SQLite");
+		s.add_include("<iostream>","SQLite");
+		s.add_include("<string>","SQLite");
+		s.add_include("<vector>","SQLite");
 
 		// add index private variables for each member variable
 		bool has_primary_key = false;
@@ -956,6 +1104,7 @@ bool SqliteGenerator::add_generator_specific_content_to_struct(Generator *gen, P
 		database.type = TypeDefinition("sqlite3 *");
 		database.identifier = "db";
 		database.static_member = true;
+		s.add_private_variable(database,"SQLite");
 
 		// add select statements
 		generate_select_statements_function_struct(gen, ps, s);

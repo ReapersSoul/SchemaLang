@@ -2,10 +2,8 @@
 
 bool StructDefinition::add_include(std::string include, std::string generator)
 {
-	for (auto& inc : includes) {
-		if (inc.second == include) {
-			return false; // Include already exists
-		}
+	if (has_include(include)) {
+		return false; // Include already exists
 	}
 	includes.emplace_back(generator, include);
 	return true;
@@ -13,18 +11,27 @@ bool StructDefinition::add_include(std::string include, std::string generator)
 
 bool StructDefinition::add_before_line(std::string line, std::string generator)
 {
+	if (has_before_line(line)) {
+		return false; // Before line already exists
+	}
 	before_lines.emplace_back(generator, line);
 	return true;
 }
 
 bool StructDefinition::add_before_setter_line(std::string line, std::string generator)
 {
+	if (has_before_setter_line(line)) {
+		return false; // Before setter line already exists
+	}
 	before_setter_lines.emplace_back(generator, line);
 	return true;
 }
 
 bool StructDefinition::add_before_getter_line(std::string line, std::string generator)
 {
+	if (has_before_getter_line(line)) {
+		return false; // Before getter line already exists
+	}
 	before_getter_lines.emplace_back(generator, line);
 	return true;
 }
@@ -37,12 +44,18 @@ bool StructDefinition::add_function(FunctionDefinition fd, std::string generator
 
 bool StructDefinition::add_private_variable(PrivateVariableDefinition pv, std::string generator)
 {
+	if (has_private_variable(pv.identifier)) {
+		return false; // Private variable already exists
+	}
 	private_variables.emplace_back(generator, pv);
 	return true;
 }
 
 bool StructDefinition::add_member_variable(MemberVariableDefinition mv, std::string generator)
 {
+	if (has_member_variable(mv.identifier)) {
+		return false; // Member variable already exists
+	}
 	member_variables.emplace_back(generator, mv);
 	return true;
 }

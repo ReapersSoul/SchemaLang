@@ -128,6 +128,48 @@ std::string CppGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefini
 	return type.identifier();
 }
 
+
+std::string CppGenerator::get_default_of_type(ProgramStructure * ps, TypeDefinition type)
+{
+	if (type.is_integer())
+	{
+		return "0";
+	}
+	else if (type.is_real())
+	{
+		return "0.0";
+	}
+	else if (type.is_bool())
+	{
+		return "false";
+	}
+	else if (type.is_string())
+	{
+		return "\"\"";
+	}
+	else if (type.is_char())
+	{
+		return "'\\0'";
+	}
+	else if (type.is_array())
+	{
+		return "std::vector<" + convert_to_local_type(ps, type.element_type()) + ">()";
+	}
+	else if (type.is_struct(ps))
+	{
+		return type.identifier() + "Schema()";
+	}
+	else if (type.is_enum(ps))
+	{
+		return type.identifier() + "Schema::" + type.identifier() + "_DEFAULT";
+	}
+	else if (type.is_optional())
+	{
+		return "std::nullopt";
+	}
+	return "";
+}
+
 std::string CppGenerator::format_include(const std::string& filename) const
 {
 	std::string full_path = include_prefix.empty() ? filename : include_prefix + "/" + filename;
@@ -229,6 +271,14 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 				inja::json parameter_data;
 				parameter_data["type"] = convert_to_local_type(&ps, p.first);
 				parameter_data["identifier"] = p.second;
+				if (!p.first.is_defaulted())
+				{
+					parameter_data["defaultArg"] = false;
+				}
+				else
+				{
+					parameter_data["defaultArg"] = get_default_of_type(&ps, p.first);
+				}
 				function_data["parameters"].push_back(parameter_data);
 			}
 			function_data["can_generate_function"] = f.generate_function != nullptr;
@@ -299,6 +349,14 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
                     inja::json parameter_data;
                     parameter_data["type"] = convert_to_local_type(&ps, p.first);
                     parameter_data["identifier"] = p.second;
+					if (!p.first.is_defaulted())
+					{
+						parameter_data["defaultArg"] = false;
+					}
+					else
+					{
+						parameter_data["defaultArg"] = get_default_of_type(&ps, p.first);
+					}
                     function_data["parameters"].push_back(parameter_data);
                 }
                 function_data["can_generate_function"] = f.generate_function != nullptr;

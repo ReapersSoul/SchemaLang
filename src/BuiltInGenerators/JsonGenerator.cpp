@@ -130,34 +130,85 @@ JsonGenerator::JsonGenerator()
 		{
 			if (mv.type.is_struct(ps))
 			{
-				structFile << "\tj[\"" << mv.identifier << "\"] = " << mv.identifier << "->toJSON();\n";
-			}
-			else if (mv.type.is_enum(ps))
-			{
-				structFile << "\tj[\"" << mv.identifier << "\"] = " << mv.identifier << ";\n";
-			}
-			else if (mv.type.is_array())
-			{
-				structFile << "\tnlohmann::json " << mv.identifier << "Array;\n";
-				structFile << "\tfor(auto &v : " << mv.identifier << "){\n";
-				if (ps->tokenIsStruct(mv.type.element_type().identifier()))
+				if (mv.required)
 				{
-					structFile << "\t\t" << mv.identifier << "Array.push_back(v->toJSON());\n";
-				}
-				else if (ps->tokenIsEnum(mv.type.element_type().identifier()))
-				{
-					structFile << "\t\t" << mv.identifier << "Array.push_back(v);\n";
+					structFile << "\tj[\"" << mv.identifier << "\"] = " << mv.identifier << "->toJSON();\n";
 				}
 				else
 				{
-					structFile << "\t\t" << mv.identifier << "Array.push_back(v);\n";
+					structFile << "\tif (" << mv.identifier << ".has_value()) {\n";
+					structFile << "\t\tj[\"" << mv.identifier << "\"] = " << mv.identifier << ".value()->toJSON();\n";
+					structFile << "\t}\n";
 				}
-				structFile << "\t}\n";
-				structFile << "\tj[\"" << mv.identifier << "\"] = " << mv.identifier << "Array;\n";
+			}
+			else if (mv.type.is_enum(ps))
+			{
+				if (mv.required)
+				{
+					structFile << "\tj[\"" << mv.identifier << "\"] = " << mv.identifier << ";\n";
+				}
+				else
+				{
+					structFile << "\tif (" << mv.identifier << ".has_value()) {\n";
+					structFile << "\t\tj[\"" << mv.identifier << "\"] = " << mv.identifier << ".value();\n";
+					structFile << "\t}\n";
+				}
+			}
+			else if (mv.type.is_array())
+			{
+				if (mv.required)
+				{
+					structFile << "\tnlohmann::json " << mv.identifier << "Array;\n";
+					structFile << "\tfor(auto &v : " << mv.identifier << "){\n";
+					if (ps->tokenIsStruct(mv.type.element_type().identifier()))
+					{
+						structFile << "\t\t" << mv.identifier << "Array.push_back(v->toJSON());\n";
+					}
+					else if (ps->tokenIsEnum(mv.type.element_type().identifier()))
+					{
+						structFile << "\t\t" << mv.identifier << "Array.push_back(v);\n";
+					}
+					else
+					{
+						structFile << "\t\t" << mv.identifier << "Array.push_back(v);\n";
+					}
+					structFile << "\t}\n";
+					structFile << "\tj[\"" << mv.identifier << "\"] = " << mv.identifier << "Array;\n";
+				}
+				else
+				{
+					structFile << "\tif (" << mv.identifier << ".has_value()) {\n";
+					structFile << "\t\tnlohmann::json " << mv.identifier << "Array;\n";
+					structFile << "\t\tfor(auto &v : " << mv.identifier << ".value()){\n";
+					if (ps->tokenIsStruct(mv.type.element_type().identifier()))
+					{
+						structFile << "\t\t\t" << mv.identifier << "Array.push_back(v->toJSON());\n";
+					}
+					else if (ps->tokenIsEnum(mv.type.element_type().identifier()))
+					{
+						structFile << "\t\t\t" << mv.identifier << "Array.push_back(v);\n";
+					}
+					else
+					{
+						structFile << "\t\t\t" << mv.identifier << "Array.push_back(v);\n";
+					}
+					structFile << "\t\t}\n";
+					structFile << "\t\tj[\"" << mv.identifier << "\"] = " << mv.identifier << "Array;\n";
+					structFile << "\t}\n";
+				}
 			}
 			else
 			{
-				structFile << "\tj[\"" << mv.identifier << "\"] = " << mv.identifier << ";\n";
+				if (mv.required)
+				{
+					structFile << "\tj[\"" << mv.identifier << "\"] = " << mv.identifier << ";\n";
+				}
+				else
+				{
+					structFile << "\tif (" << mv.identifier << ".has_value()) {\n";
+					structFile << "\t\tj[\"" << mv.identifier << "\"] = " << mv.identifier << ".value();\n";
+					structFile << "\t}\n";
+				}
 			}
 		}
 		structFile << "\treturn j;\n";
@@ -174,48 +225,100 @@ JsonGenerator::JsonGenerator()
 		{
 			if (mv.type.is_struct(ps))
 			{
-				structFile << "if(j.find(\"" << mv.identifier << "\") != j.end()){\n";
-				structFile << mv.identifier << " = new " << mv.type.identifier() << "Schema();\n";
-				structFile << "\t" << mv.identifier << "->fromJSON(j[\"" << mv.identifier << "\"]);\n";
-				structFile << "}\n";
+				structFile << "\tif(j.find(\"" << mv.identifier << "\") != j.end()){\n";
+				if (mv.required)
+				{
+					structFile << "\t\t" << mv.identifier << " = new " << mv.type.identifier() << "Schema();\n";
+					structFile << "\t\t" << mv.identifier << "->fromJSON(j[\"" << mv.identifier << "\"]);\n";
+				}
+				else
+				{
+					structFile << "\t\t" << mv.type.identifier() << "Schema* temp_" << mv.identifier << " = new " << mv.type.identifier() << "Schema();\n";
+					structFile << "\t\ttemp_" << mv.identifier << "->fromJSON(j[\"" << mv.identifier << "\"]);\n";
+					structFile << "\t\t" << mv.identifier << " = temp_" << mv.identifier << ";\n";
+				}
+				structFile << "\t}\n";
 			}
 			else if (mv.type.is_enum(ps))
 			{
 				structFile << "\tif(j.find(\"" << mv.identifier << "\") != j.end()){\n";
-				structFile << "\t\t" << mv.identifier << " = " + mv.type.identifier() + "SchemaFromString(j[\"" << mv.identifier << "\"]);\n";
+				if (mv.required)
+				{
+					structFile << "\t\t" << mv.identifier << " = " + mv.type.identifier() + "SchemaFromString(j[\"" << mv.identifier << "\"]);\n";
+				}
+				else
+				{
+					structFile << "\t\t" << mv.identifier << " = " + mv.type.identifier() + "SchemaFromString(j[\"" << mv.identifier << "\"]);\n";
+				}
 				structFile << "\t}\n";
-				structFile << "\telse{\n";
-				structFile << "\t\t" << mv.identifier << " = " + mv.type.identifier() + "Schema::" + mv.type.identifier() + "_Unknown;\n";
-				structFile << "\t}\n";
+				if (mv.required)
+				{
+					structFile << "\telse{\n";
+					structFile << "\t\t" << mv.identifier << " = " + mv.type.identifier() + "Schema::" + mv.type.identifier() + "_Unknown;\n";
+					structFile << "\t}\n";
+				}
 			}
 			else if (mv.type.is_array())
 			{
 				structFile << "\tif(j.find(\"" << mv.identifier << "\") != j.end()){\n";
-				structFile << "\t\t" << mv.identifier << ".clear();\n";
-				structFile << "\t\tfor(auto &v : j[\"" << mv.identifier << "\"]){\n";
-				if (ps->tokenIsStruct(mv.type.element_type().identifier()))
+				if (mv.required)
 				{
-					structFile << "\t\t\t" << mv.type.element_type().identifier() << "Schema *new_" << mv.type.element_type().identifier() << " = new " << mv.type.element_type().identifier() << "Schema();\n";
-					structFile << "\t\t\tnew_" << mv.type.element_type().identifier() << "->fromJSON(v);\n";
-					structFile << "\t\t\t" << mv.identifier << ".push_back(new_" << mv.type.element_type().identifier() << ");\n";
-				}
-				else if (ps->tokenIsEnum(mv.type.element_type().identifier()))
-				{
-					structFile << "\t\t\t" << mv.type.element_type().identifier() << " new_" << mv.type.element_type().identifier() << " = v;\n";
-					structFile << "\t\t\t" << mv.identifier << ".push_back(new_" << mv.type.element_type().identifier() << ");\n";
+					structFile << "\t\t" << mv.identifier << ".clear();\n";
+					structFile << "\t\tfor(auto &v : j[\"" << mv.identifier << "\"]){\n";
+					if (ps->tokenIsStruct(mv.type.element_type().identifier()))
+					{
+						structFile << "\t\t\t" << mv.type.element_type().identifier() << "Schema *new_" << mv.type.element_type().identifier() << " = new " << mv.type.element_type().identifier() << "Schema();\n";
+						structFile << "\t\t\tnew_" << mv.type.element_type().identifier() << "->fromJSON(v);\n";
+						structFile << "\t\t\t" << mv.identifier << ".push_back(new_" << mv.type.element_type().identifier() << ");\n";
+					}
+					else if (ps->tokenIsEnum(mv.type.element_type().identifier()))
+					{
+						structFile << "\t\t\t" << gen->convert_to_local_type(ps, mv.type.element_type()) << " new_" << mv.type.element_type().identifier() << " = v;\n";
+						structFile << "\t\t\t" << mv.identifier << ".push_back(new_" << mv.type.element_type().identifier() << ");\n";
+					}
+					else
+					{
+						structFile << "\t\t\t" << gen->convert_to_local_type(ps, mv.type.element_type()) << " new_" << mv.type.element_type().identifier() << " = v;\n";
+						structFile << "\t\t\t" << mv.identifier << ".push_back(new_" << mv.type.element_type().identifier() << ");\n";
+					}
+					structFile << "\t\t}\n";
 				}
 				else
 				{
-					structFile << "\t\t\t" << mv.type.element_type().identifier() << " new_" << mv.type.element_type().identifier() << " = v;\n";
-					structFile << "\t\t\t" << mv.identifier << ".push_back(new_" << mv.type.element_type().identifier() << ");\n";
+					structFile << "\t\t" << gen->convert_to_local_type(ps, mv.type) << " temp_" << mv.identifier << ";\n";
+					structFile << "\t\tfor(auto &v : j[\"" << mv.identifier << "\"]){\n";
+					if (ps->tokenIsStruct(mv.type.element_type().identifier()))
+					{
+						structFile << "\t\t\t" << mv.type.element_type().identifier() << "Schema *new_" << mv.type.element_type().identifier() << " = new " << mv.type.element_type().identifier() << "Schema();\n";
+						structFile << "\t\t\tnew_" << mv.type.element_type().identifier() << "->fromJSON(v);\n";
+						structFile << "\t\t\ttemp_" << mv.identifier << ".push_back(new_" << mv.type.element_type().identifier() << ");\n";
+					}
+					else if (ps->tokenIsEnum(mv.type.element_type().identifier()))
+					{
+						structFile << "\t\t\t" << gen->convert_to_local_type(ps, mv.type.element_type()) << " new_" << mv.type.element_type().identifier() << " = v;\n";
+						structFile << "\t\t\ttemp_" << mv.identifier << ".push_back(new_" << mv.type.element_type().identifier() << ");\n";
+					}
+					else
+					{
+						structFile << "\t\t\t" << gen->convert_to_local_type(ps, mv.type.element_type()) << " new_" << mv.type.element_type().identifier() << " = v;\n";
+						structFile << "\t\t\ttemp_" << mv.identifier << ".push_back(new_" << mv.type.element_type().identifier() << ");\n";
+					}
+					structFile << "\t\t}\n";
+					structFile << "\t\t" << mv.identifier << " = temp_" << mv.identifier << ";\n";
 				}
-				structFile << "\t\t}\n";
 				structFile << "\t}\n";
 			}
 			else
 			{
 				structFile << "\tif(j.find(\"" << mv.identifier << "\") != j.end()){\n";
-				structFile << "\t\t" << mv.identifier << " = j[\"" << mv.identifier << "\"];\n";
+				if (mv.required)
+				{
+					structFile << "\t\t" << mv.identifier << " = j[\"" << mv.identifier << "\"];\n";
+				}
+				else
+				{
+					structFile << "\t\t" << mv.identifier << " = j[\"" << mv.identifier << "\"];\n";
+				}
 				structFile << "\t}\n";
 			}
 		}

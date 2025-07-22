@@ -13,6 +13,13 @@ TypeDefinition::TypeDefinition(std::string ident)
 	this->elem_type = nullptr;
 }
 
+TypeDefinition::TypeDefinition(std::string ident, bool defaulted)
+{
+	this->ident = ident;
+	this->elem_type = nullptr;
+	this->defaulted = defaulted;
+}
+
 TypeDefinition::TypeDefinition(std::string ident, TypeDefinition elem_type)
 {
 	this->ident = ident;
@@ -269,6 +276,11 @@ bool TypeDefinition::is_array_of_string()
 bool TypeDefinition::is_array_of_char()
 {
 	return elem_type != nullptr && elem_type->is_char();
+}
+
+bool TypeDefinition::is_optional()
+{
+	return ident.find("std::optional<") == 0;
 }
 
 TypeDefinition &TypeDefinition::element_type()
