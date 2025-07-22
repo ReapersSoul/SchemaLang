@@ -298,29 +298,56 @@ std::string generate_bind(Generator *gen,ProgramStructure *ps, MemberVariableDef
 	{
 		std::string local_type = gen->convert_to_local_type(ps, mv.type);
 		local_type = local_type.substr(0, local_type.size() - 2);
-		ret+= "int(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ");\n";
+		if(mv.required){
+			ret+= "int(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ");\n";
+		}else{
+			ret+= "int(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".has_value() ? " + mv.identifier + ".value() : 0);\n";
+		}
 	}
 	else if (mv.type.is_real())
 	{
-		ret+= gen->convert_to_local_type(ps, mv.type) + "(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ");\n";
+		if(mv.required){
+			ret+= gen->convert_to_local_type(ps, mv.type) + "(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ");\n";
+		}
+		else{
+			ret+= gen->convert_to_local_type(ps, mv.type) + "(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".has_value() ? " + mv.identifier + ".value() : 0.0);\n";
+		}
 	}
 	else if (mv.type.is_bool())
 	{
-		ret+= "int(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ");\n";
+		if(mv.required){
+			ret+= "int(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ");\n";
+		}
+		else{
+			ret+= "int(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".has_value() ? " + mv.identifier + ".value() : 0);\n";
+		}
 	}
 	else if (mv.type.is_string())
 	{
-		ret+= "text(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".c_str(), -1, SQLITE_STATIC);\n";
+		if(mv.required){
+			ret+= "text(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".c_str(), -1, SQLITE_STATIC);\n";
+		}else{
+			ret+= "text(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".has_value() ? " + mv.identifier + ".value().c_str() : nullptr, -1, SQLITE_STATIC);\n";
+		}
 	}
 	else if (mv.type.is_char())
 	{
-		ret+= "text(stmt, " + std::to_string(i + 1) + ", std::string(1, " + mv.identifier + ").c_str(), -1, SQLITE_STATIC);\n";
+		if(mv.required){
+			ret+= "text(stmt, " + std::to_string(i + 1) + ", std::string(1, " + mv.identifier + ").c_str(), -1, SQLITE_STATIC);\n";
+		}else{
+			ret+= "text(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".has_value() ? std::string(1, " + mv.identifier + ".value()).c_str() : nullptr, -1, SQLITE_STATIC);\n";
+		}
 	}
 	else if (mv.type.is_array())
 	{
-		ret+= "text(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".c_str());\n";
+		if(mv.required){
+			ret+= "text(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".c_str());\n";
+		}
+		else{
+			ret+= "text(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".has_value() ? " + mv.identifier + ".value().c_str() : nullptr);\n";
+		}
 	}
-	else if (mv.type.is_optional()){
+	else if (!mv.required){
 		throw std::runtime_error("Optional types are not supported in SQLite generator.");
 	}
 	else
@@ -351,7 +378,11 @@ void SqliteGenerator::generate_select_all_statement_function_member_variable(Gen
 	select_all_statement.return_type.identifier() = "std::vector<" + s.getIdentifier() + "Schema*>";
 	select_all_statement.static_function = true;
 	select_all_statement.parameters.push_back(std::make_pair(sqlite_db, "db"));
-	select_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+	if(mv.required){
+		select_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
+	}else{
+		select_all_statement.parameters.push_back(std::make_pair(TypeDefinition("std::optional<" + gen->convert_to_local_type(ps, mv.type) + ">"), mv.identifier));
+	}
 
 	select_all_statement.generate_function = [this, &mv](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
