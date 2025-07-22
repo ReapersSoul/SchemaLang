@@ -40,14 +40,14 @@ std::vector<std::vector<int>> MysqlGenerator::comb(int N)
 // sql string generation functions
 std::string MysqlGenerator::generate_create_table_statement_string_struct(ProgramStructure *ps, StructDefinition &s)
 {
-	std::string sql = "CREATE TABLE IF NOT EXISTS " + escape_identifier(s.identifier) + " (\n";
+	std::string sql = "CREATE TABLE IF NOT EXISTS " + escape_identifier(s.getIdentifier()) + " (\n";
 	bool first_column = true;
 	std::vector<std::string> foreign_keys; // Collect foreign key constraints
 	
-	for (int i = 0; i < s.member_variables.size(); i++)
+	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
 		// Skip array fields - they don't create columns in the parent table
-		if (s.member_variables[i].type.is_array())
+		if (s.getMemberVariables()[i].second.type.is_array())
 		{
 			continue;
 		}
@@ -58,35 +58,35 @@ std::string MysqlGenerator::generate_create_table_statement_string_struct(Progra
 		}
 		first_column = false;
 		
-		sql += "  " + escape_identifier(s.member_variables[i].identifier) + " " + convert_to_local_type(ps, s.member_variables[i].type);
+		sql += "  " + escape_identifier(s.getMemberVariables()[i].second.identifier) + " " + convert_to_local_type(ps, s.getMemberVariables()[i].second.type);
 		
 		// Add MySQL-specific constraints
-		if (s.member_variables[i].primary_key)
+		if (s.getMemberVariables()[i].second.primary_key)
 		{
 			sql += " PRIMARY KEY";
 		}
-		if (s.member_variables[i].auto_increment)
+		if (s.getMemberVariables()[i].second.auto_increment)
 		{
 			sql += " AUTO_INCREMENT";
 		}
-		if (s.member_variables[i].required)
+		if (s.getMemberVariables()[i].second.required)
 		{
 			sql += " NOT NULL";
 		}
-		if (s.member_variables[i].unique)
+		if (s.getMemberVariables()[i].second.unique)
 		{
 			sql += " UNIQUE";
 		}
-		if (!s.member_variables[i].default_value.empty())
+		if (!s.getMemberVariables()[i].second.default_value.empty())
 		{
-			sql += " DEFAULT '" + s.member_variables[i].default_value + "'";
+			sql += " DEFAULT '" + s.getMemberVariables()[i].second.default_value + "'";
 		}
 		
 		// Collect foreign key constraints to add later
-		if (!s.member_variables[i].reference.variable_name.empty())
+		if (!s.getMemberVariables()[i].second.reference.variable_name.empty())
 		{
-			std::string reference_constraint = "  FOREIGN KEY (" + escape_identifier(s.member_variables[i].identifier) + ") REFERENCES " + 
-				escape_identifier(s.member_variables[i].reference.struct_name) + "(" + escape_identifier(s.member_variables[i].reference.variable_name) + ")";
+			std::string reference_constraint = "  FOREIGN KEY (" + escape_identifier(s.getMemberVariables()[i].second.identifier) + ") REFERENCES " + 
+				escape_identifier(s.getMemberVariables()[i].second.reference.struct_name) + "(" + escape_identifier(s.getMemberVariables()[i].second.reference.variable_name) + ")";
 			foreign_keys.push_back(reference_constraint);
 		}
 	}
@@ -108,7 +108,7 @@ void MysqlGenerator::add_foreign_key_columns_for_arrays(ProgramStructure *ps)
 	for (auto &parent_struct : ps->getStructs())
 	{
 		// Look for array fields in this struct
-		for (auto &member_var : parent_struct.member_variables)
+		for (auto & [generator, member_var] : parent_struct.getMemberVariables())
 		{
 			if (member_var.type.is_array())
 			{
@@ -124,20 +124,20 @@ void MysqlGenerator::add_foreign_key_columns_for_arrays(ProgramStructure *ps)
 					// Find the target struct in the program structure
 					for (auto &target_struct : ps->getStructs())
 					{
-						if (target_struct.identifier == target_struct_name)
+						if (target_struct.getIdentifier() == target_struct_name)
 						{
 							// Add foreign key column to the target struct
 							MemberVariableDefinition reference_column;
-							reference_column.identifier = parent_struct.identifier + "Id";
+							reference_column.identifier = parent_struct.getIdentifier() + "Id";
 							reference_column.type = TypeDefinition("int64");
 							reference_column.required = member_var.required; // If array is required, reference is NOT NULL
-							reference_column.reference.struct_name = parent_struct.identifier;
+							reference_column.reference.struct_name = parent_struct.getIdentifier();
 							reference_column.reference.variable_name = "id"; // Assuming parent has 'id' as primary key
-							reference_column.description = "Foreign key reference to " + parent_struct.identifier + " table";
+							reference_column.description = "Foreign key reference to " + parent_struct.getIdentifier() + " table";
 							
 							// Check if this foreign key column already exists
 							bool reference_exists = false;
-							for (auto &existing_var : target_struct.member_variables)
+							for (auto &[generator,existing_var] : target_struct.getMemberVariables())
 							{
 								if (existing_var.identifier == reference_column.identifier)
 								{
@@ -149,7 +149,7 @@ void MysqlGenerator::add_foreign_key_columns_for_arrays(ProgramStructure *ps)
 							// Only add if it doesn't already exist
 							if (!reference_exists)
 							{
-								target_struct.member_variables.push_back(reference_column);
+								target_struct.add_member_variable(reference_column);
 							}
 							break;
 						}
@@ -162,26 +162,26 @@ void MysqlGenerator::add_foreign_key_columns_for_arrays(ProgramStructure *ps)
 
 std::string MysqlGenerator::generate_select_all_statement_string_member_variable(StructDefinition &s, MemberVariableDefinition &mv)
 {
-	std::string sql = "SELECT * FROM " + escape_identifier(s.identifier) + " WHERE " + escape_identifier(mv.identifier) + " = ?;";
+	std::string sql = "SELECT * FROM " + escape_identifier(s.getIdentifier()) + " WHERE " + escape_identifier(mv.identifier) + " = ?;";
 	return sql;
 }
 
 std::vector<std::string> MysqlGenerator::generate_select_all_statements_string_struct(StructDefinition &s)
 {
 	std::vector<std::string> sqls;
-	for (int i = 0; i < s.member_variables.size(); i++)
+	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
-		sqls.push_back(generate_select_all_statement_string_member_variable(s, s.member_variables[i]));
+		sqls.push_back(generate_select_all_statement_string_member_variable(s, s.getMemberVariables()[i].second));
 	}
 	return sqls;
 }
 
 std::string MysqlGenerator::generate_select_by_member_variable_statement_string(StructDefinition &s, MemberVariableDefinition &mv_1, std::vector<int> &criteria)
 {
-	std::string sql = "SELECT " + escape_identifier(mv_1.identifier) + " FROM " + escape_identifier(s.identifier) + " WHERE ";
+	std::string sql = "SELECT " + escape_identifier(mv_1.identifier) + " FROM " + escape_identifier(s.getIdentifier()) + " WHERE ";
 	for (int i = 0; i < criteria.size(); i++)
 	{
-		sql += escape_identifier(s.member_variables[criteria[i]].identifier) + " = ?";
+		sql += escape_identifier(s.getMemberVariables()[criteria[i]].second.identifier) + " = ?";
 		if (i < criteria.size() - 1)
 		{
 			sql += " AND ";
@@ -193,20 +193,20 @@ std::string MysqlGenerator::generate_select_by_member_variable_statement_string(
 
 std::string MysqlGenerator::generate_insert_statement_string_struct(StructDefinition &s)
 {
-	std::string sql = "INSERT INTO " + escape_identifier(s.identifier) + " (";
-	for (int i = 0; i < s.member_variables.size(); i++)
+	std::string sql = "INSERT INTO " + escape_identifier(s.getIdentifier()) + " (";
+	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
-		sql += escape_identifier(s.member_variables[i].identifier);
-		if (i < s.member_variables.size() - 1)
+		sql += escape_identifier(s.getMemberVariables()[i].second.identifier);
+		if (i < s.getMemberVariables().size() - 1)
 		{
 			sql += ", ";
 		}
 	}
 	sql += ") VALUES (";
-	for (int i = 0; i < s.member_variables.size(); i++)
+	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
 		sql += "?";
-		if (i < s.member_variables.size() - 1)
+		if (i < s.getMemberVariables().size() - 1)
 		{
 			sql += ", ";
 		}
@@ -217,26 +217,26 @@ std::string MysqlGenerator::generate_insert_statement_string_struct(StructDefini
 
 std::string MysqlGenerator::generate_update_all_statement_string_struct(StructDefinition &s)
 {
-	std::string sql = "UPDATE " + escape_identifier(s.identifier) + " SET ";
-	for (int i = 0; i < s.member_variables.size(); i++)
+	std::string sql = "UPDATE " + escape_identifier(s.getIdentifier()) + " SET ";
+	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
-		if (s.member_variables[i].primary_key)
+		if (s.getMemberVariables()[i].second.primary_key)
 		{
 			continue;
 		}
-		sql += escape_identifier(s.member_variables[i].identifier) + " = ?";
-		if (i < s.member_variables.size() - 1)
+		sql += escape_identifier(s.getMemberVariables()[i].second.identifier) + " = ?";
+		if (i < s.getMemberVariables().size() - 1)
 		{
 			sql += ", ";
 		}
 	}
 	sql += " WHERE ";
 	bool has_primary_key = false;
-	for (int i = 0; i < s.member_variables.size(); i++)
+	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
-		if (s.member_variables[i].primary_key)
+		if (s.getMemberVariables()[i].second.primary_key)
 		{
-			sql += escape_identifier(s.member_variables[i].identifier) + " = ?";
+			sql += escape_identifier(s.getMemberVariables()[i].second.identifier) + " = ?";
 			has_primary_key = true;
 			break;
 		}
@@ -244,7 +244,7 @@ std::string MysqlGenerator::generate_update_all_statement_string_struct(StructDe
 	if (!has_primary_key)
 	{
 		// Use the first column as identifier if no primary key
-		sql += escape_identifier(s.member_variables[0].identifier) + " = ?";
+		sql += escape_identifier(s.getMemberVariables()[0].second.identifier) + " = ?";
 	}
 	sql += ";";
 	return sql;
@@ -252,20 +252,20 @@ std::string MysqlGenerator::generate_update_all_statement_string_struct(StructDe
 
 std::string MysqlGenerator::generate_delete_statement_string_struct(StructDefinition &s)
 {
-	std::string sql = "DELETE FROM " + escape_identifier(s.identifier) + " WHERE ";
+	std::string sql = "DELETE FROM " + escape_identifier(s.getIdentifier()) + " WHERE ";
 	bool has_primary_key = false;
-	for (int i = 0; i < s.member_variables.size(); i++)
+	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
-		if (s.member_variables[i].primary_key)
+		if (s.getMemberVariables()[i].second.primary_key)
 		{
-			sql += escape_identifier(s.member_variables[i].identifier) + " = ?";
+			sql += escape_identifier(s.getMemberVariables()[i].second.identifier) + " = ?";
 			has_primary_key = true;
 			break;
 		}
 	}
 	if (!has_primary_key)
 	{
-		sql += escape_identifier(s.member_variables[0].identifier) + " = ?";
+		sql += escape_identifier(s.getMemberVariables()[0].second.identifier) + " = ?";
 	}
 	sql += ";";
 	return sql;
@@ -286,7 +286,7 @@ void MysqlGenerator::generate_select_all_statement_function_member_variable(Gene
 	FunctionDefinition select_all_statement;
 	select_all_statement.generator = "MySQL";
 	select_all_statement.identifier = "MySQLSelectBy" + mv.identifier;
-	select_all_statement.return_type.identifier() = "std::vector<" + s.identifier + "Schema*>";
+	select_all_statement.return_type.identifier() = "std::vector<" + s.getIdentifier() + "Schema*>";
 	select_all_statement.static_function = true;
 	select_all_statement.parameters.push_back(std::make_pair(mysql_session, "session"));
 	select_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
@@ -294,16 +294,16 @@ void MysqlGenerator::generate_select_all_statement_function_member_variable(Gene
 	select_all_statement.generate_function = [this, &mv](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		std::string sql = generate_select_all_statement_string_member_variable(s, mv);
-		structFile << "\tstd::vector<" << s.identifier << "Schema*> results;\n";
+		structFile << "\tstd::vector<" << s.getIdentifier() << "Schema*> results;\n";
 		structFile << "\ttry {\n";
-		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
-		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.identifier) << "\");\n";
+		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
+		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.getIdentifier()) << "\");\n";
 		structFile << "\t\tmysqlx::RowResult result = table.select(\"*\")\n";
 		structFile << "\t\t\t.where(\"" << escape_identifier(mv.identifier) << " = :param\")\n";
 		structFile << "\t\t\t.bind(\"param\", " << mv.identifier << ")\n";
 		structFile << "\t\t\t.execute();\n";
 		structFile << "\t\tfor (auto row : result) {\n";
-		structFile << "\t\t\t" << s.identifier << "Schema *obj = new " << s.identifier << "Schema();\n";
+		structFile << "\t\t\t" << s.getIdentifier() << "Schema *obj = new " << s.getIdentifier() << "Schema();\n";
 		structFile << "\t\t\t// Populate object from row data\n";
 		structFile << "\t\t\tresults.push_back(obj);\n";
 		structFile << "\t\t}\n";
@@ -313,14 +313,14 @@ void MysqlGenerator::generate_select_all_statement_function_member_variable(Gene
 		structFile << "\treturn results;\n";
 		return true;
 	};
-	s.functions.push_back(select_all_statement);
+	s.add_function(select_all_statement);
 }
 
 void MysqlGenerator::generate_select_all_statement_functions_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
-	for (int i = 0; i < s.member_variables.size(); i++)
+	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
-		generate_select_all_statement_function_member_variable(gen, ps, s, s.member_variables[i]);
+		generate_select_all_statement_function_member_variable(gen, ps, s, s.getMemberVariables()[i].second);
 	}
 }
 
@@ -328,26 +328,26 @@ void MysqlGenerator::generate_select_member_variable_function_statement(Generato
 {
 	FunctionDefinition select_statement;
 	select_statement.generator = "MySQL";
-	select_statement.identifier = "MySQLSelect" + s.identifier + "By";
+	select_statement.identifier = "MySQLSelect" + s.getIdentifier() + "By";
 	select_statement.return_type = mv_1.type;
 	select_statement.static_function = true;
 	select_statement.parameters.push_back(std::make_pair(mysql_session, "session"));
 	for (int i = 0; i < criteria.size(); i++)
 	{
-		select_statement.identifier += s.member_variables[criteria[i]].identifier;
-		select_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, s.member_variables[criteria[i]].type), s.member_variables[criteria[i]].identifier));
+		select_statement.identifier += s.getMemberVariables()[criteria[i]].second.identifier;
+		select_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, s.getMemberVariables()[criteria[i]].second.type), s.getMemberVariables()[criteria[i]].second.identifier));
 	}
 	select_statement.generate_function = [this, &mv_1, &criteria](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
-		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
-		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.identifier) << "\");\n";
+		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
+		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.getIdentifier()) << "\");\n";
 		structFile << "\t\tstd::string where_clause = \"\";\n";
 		
 		for (int i = 0; i < criteria.size(); i++)
 		{
 			structFile << "\t\tif (i > 0) where_clause += \" AND \";\n";
-			structFile << "\t\twhere_clause += \"" << escape_identifier(s.member_variables[criteria[i]].identifier) << " = :param" << i << "\";\n";
+			structFile << "\t\twhere_clause += \"" << escape_identifier(s.getMemberVariables()[criteria[i]].second.identifier) << " = :param" << i << "\";\n";
 		}
 		
 		structFile << "\t\tmysqlx::RowResult result = table.select(\"" << escape_identifier(mv_1.identifier) << "\")\n";
@@ -355,7 +355,7 @@ void MysqlGenerator::generate_select_member_variable_function_statement(Generato
 		
 		for (int i = 0; i < criteria.size(); i++)
 		{
-			structFile << "\t\t\t.bind(\"param" << i << "\", " << s.member_variables[criteria[i]].identifier << ")\n";
+			structFile << "\t\t\t.bind(\"param" << i << "\", " << s.getMemberVariables()[criteria[i]].second.identifier << ")\n";
 		}
 		
 		structFile << "\t\t\t.execute();\n";
@@ -367,7 +367,7 @@ void MysqlGenerator::generate_select_member_variable_function_statement(Generato
 		structFile << "\t}\n";
 		return true;
 	};
-	s.functions.push_back(select_statement);
+	s.add_function(select_statement);
 }
 
 void MysqlGenerator::generate_select_statements_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
@@ -384,30 +384,30 @@ void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, 
 	insert_statement.return_type.identifier() = "bool";
 	insert_statement.static_function = true;
 	insert_statement.parameters.push_back(std::make_pair(mysql_session, "session"));
-	for (auto &mv : s.member_variables)
+	for (auto& [generator, mv] : s.getMemberVariables())
 	{
 		insert_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 	}
 	insert_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
-		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
-		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.identifier) << "\");\n";
+		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
+		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.getIdentifier()) << "\");\n";
 		structFile << "\t\ttable.insert(";
-		for (int i = 0; i < s.member_variables.size(); i++)
+		for (int i = 0; i < s.getMemberVariables().size(); i++)
 		{
-			structFile << "\"" << escape_identifier(s.member_variables[i].identifier) << "\"";
-			if (i < s.member_variables.size() - 1)
+			structFile << "\"" << escape_identifier(s.getMemberVariables()[i].second.identifier) << "\"";
+			if (i < s.getMemberVariables().size() - 1)
 			{
 				structFile << ", ";
 			}
 		}
 		structFile << ")\n";
 		structFile << "\t\t\t.values(";
-		for (int i = 0; i < s.member_variables.size(); i++)
+		for (int i = 0; i < s.getMemberVariables().size(); i++)
 		{
-			structFile << s.member_variables[i].identifier;
-			if (i < s.member_variables.size() - 1)
+			structFile << s.getMemberVariables()[i].second.identifier;
+			if (i < s.getMemberVariables().size() - 1)
 			{
 				structFile << ", ";
 			}
@@ -421,7 +421,7 @@ void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, 
 		structFile << "\t}\n";
 		return true;
 	};
-	s.functions.push_back(insert_statement);
+	s.add_function(insert_statement);
 
 	FunctionDefinition insert_statement_no_args;
 	insert_statement_no_args.generator = "MySQL";
@@ -432,23 +432,23 @@ void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, 
 	insert_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
-		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
-		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.identifier) << "\");\n";
+		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
+		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.getIdentifier()) << "\");\n";
 		structFile << "\t\ttable.insert(";
-		for (int i = 0; i < s.member_variables.size(); i++)
+		for (int i = 0; i < s.getMemberVariables().size(); i++)
 		{
-			structFile << "\"" << escape_identifier(s.member_variables[i].identifier) << "\"";
-			if (i < s.member_variables.size() - 1)
+			structFile << "\"" << escape_identifier(s.getMemberVariables()[i].second.identifier) << "\"";
+			if (i < s.getMemberVariables().size() - 1)
 			{
 				structFile << ", ";
 			}
 		}
 		structFile << ")\n";
 		structFile << "\t\t\t.values(";
-		for (int i = 0; i < s.member_variables.size(); i++)
+		for (int i = 0; i < s.getMemberVariables().size(); i++)
 		{
-			structFile << "this->" << s.member_variables[i].identifier;
-			if (i < s.member_variables.size() - 1)
+			structFile << "this->" << s.getMemberVariables()[i].second.identifier;
+			if (i < s.getMemberVariables().size() - 1)
 			{
 				structFile << ", ";
 			}
@@ -462,31 +462,31 @@ void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, 
 		structFile << "\t}\n";
 		return true;
 	};
-	s.functions.push_back(insert_statement_no_args);
+	s.add_function(insert_statement_no_args);
 }
 
 void MysqlGenerator::generate_update_all_statement_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
 	FunctionDefinition update_all_statement;
 	update_all_statement.generator = "MySQL";
-	update_all_statement.identifier = "MySQLUpdate" + s.identifier;
+	update_all_statement.identifier = "MySQLUpdate" + s.getIdentifier();
 	update_all_statement.return_type.identifier() = "bool";
 	update_all_statement.static_function = true;
 	update_all_statement.parameters.push_back(std::make_pair(mysql_session, "session"));
-	for (auto &mv : s.member_variables)
+	for (auto& [generator, mv] : s.getMemberVariables())
 	{
 		update_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 	}
 	update_all_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
-		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
-		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.identifier) << "\");\n";
+		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
+		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.getIdentifier()) << "\");\n";
 		
 		// Find primary key for WHERE clause
 		bool has_primary_key = false;
 		std::string primary_key_field;
-		for (auto &mv : s.member_variables)
+		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			if (mv.primary_key)
 			{
@@ -497,7 +497,7 @@ void MysqlGenerator::generate_update_all_statement_function_struct(Generator *ge
 		}
 		
 		structFile << "\t\tmysqlx::TableUpdate update = table.update();\n";
-		for (auto &mv : s.member_variables)
+		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			if (!mv.primary_key)
 			{
@@ -511,7 +511,7 @@ void MysqlGenerator::generate_update_all_statement_function_struct(Generator *ge
 		}
 		else
 		{
-			structFile << "\t\tupdate.where(\"" << escape_identifier(s.member_variables[0].identifier) << " = :pk\").bind(\"pk\", " << s.member_variables[0].identifier << ");\n";
+			structFile << "\t\tupdate.where(\"" << escape_identifier(s.getMemberVariables()[0].second.identifier) << " = :pk\").bind(\"pk\", " << s.getMemberVariables()[0].second.identifier << ");\n";
 		}
 		
 		structFile << "\t\tupdate.execute();\n";
@@ -522,7 +522,7 @@ void MysqlGenerator::generate_update_all_statement_function_struct(Generator *ge
 		structFile << "\t}\n";
 		return true;
 	};
-	s.functions.push_back(update_all_statement);
+	s.add_function(update_all_statement);
 }
 
 void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
@@ -533,7 +533,7 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 	update_statement.return_type.identifier() = "bool";
 	update_statement.static_function = true;
 	update_statement.parameters.push_back(std::make_pair(mysql_session, "session"));
-	for (auto &mv : s.member_variables)
+	for (auto& [generator, mv] : s.getMemberVariables())
 	{
 		if (mv.type.is_array())
 		{
@@ -544,12 +544,12 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 	update_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
-		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
-		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.identifier) << "\");\n";
+		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
+		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.getIdentifier()) << "\");\n";
 		structFile << "\t\tmysqlx::TableUpdate update = table.update();\n";
 		
 		// Set all non-primary key fields
-		for (auto &mv : s.member_variables)
+		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			if (mv.type.is_array() || mv.primary_key)
 			{
@@ -559,7 +559,7 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 		}
 		
 		// Add WHERE clause for primary key
-		for (auto &mv : s.member_variables)
+		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			if (mv.primary_key)
 			{
@@ -576,7 +576,7 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 		structFile << "\t}\n";
 		return true;
 	};
-	s.functions.push_back(update_statement);
+	s.add_function(update_statement);
 
 	// Instance method version
 	FunctionDefinition update_statement_no_args;
@@ -588,7 +588,7 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 	update_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\treturn MySQLUpdate(session";
-		for (auto &mv : s.member_variables)
+		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			if (mv.type.is_array())
 			{
@@ -599,7 +599,7 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 		structFile << ");\n";
 		return true;
 	};
-	s.functions.push_back(update_statement_no_args);
+	s.add_function(update_statement_no_args);
 }
 
 void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
@@ -612,7 +612,7 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 	delete_statement.parameters.push_back(std::make_pair(mysql_session, "session"));
 	
 	// Find primary key parameter
-	for (auto &mv : s.member_variables)
+	for (auto& [generator, mv] : s.getMemberVariables())
 	{
 		if (mv.primary_key)
 		{
@@ -623,17 +623,17 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 	// If no primary key, use first field
 	if (delete_statement.parameters.size() == 1)
 	{
-		delete_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, s.member_variables[0].type), s.member_variables[0].identifier));
+		delete_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, s.getMemberVariables()[0].second.type), s.getMemberVariables()[0].second.identifier));
 	}
 	
 	delete_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
-		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.identifier << "_db\");\n";
-		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.identifier) << "\");\n";
+		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
+		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.getIdentifier()) << "\");\n";
 		
 		// Find primary key field for WHERE clause
-		for (auto &mv : s.member_variables)
+		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			if (mv.primary_key)
 			{
@@ -646,10 +646,10 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 		}
 		
 		// If no primary key found, use first field
-		if (!s.member_variables.empty())
+		if (!s.getMemberVariables().empty())
 		{
 			bool has_primary_key = false;
-			for (auto &mv : s.member_variables)
+			for (auto& [generator, mv] : s.getMemberVariables())
 			{
 				if (mv.primary_key)
 				{
@@ -660,8 +660,8 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 			if (!has_primary_key)
 			{
 				structFile << "\t\tmysqlx::Result result = table.remove()\n";
-				structFile << "\t\t\t.where(\"" << escape_identifier(s.member_variables[0].identifier) << " = :param\")\n";
-				structFile << "\t\t\t.bind(\"param\", " << s.member_variables[0].identifier << ")\n";
+				structFile << "\t\t\t.where(\"" << escape_identifier(s.getMemberVariables()[0].second.identifier) << " = :param\")\n";
+				structFile << "\t\t\t.bind(\"param\", " << s.getMemberVariables()[0].second.identifier << ")\n";
 				structFile << "\t\t\t.execute();\n";
 			}
 		}
@@ -673,7 +673,7 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 		structFile << "\t}\n";
 		return true;
 	};
-	s.functions.push_back(delete_statement);
+	s.add_function(delete_statement);
 
 	// Instance method version
 	FunctionDefinition delete_statement_no_args;
@@ -686,7 +686,7 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 	{
 		structFile << "\treturn MySQLDelete(session";
 		// Find primary key
-		for (auto &mv : s.member_variables)
+		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			if (mv.primary_key)
 			{
@@ -695,10 +695,10 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 			}
 		}
 		// If no primary key, use first field
-		if (!s.member_variables.empty())
+		if (!s.getMemberVariables().empty())
 		{
 			bool has_primary_key = false;
-			for (auto &mv : s.member_variables)
+			for (auto& [generator, mv] : s.getMemberVariables())
 			{
 				if (mv.primary_key)
 				{
@@ -708,22 +708,22 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 			}
 			if (!has_primary_key)
 			{
-				structFile << ", " << s.member_variables[0].identifier;
+				structFile << ", " << s.getMemberVariables()[0].second.identifier;
 			}
 		}
 		structFile << ");\n";
 		return true;
 	};
-	s.functions.push_back(delete_statement_no_args);
+	s.add_function(delete_statement_no_args);
 }
 
 // file generation functions
 bool MysqlGenerator::generate_create_table_file(ProgramStructure *ps, StructDefinition &s, std::string out_path)
 {
-	std::ofstream structFile(out_path + "/" + s.identifier + "_create_table.sql");
+	std::ofstream structFile(out_path + "/" + s.getIdentifier() + "_create_table.sql");
 	if (!structFile.is_open())
 	{
-		std::cout << "Failed to open file: " << out_path + "/" + s.identifier + "_create_table.sql" << std::endl;
+		std::cout << "Failed to open file: " << out_path + "/" + s.getIdentifier() + "_create_table.sql" << std::endl;
 		return false;
 	}
 	structFile << generate_create_table_statement_string_struct(ps, s) << std::endl;
@@ -736,10 +736,10 @@ bool MysqlGenerator::generate_select_all_files(ProgramStructure *ps, StructDefin
 	std::vector<std::string> sqls = generate_select_all_statements_string_struct(s);
 	for (int i = 0; i < sqls.size(); i++)
 	{
-		std::ofstream structFile(out_path + "/" + s.identifier + "_select_by_" + s.member_variables[i].identifier + ".sql");
+		std::ofstream structFile(out_path + "/" + s.getIdentifier() + "_select_by_" + s.getMemberVariables()[i].second.identifier + ".sql");
 		if (!structFile.is_open())
 		{
-			std::cout << "Failed to open file: " << out_path + "/" + s.identifier + "_select_by_" + s.member_variables[i].identifier + ".sql" << std::endl;
+			std::cout << "Failed to open file: " << out_path + "/" + s.getIdentifier() + "_select_by_" + s.getMemberVariables()[i].second.identifier + ".sql" << std::endl;
 			return false;
 		}
 		structFile << sqls[i] << std::endl;
@@ -750,20 +750,20 @@ bool MysqlGenerator::generate_select_all_files(ProgramStructure *ps, StructDefin
 
 bool MysqlGenerator::generate_select_files(ProgramStructure *ps, StructDefinition &s, std::string out_path)
 {
-	std::vector<std::vector<int>> combinations = comb(s.member_variables.size());
-	for (int i = 0; i < s.member_variables.size(); i++)
+	std::vector<std::vector<int>> combinations = comb(s.getMemberVariables().size());
+	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
-		if (s.member_variables[i].primary_key)
+		if (s.getMemberVariables()[i].second.primary_key)
 		{
 			continue;
 		}
 		for (int j = 0; j < combinations.size(); j++)
 		{
-			std::string filename = out_path + "/" + s.identifier + "_select_" + s.member_variables[i].identifier + "_by";
-			std::string sql = generate_select_by_member_variable_statement_string(s, s.member_variables[i], combinations[j]);
+			std::string filename = out_path + "/" + s.getIdentifier() + "_select_" + s.getMemberVariables()[i].second.identifier + "_by";
+			std::string sql = generate_select_by_member_variable_statement_string(s, s.getMemberVariables()[i].second, combinations[j]);
 			for (int k = 0; k < combinations[j].size(); k++)
 			{
-				filename += "_" + s.member_variables[combinations[j][k]].identifier;
+				filename += "_" + s.getMemberVariables()[combinations[j][k]].second.identifier;
 			}
 			filename += ".sql";
 			std::ofstream structFile(filename);
@@ -911,16 +911,16 @@ std::string MysqlGenerator::escape_identifier(const std::string& identifier)
 MysqlGenerator::MysqlGenerator()
 {
 	name= "MySQL";
-	// base_class.identifier = "MySQL";
-	// base_class.includes.push_back("<mysqlx/xdevapi.h>");
-	// base_class.includes.push_back("<string>");
-	// base_class.includes.push_back("<vector>");
-	// base_class.includes.push_back("<regex>");
-	// base_class.includes.push_back("<filesystem>");
-	// base_class.includes.push_back("<fstream>");
-	// base_class.includes.push_back("<iostream>");
+	// base_class.getIdentifier() = "MySQL";
+	// base_class.add_include("<mysqlx/xdevapi.h>");
+	// base_class.add_include("<string>");
+	// base_class.add_include("<vector>");
+	// base_class.add_include("<regex>");
+	// base_class.add_include("<filesystem>");
+	// base_class.add_include("<fstream>");
+	// base_class.add_include("<iostream>");
 	
-	// base_class.before_lines.push_back("using namespace mysqlx;");
+	// base_class.add_before_line("using namespace mysqlx;");
 }
 
 std::string MysqlGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefinition type)
@@ -1003,10 +1003,10 @@ std::string MysqlGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefi
 bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
 {
 	// Add necessary includes for MySQL X DevAPI
-	s.includes.insert({"MySQL","<mysqlx/xdevapi.h>"});
-	s.includes.insert({"","<iostream>"});
-	s.includes.insert({"","<string>"});
-	s.includes.insert({"","<vector>"});
+	s.add_include("<mysqlx/xdevapi.h>","MySQL");
+	s.add_include("<string>","MySQL");
+	s.add_include("<vector>","MySQL");
+	s.add_include("<iostream>","MySQL");
 
 	generate_select_statements_function_struct(gen, ps, s);
 	generate_insert_statements_function_struct(gen, ps, s);
@@ -1025,7 +1025,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 		structFile << "\treturn \"" << escape_string(generate_create_table_statement_string_struct(ps, s)) << "\";\n";
 		return true;
 	};
-	s.functions.push_back(getMySQLCreateTableStatement);
+	s.add_function(getMySQLCreateTableStatement);
 
 	FunctionDefinition createMySQLTable;
 	createMySQLTable.generator = "MySQL";
@@ -1044,7 +1044,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 		structFile << "\t}\n";
 		return true;
 	};
-	s.functions.push_back(createMySQLTable);
+	s.add_function(createMySQLTable);
 
 	return true;
 }

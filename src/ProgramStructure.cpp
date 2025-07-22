@@ -431,7 +431,7 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 		return false;
 	}
 	i++;
-	current_struct.identifier = tokens[i].value;
+	current_struct.setIdentifier(tokens[i].value);
 	i++;
 	if (tokens[i] != "{")
 	{
@@ -448,28 +448,28 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 			{
 				return false;
 			}
-			current_struct.add_MemberVariableDefinition(current_MemberVariableDefinition);
+			current_struct.add_member_variable(current_MemberVariableDefinition);
 		}
 		else
 		{
-			reportError("Expected member variable type " + tokens[i].value + " is not a valid type for struct " + current_struct.identifier + " member variable " + tokens[i + 2].value, tokens[i]);
+			reportError("Expected member variable type " + tokens[i].value + " is not a valid type for struct " + current_struct.getIdentifier() + " member variable " + tokens[i + 2].value, tokens[i]);
 			return false;
 		}
 	}
 
 	// check for an 'id' member variable
-	int id_index = -1;
-	for (auto &mv : current_struct.member_variables)
+	bool has_id = false;
+	for (auto &[generator,mv] : current_struct.getMemberVariables())
 	{
 		if (mv.identifier == "id")
 		{
-			id_index = &mv - &current_struct.member_variables[0];
+			has_id = true;
 			break;
 		}
 	}
-	if (id_index != -1)
+	if (has_id)
 	{
-		reportError("Struct " + current_struct.identifier + " can not have an 'id' member variable this is reserved for the primary key.");
+		reportError("Struct " + current_struct.getIdentifier() + " can not have an 'id' member variable this is reserved for the primary key.");
 		return false;
 	}
 
@@ -481,11 +481,11 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 	id_member.auto_increment = true;
 	id_member.required = true;
 	id_member.unique = true;
-	id_member.description = "Primary unique identifier for " + current_struct.identifier;
-	current_struct.add_MemberVariableDefinition(id_member);
+	id_member.description = "Primary unique identifier for " + current_struct.getIdentifier();
+	current_struct.add_member_variable(id_member);
 
 	// remove identifier from type_names
-	auto it = std::find(type_names.begin(), type_names.end(), current_struct.identifier);
+	auto it = std::find(type_names.begin(), type_names.end(), current_struct.getIdentifier());
 	if (it != type_names.end())
 	{
 		type_names.erase(it);
@@ -594,15 +594,15 @@ bool ProgramStructure::validate()
 {
 	for (auto &s : structs)
 	{
-		for (auto &mv : s.member_variables)
+		for (auto& [generator, mv] : s.getMemberVariables())
 		{
-			if(mv.type.identifier()==s.identifier)
+			if(mv.type.identifier()==s.getIdentifier())
 			{
-				reportError("Member variable " + mv.identifier + " in struct " + s.identifier + " can not have the same type as the struct itself.\n"
+				reportError("Member variable " + mv.identifier + " in struct " + s.getIdentifier() + " can not have the same type as the struct itself.\n"
 					"This is a recursive dependency and will cause issues with certain generators.\n"
 					"Please use the 'reference' modifier to resolve this issue.\n"
 					"Example:\n"
-					"\tstruct " + s.identifier + "{\n"
+					"\tstruct " + s.getIdentifier() + "{\n"
 					"\t\t" + mv.type.identifier() + ": " + mv.identifier + ": reference;\n"
 					"\t}");
 				return false;
@@ -611,30 +611,30 @@ bool ProgramStructure::validate()
 			if (tokenIsStruct(mv.type.identifier()))
 			{
 				StructDefinition &struct_def = getStruct(mv.type.identifier());
-				for (auto &other_mv : struct_def.member_variables)
+				for (auto &[generator,other_mv] : struct_def.getMemberVariables())
 				{
-					if (other_mv.type.identifier() == s.identifier)
+					if (other_mv.type.identifier() == s.getIdentifier())
 					{
 						bool mv_has_ref = !(mv.reference.struct_name.empty() && mv.reference.variable_name.empty());
 						bool other_mv_has_ref = !(other_mv.reference.struct_name.empty() && other_mv.reference.variable_name.empty());
 						if (mv_has_ref && other_mv_has_ref)
 						{
 							reportError("Circular dependancy detected. use the 'reference' modifyer to resolve. Resolution examples:\n"
-								   "\tstruct " + s.identifier + "{\n"
+								   "\tstruct " + s.getIdentifier() + "{\n"
 								   "\t\t" + mv.type.identifier() + ": " + mv.identifier + ": reference;\n"
 								   "\t}\n"
 								   "\n"
-								   "\tstruct " + struct_def.identifier + "{\n"
+								   "\tstruct " + struct_def.getIdentifier() + "{\n"
 								   "\t\t" + other_mv.type.identifier() + ": " + other_mv.identifier + ";\n"
 								   "\t}\n"
 								   "\n"
 								   "or\n"
 								   "\n"
-								   "\tstruct " + s.identifier + "{\n"
+								   "\tstruct " + s.getIdentifier() + "{\n"
 								   "\t\t" + mv.type.identifier() + ": " + mv.identifier + ": reference;\n"
 								   "\t}\n"
 								   "\n"
-								   "\tstruct " + struct_def.identifier + "{\n"
+								   "\tstruct " + struct_def.getIdentifier() + "{\n"
 								   "\t\t" + other_mv.type.identifier() + ": " + other_mv.identifier + ": reference;\n"
 								   "\t}");
 							return false;
@@ -660,7 +660,7 @@ bool ProgramStructure::validate()
 					return false;
 				}
 				// if struct does not have member variable with name of reference variable name
-				if (!getStruct(mv.reference.struct_name).has_MemberVariableDefinition(mv.reference.variable_name))
+				if (!getStruct(mv.reference.struct_name).has_member_variable(mv.reference.variable_name))
 				{
 					reportError("Struct " + mv.reference.struct_name + " does not have member variable " + mv.reference.variable_name);
 					return false;
@@ -684,7 +684,7 @@ bool ProgramStructure::tokenIsStruct(std::string token)
 {
 	for (auto &s : structs)
 	{
-		if (s.identifier == token)
+		if (s.getIdentifier() == token)
 		{
 			return true;
 		}
@@ -717,7 +717,7 @@ StructDefinition &ProgramStructure::getStruct(std::string identifier)
 {
 	for (auto &s : structs)
 	{
-		if (s.identifier == identifier)
+		if (s.getIdentifier() == identifier)
 		{
 			return s;
 		}

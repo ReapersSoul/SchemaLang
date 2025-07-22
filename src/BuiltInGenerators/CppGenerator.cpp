@@ -2,24 +2,24 @@
 
 bool CppGenerator::generate_base_class_header_file(Generator *gen, ProgramStructure *ps, std::string out_path)
 {
-	std::ofstream baseClassFile(out_path + "/Has" + gen->base_class.identifier + "Schema.hpp");
+	std::ofstream baseClassFile(out_path + "/Has" + gen->base_class.getIdentifier() + "Schema.hpp");
 	if (!baseClassFile.is_open())
 	{
-		std::cout << "Failed to open file: " << out_path + "/Has" + gen->base_class.identifier + "Schema.hpp" << std::endl;
+		std::cout << "Failed to open file: " << out_path + "/Has" + gen->base_class.getIdentifier() + "Schema.hpp" << std::endl;
 		return false;
 	}
 	baseClassFile << "#pragma once\n";
-	for (auto &include : gen->base_class.includes)
+	for (auto &include : gen->base_class.getIncludes())
 	{
 		baseClassFile << "#include " << include.second << "\n";
 	}
-	for (auto &line : gen->base_class.before_lines)
+	for (auto &line : gen->base_class.getBeforeLines())
 	{
 		baseClassFile << line.second << "\n";
 	}
-	baseClassFile << "class Has" + gen->base_class.identifier + "Schema{\n";
+	baseClassFile << "class Has" + gen->base_class.getIdentifier() + "Schema{\n";
 	baseClassFile << "public:\n";
-	for (auto &f : gen->base_class.functions)
+	for (auto & [generator, f] : gen->base_class.getFunctions())
 	{
 		baseClassFile << "\tvirtual " << convert_to_local_type(ps, f.return_type) << " " << f.identifier << "(";
 		for (int i = 0; i < f.parameters.size(); i++)
@@ -40,208 +40,6 @@ bool CppGenerator::generate_base_class_header_file(Generator *gen, ProgramStruct
 CppGenerator::CppGenerator()
 {
 	name="Cpp";
-	base_class.identifier = "Cpp";
-	base_class.includes.insert({"Java", "<jni.h>"});
-
-	// Add Java integration methods
-	FunctionDefinition to_java_object;
-	to_java_object.generator = "Cpp";
-	to_java_object.identifier = "to_java_object";
-	to_java_object.return_type.identifier() = "jobject";
-	to_java_object.parameters.push_back(std::make_pair(TypeDefinition("JNIEnv*"), "env"));
-	to_java_object.parameters.push_back(std::make_pair(TypeDefinition("jclass"), "clazz"));
-	to_java_object.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
-	{
-		structFile << "\t// Create Java object from C++ object\n";
-		structFile << "\tjmethodID constructor = env->GetMethodID(clazz, \"<init>\", \"()V\");\n";
-		structFile << "\tif (!constructor) return nullptr;\n";
-		structFile << "\tjobject jobj = env->NewObject(clazz, constructor);\n";
-		structFile << "\tif (!jobj) return nullptr;\n\n";
-
-		for (auto &mv : s.member_variables)
-		{
-			std::string setter_name = "set" + mv.identifier;
-			setter_name[3] = std::toupper(setter_name[3]);
-
-			structFile << "\t// Set field: " << mv.identifier << "\n";
-
-			if (mv.type.is_integer())
-			{
-				structFile << "\tjmethodID " << mv.identifier << "_setter = env->GetMethodID(clazz, \"" << setter_name << "\", \"(I)V\");\n";
-				structFile << "\tif (" << mv.identifier << "_setter) {\n";
-				structFile << "\t\tenv->CallVoidMethod(jobj, " << mv.identifier << "_setter, (jint)" << mv.identifier << ");\n";
-				structFile << "\t}\n\n";
-			}
-			else if (mv.type.is_real())
-			{
-				if (mv.type.identifier() == "float")
-				{
-					structFile << "\tjmethodID " << mv.identifier << "_setter = env->GetMethodID(clazz, \"" << setter_name << "\", \"(F)V\");\n";
-					structFile << "\tif (" << mv.identifier << "_setter) {\n";
-					structFile << "\t\tenv->CallVoidMethod(jobj, " << mv.identifier << "_setter, (jfloat)" << mv.identifier << ");\n";
-					structFile << "\t}\n\n";
-				}
-				else
-				{
-					structFile << "\tjmethodID " << mv.identifier << "_setter = env->GetMethodID(clazz, \"" << setter_name << "\", \"(D)V\");\n";
-					structFile << "\tif (" << mv.identifier << "_setter) {\n";
-					structFile << "\t\tenv->CallVoidMethod(jobj, " << mv.identifier << "_setter, (jdouble)" << mv.identifier << ");\n";
-					structFile << "\t}\n\n";
-				}
-			}
-			else if (mv.type.is_bool())
-			{
-				structFile << "\tjmethodID " << mv.identifier << "_setter = env->GetMethodID(clazz, \"" << setter_name << "\", \"(Z)V\");\n";
-				structFile << "\tif (" << mv.identifier << "_setter) {\n";
-				structFile << "\t\tenv->CallVoidMethod(jobj, " << mv.identifier << "_setter, (jboolean)" << mv.identifier << ");\n";
-				structFile << "\t}\n\n";
-			}
-			else if (mv.type.is_string())
-			{
-				structFile << "\tjstring j" << mv.identifier << " = env->NewStringUTF(" << mv.identifier << ".c_str());\n";
-				structFile << "\tjmethodID " << mv.identifier << "_setter = env->GetMethodID(clazz, \"" << setter_name << "\", \"(Ljava/lang/String;)V\");\n";
-				structFile << "\tif (" << mv.identifier << "_setter && j" << mv.identifier << ") {\n";
-				structFile << "\t\tenv->CallVoidMethod(jobj, " << mv.identifier << "_setter, j" << mv.identifier << ");\n";
-				structFile << "\t\tenv->DeleteLocalRef(j" << mv.identifier << ");\n";
-				structFile << "\t}\n\n";
-			}
-			else if (mv.type.is_array())
-			{
-				structFile << "\t// Convert array " << mv.identifier << " to Java array\n";
-				if (mv.type.element_type().is_integer())
-				{
-					structFile << "\tjintArray j" << mv.identifier << " = env->NewIntArray(" << mv.identifier << ".size());\n";
-					structFile << "\tif (j" << mv.identifier << ") {\n";
-					structFile << "\t\tfor (size_t i = 0; i < " << mv.identifier << ".size(); i++) {\n";
-					structFile << "\t\t\tjint val = " << mv.identifier << "[i];\n";
-					structFile << "\t\t\tenv->SetIntArrayRegion(j" << mv.identifier << ", i, 1, &val);\n";
-					structFile << "\t\t}\n";
-					structFile << "\t\tjmethodID " << mv.identifier << "_setter = env->GetMethodID(clazz, \"" << setter_name << "\", \"([I)V\");\n";
-					structFile << "\t\tif (" << mv.identifier << "_setter) {\n";
-					structFile << "\t\t\tenv->CallVoidMethod(jobj, " << mv.identifier << "_setter, j" << mv.identifier << ");\n";
-					structFile << "\t\t}\n";
-					structFile << "\t\tenv->DeleteLocalRef(j" << mv.identifier << ");\n";
-					structFile << "\t}\n\n";
-				}
-				else if (mv.type.element_type().is_string())
-				{
-					structFile << "\tjobjectArray j" << mv.identifier << " = env->NewObjectArray(" << mv.identifier << ".size(), env->FindClass(\"java/lang/String\"), nullptr);\n";
-					structFile << "\tif (j" << mv.identifier << ") {\n";
-					structFile << "\t\tfor (size_t i = 0; i < " << mv.identifier << ".size(); i++) {\n";
-					structFile << "\t\t\tjstring jstr = env->NewStringUTF(" << mv.identifier << "[i].c_str());\n";
-					structFile << "\t\t\tenv->SetObjectArrayElement(j" << mv.identifier << ", i, jstr);\n";
-					structFile << "\t\t\tenv->DeleteLocalRef(jstr);\n";
-					structFile << "\t\t}\n";
-					structFile << "\t\tjmethodID " << mv.identifier << "_setter = env->GetMethodID(clazz, \"" << setter_name << "\", \"([Ljava/lang/String;)V\");\n";
-					structFile << "\t\tif (" << mv.identifier << "_setter) {\n";
-					structFile << "\t\t\tenv->CallVoidMethod(jobj, " << mv.identifier << "_setter, j" << mv.identifier << ");\n";
-					structFile << "\t\t}\n";
-					structFile << "\t\tenv->DeleteLocalRef(j" << mv.identifier << ");\n";
-					structFile << "\t}\n\n";
-				}
-			}
-		}
-
-		structFile << "\treturn jobj;\n";
-		return true;
-	};
-
-	FunctionDefinition from_java_object;
-	from_java_object.generator = "Cpp";
-	from_java_object.identifier = "from_java_object";
-	from_java_object.return_type.identifier() = "void";
-	from_java_object.parameters.push_back(std::make_pair(TypeDefinition("JNIEnv*"), "env"));
-	from_java_object.parameters.push_back(std::make_pair(TypeDefinition("jobject"), "jobj"));
-	from_java_object.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
-	{
-		structFile << "\t// Populate C++ object from Java object\n";
-		structFile << "\tif (!jobj) return;\n";
-		structFile << "\tjclass clazz = env->GetObjectClass(jobj);\n";
-		structFile << "\tif (!clazz) return;\n\n";
-
-		for (auto &mv : s.member_variables)
-		{
-			std::string getter_name = "get" + mv.identifier;
-			getter_name[3] = std::toupper(getter_name[3]);
-
-			structFile << "\t// Get field: " << mv.identifier << "\n";
-
-			if (mv.type.is_integer())
-			{
-				structFile << "\tjmethodID " << mv.identifier << "_getter = env->GetMethodID(clazz, \"" << getter_name << "\", \"()I\");\n";
-				structFile << "\tif (" << mv.identifier << "_getter) {\n";
-				structFile << "\t\t" << mv.identifier << " = env->CallIntMethod(jobj, " << mv.identifier << "_getter);\n";
-				structFile << "\t}\n\n";
-			}
-			else if (mv.type.is_real())
-			{
-				if (mv.type.identifier() == "float")
-				{
-					structFile << "\tjmethodID " << mv.identifier << "_getter = env->GetMethodID(clazz, \"" << getter_name << "\", \"()F\");\n";
-					structFile << "\tif (" << mv.identifier << "_getter) {\n";
-					structFile << "\t\t" << mv.identifier << " = env->CallFloatMethod(jobj, " << mv.identifier << "_getter);\n";
-					structFile << "\t}\n\n";
-				}
-				else
-				{
-					structFile << "\tjmethodID " << mv.identifier << "_getter = env->GetMethodID(clazz, \"" << getter_name << "\", \"()D\");\n";
-					structFile << "\tif (" << mv.identifier << "_getter) {\n";
-					structFile << "\t\t" << mv.identifier << " = env->CallDoubleMethod(jobj, " << mv.identifier << "_getter);\n";
-					structFile << "\t}\n\n";
-				}
-			}
-			else if (mv.type.is_bool())
-			{
-				structFile << "\tjmethodID " << mv.identifier << "_getter = env->GetMethodID(clazz, \"" << getter_name << "\", \"()Z\");\n";
-				structFile << "\tif (" << mv.identifier << "_getter) {\n";
-				structFile << "\t\t" << mv.identifier << " = env->CallBooleanMethod(jobj, " << mv.identifier << "_getter);\n";
-				structFile << "\t}\n\n";
-			}
-			else if (mv.type.is_string())
-			{
-				structFile << "\tjmethodID " << mv.identifier << "_getter = env->GetMethodID(clazz, \"" << getter_name << "\", \"()Ljava/lang/String;\");\n";
-				structFile << "\tif (" << mv.identifier << "_getter) {\n";
-				structFile << "\t\tjstring j" << mv.identifier << " = (jstring)env->CallObjectMethod(jobj, " << mv.identifier << "_getter);\n";
-				structFile << "\t\tif (j" << mv.identifier << ") {\n";
-				structFile << "\t\t\tconst char* cstr = env->GetStringUTFChars(j" << mv.identifier << ", nullptr);\n";
-				structFile << "\t\t\tif (cstr) {\n";
-				structFile << "\t\t\t\t" << mv.identifier << " = std::string(cstr);\n";
-				structFile << "\t\t\t\tenv->ReleaseStringUTFChars(j" << mv.identifier << ", cstr);\n";
-				structFile << "\t\t\t}\n";
-				structFile << "\t\t\tenv->DeleteLocalRef(j" << mv.identifier << ");\n";
-				structFile << "\t\t}\n";
-				structFile << "\t}\n\n";
-			}
-		}
-
-		structFile << "\tenv->DeleteLocalRef(clazz);\n";
-		return true;
-	};
-
-	FunctionDefinition create_java_class;
-	create_java_class.generator = "Cpp";
-	create_java_class.identifier = "create_java_class";
-	create_java_class.return_type.identifier() = "jclass";
-	create_java_class.static_function = true;
-	create_java_class.parameters.push_back(std::make_pair(TypeDefinition("JNIEnv*"), "env"));
-	create_java_class.parameters.push_back(std::make_pair(TypeDefinition("const std::string&"), "class_name"));
-	create_java_class.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
-	{
-		structFile << "\t// Create and register Java class for this C++ schema\n";
-		structFile << "\tstd::string full_class_name = class_name;\n";
-		structFile << "\t// Replace :: with / for Java class path\n";
-		structFile << "\tsize_t pos = 0;\n";
-		structFile << "\twhile ((pos = full_class_name.find(\"::\", pos)) != std::string::npos) {\n";
-		structFile << "\t\tfull_class_name.replace(pos, 2, \"/\");\n";
-		structFile << "\t\tpos += 1;\n";
-		structFile << "\t}\n";
-		structFile << "\treturn env->FindClass(full_class_name.c_str());\n";
-		return true;
-	};
-
-	base_class.functions.push_back(to_java_object);
-	base_class.functions.push_back(from_java_object);
-	base_class.functions.push_back(create_java_class);
 }
 
 bool CppGenerator::add_generator(Generator *gen)
@@ -366,11 +164,11 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		{          
 			continue;
 		}
-		if (!gen->base_class.identifier.empty())
+		if (!gen->base_class.getIdentifier().empty())
 		{
 			if (!generate_base_class_header_file(gen, &ps, out_path))
 			{
-				printf("Error: Failed to generate base class header file for %s\n", gen->base_class.identifier.c_str());
+				printf("Error: Failed to generate base class header file for %s\n", gen->base_class.getIdentifier().c_str());
 				return false;
 			}
 			base_classes.push_back(gen->base_class);
@@ -380,7 +178,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		{
 			if (!gen->add_generator_specific_content_to_struct(this, &ps, s))
 			{
-				printf("Error: Failed to add Generator specific functions for %s\n", gen->base_class.identifier.c_str());
+				printf("Error: Failed to add Generator specific functions for %s\n", gen->base_class.getIdentifier().c_str());
 				return false;
 			}
 		}
@@ -412,13 +210,13 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 	for (auto &s : ps.getStructs())
 	{
 		inja::json data;
-		data["struct"] = s.identifier;
-		data["struct_include"] = format_include(s.identifier + "Schema.hpp");
+		data["struct"] = s.getIdentifier();
+		data["struct_include"] = format_include(s.getIdentifier() + "Schema.hpp");
 
 		data["generators"] = inja::json::object();
 
 		data["functions"] = inja::json::array();
-		for (auto &f : s.functions)
+		for (auto &[generator,f] : s.getFunctions())
 		{
 
 			inja::json function_data;
@@ -459,7 +257,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		}
 
 		data["includes"] = inja::json::array();
-		for (auto &include : s.includes)
+		for (auto &include : s.getIncludes())
 		{
 			if (include.first.empty())
 			{
@@ -479,17 +277,17 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		data["base_classes"] = inja::json::array();
         for (auto &bc : base_classes)
         {
-            if (bc.identifier.empty())
+            if (bc.getIdentifier().empty())
             {
                 continue;
             }
             inja::json base_class_data;
-            base_class_data["identifier"] = bc.identifier;
-            base_class_data["formatted_include"] = format_include("Has" + bc.identifier + "Schema.hpp");
+            base_class_data["identifier"] = bc.getIdentifier();
+            base_class_data["formatted_include"] = format_include("Has" + bc.getIdentifier() + "Schema.hpp");
             
             // Add functions from base class
             base_class_data["functions"] = inja::json::array();
-            for (auto &f : bc.functions)
+            for (auto & [generator, f] : bc.getFunctions())
             {
                 inja::json function_data;
                 function_data["identifier"] = f.identifier;
@@ -517,9 +315,9 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
             
             // Add includes from base class
             base_class_data["includes"] = inja::json::array();
-            for (auto &include : bc.includes)
+            for (auto &[generator,include] : bc.getIncludes())
             {
-                base_class_data["includes"].push_back(include.second);
+                base_class_data["includes"].push_back(include);
             }
             
             data["base_classes"].push_back(base_class_data);
@@ -527,7 +325,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 
 		// Add schema includes for member variable types
 		data["schema_includes"] = inja::json::array();
-		for (auto &mv : s.member_variables)
+		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			// Include the header file for the member variable type if it is a struct or enum
 			if (ps.tokenIsStruct(mv.type.identifier()) || ps.tokenIsEnum(mv.type.identifier()))
@@ -544,7 +342,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		}
 
 		data["member_variables"] = inja::json::array();
-		for (auto &mv : s.member_variables)
+		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			inja::json mv_data;
 			mv_data["identifier"] = mv.identifier;
@@ -562,7 +360,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 			data["member_variables"].push_back(mv_data);
 		}
 		data["private_variables"] = inja::json::array();
-		for (auto &pv : s.private_variables)
+		for (auto &[generator,pv] : s.getPrivateVariables())
 		{
 			inja::json pv_data;
 			pv_data["identifier"] = pv.identifier;
@@ -574,17 +372,17 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 
 		//nested template data
 		data["before_setter_lines"] = inja::json::array();
-		for (auto &line : s.before_setter_lines)
+		for (auto &[generator,line] : s.getBeforeSetterLines())
 		{
 			inja::json line_data;
-			line_data["line"] = env.render(line.second, data);
+			line_data["line"] = env.render(line, data);
 			data["before_setter_lines"].push_back(line_data);
 		}
 		data["before_getter_lines"] = inja::json::array();
-		for (auto &line : s.before_getter_lines)
+		for (auto &[genrator,line] : s.getBeforeSetterLines())
 		{
 			inja::json line_data;
-			line_data["line"] = env.render(line.second, data);
+			line_data["line"] = env.render(line, data);
 			data["before_getter_lines"].push_back(line_data);
 		}
 
@@ -604,7 +402,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		}
 		catch (const std::exception &e)
 		{
-			std::cout << "Error generating file for struct " << s.identifier << ": " << e.what() << std::endl;
+			std::cout << "Error generating file for struct " << s.getIdentifier() << ": " << e.what() << std::endl;
 			return false;
 		}
 	}

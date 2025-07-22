@@ -58,10 +58,10 @@ void JavaGenerator::generate_enum_file(EnumDefinition e, std::string out_path)
 
 void JavaGenerator::generate_struct_file(StructDefinition s, ProgramStructure *ps, std::string out_path, std::vector<StructDefinition> base_classes)
 {
-    std::ofstream structFile(out_path + "/" + s.identifier + ".java");
+    std::ofstream structFile(out_path + "/" + s.getIdentifier() + ".java");
     if (!structFile.is_open())
     {
-        std::cout << "Failed to open file: " << out_path + "/" + s.identifier + ".java" << std::endl;
+        std::cout << "Failed to open file: " << out_path + "/" + s.getIdentifier() + ".java" << std::endl;
         return;
     }
     
@@ -76,9 +76,9 @@ void JavaGenerator::generate_struct_file(StructDefinition s, ProgramStructure *p
     // Add imports for generator-specific classes
     for (auto &bc : base_classes)
     {
-        if (!bc.identifier.empty())
+        if (!bc.getIdentifier().empty())
         {
-            for (auto &include : bc.includes)
+            for (auto &include : bc.getIncludes())
             {
                 if (include.second.find(".java") != std::string::npos || include.second.find("java.") != std::string::npos)
                 {
@@ -91,17 +91,17 @@ void JavaGenerator::generate_struct_file(StructDefinition s, ProgramStructure *p
     structFile << "\n";
     
     // Class declaration with interfaces
-    structFile << "public class " << s.identifier;
+    structFile << "public class " << s.getIdentifier();
     if (!base_classes.empty())
     {
         structFile << " implements ";
         bool first = true;
         for (auto &bc : base_classes)
         {
-            if (!bc.identifier.empty())
+            if (!bc.getIdentifier().empty())
             {
                 if (!first) structFile << ", ";
-                structFile << "Has" << bc.identifier;
+                structFile << "Has" << bc.getIdentifier();
                 first = false;
             }
         }
@@ -109,7 +109,7 @@ void JavaGenerator::generate_struct_file(StructDefinition s, ProgramStructure *p
     structFile << " {\n";
     
     // Member variables
-    for (auto &mv : s.member_variables)
+    for (auto& [generator, mv] : s.getMemberVariables())
     {
         structFile << "    private " << get_java_type(mv.type, ps) << " " << mv.identifier;
         if (!mv.required)
@@ -122,8 +122,8 @@ void JavaGenerator::generate_struct_file(StructDefinition s, ProgramStructure *p
     structFile << "\n";
     
     // Default constructor
-    structFile << "    public " << s.identifier << "() {\n";
-    for (auto &mv : s.member_variables)
+    structFile << "    public " << s.getIdentifier() << "() {\n";
+    for (auto& [generator, mv] : s.getMemberVariables())
     {
         if (mv.required)
         {
@@ -133,13 +133,13 @@ void JavaGenerator::generate_struct_file(StructDefinition s, ProgramStructure *p
     structFile << "    }\n\n";
     
     // Constructor with all parameters
-    if (!s.member_variables.empty())
+    if (!s.getMemberVariables().empty())
     {
         generate_constructor(s, ps, structFile);
     }
     
     // Getters and Setters
-    for (auto &mv : s.member_variables)
+    for (auto& [generator, mv] : s.getMemberVariables())
     {
         generate_member_variable_getter(mv, ps, structFile);
         generate_member_variable_setter(mv, ps, structFile);
@@ -183,12 +183,12 @@ void JavaGenerator::generate_member_variable_setter(MemberVariableDefinition &mv
 
 void JavaGenerator::generate_constructor(StructDefinition &s, ProgramStructure *ps, std::ofstream &structFile)
 {
-    structFile << "    public " << s.identifier << "(";
+    structFile << "    public " << s.getIdentifier() << "(";
     
-    for (size_t i = 0; i < s.member_variables.size(); i++)
+    for (size_t i = 0; i < s.getMemberVariables().size(); i++)
     {
-        structFile << get_java_type(s.member_variables[i].type, ps) << " " << s.member_variables[i].identifier;
-        if (i < s.member_variables.size() - 1)
+        structFile << get_java_type(s.getMemberVariables()[i].second.type, ps) << " " << s.getMemberVariables()[i].second.identifier;
+        if (i < s.getMemberVariables().size() - 1)
         {
             structFile << ", ";
         }
@@ -196,7 +196,7 @@ void JavaGenerator::generate_constructor(StructDefinition &s, ProgramStructure *
     
     structFile << ") {\n";
     
-    for (auto &mv : s.member_variables)
+    for (auto& [generator, mv] : s.getMemberVariables())
     {
         structFile << "        this." << mv.identifier << " = " << mv.identifier << ";\n";
     }
@@ -208,12 +208,12 @@ void JavaGenerator::generate_to_string_method(StructDefinition &s, ProgramStruct
 {
     structFile << "    @Override\n";
     structFile << "    public String toString() {\n";
-    structFile << "        return \"" << s.identifier << "{\" +\n";
+    structFile << "        return \"" << s.getIdentifier() << "{\" +\n";
     
-    for (size_t i = 0; i < s.member_variables.size(); i++)
+    for (size_t i = 0; i < s.getMemberVariables().size(); i++)
     {
-        structFile << "                \"" << s.member_variables[i].identifier << "=\" + " << s.member_variables[i].identifier;
-        if (i < s.member_variables.size() - 1)
+        structFile << "                \"" << s.getMemberVariables()[i].second.identifier << "=\" + " << s.getMemberVariables()[i].second.identifier;
+        if (i < s.getMemberVariables().size() - 1)
         {
             structFile << " + \", \" +\n";
         }
@@ -233,12 +233,12 @@ void JavaGenerator::generate_equals_method(StructDefinition &s, ProgramStructure
     structFile << "    public boolean equals(Object obj) {\n";
     structFile << "        if (this == obj) return true;\n";
     structFile << "        if (obj == null || getClass() != obj.getClass()) return false;\n";
-    structFile << "        " << s.identifier << " that = (" << s.identifier << ") obj;\n";
+    structFile << "        " << s.getIdentifier() << " that = (" << s.getIdentifier() << ") obj;\n";
     structFile << "        return ";
     
-    for (size_t i = 0; i < s.member_variables.size(); i++)
+    for (size_t i = 0; i < s.getMemberVariables().size(); i++)
     {
-        auto &mv = s.member_variables[i];
+        auto &mv = s.getMemberVariables()[i].second;
         if (mv.type.is_array() || mv.type.is_struct(ps) || mv.type.is_string())
         {
             structFile << "Objects.equals(" << mv.identifier << ", that." << mv.identifier << ")";
@@ -248,7 +248,7 @@ void JavaGenerator::generate_equals_method(StructDefinition &s, ProgramStructure
             structFile << mv.identifier << " == that." << mv.identifier;
         }
         
-        if (i < s.member_variables.size() - 1)
+        if (i < s.getMemberVariables().size() - 1)
         {
             structFile << " &&\n               ";
         }
@@ -264,10 +264,10 @@ void JavaGenerator::generate_hash_code_method(StructDefinition &s, ProgramStruct
     structFile << "    public int hashCode() {\n";
     structFile << "        return Objects.hash(";
     
-    for (size_t i = 0; i < s.member_variables.size(); i++)
+    for (size_t i = 0; i < s.getMemberVariables().size(); i++)
     {
-        structFile << s.member_variables[i].identifier;
-        if (i < s.member_variables.size() - 1)
+        structFile << s.getMemberVariables()[i].second.identifier;
+        if (i < s.getMemberVariables().size() - 1)
         {
             structFile << ", ";
         }
@@ -282,9 +282,9 @@ void JavaGenerator::generate_generator_methods(StructDefinition &s, ProgramStruc
     // Generate methods from other generators
     for (auto &bc : base_classes)
     {
-        if (bc.identifier.empty()) continue;
+        if (bc.getIdentifier().empty()) continue;
         
-        for (auto &f : bc.functions)
+        for (auto & [generator, f] : bc.getFunctions())
         {
             structFile << "    @Override\n";
             if (f.static_function)
@@ -299,7 +299,7 @@ void JavaGenerator::generate_generator_methods(StructDefinition &s, ProgramStruc
             // Handle return type properly for static methods
             if (f.identifier == "fromJson" || f.identifier == "loadFromDatabase" || f.identifier == "fromLuaTable")
             {
-                structFile << s.identifier << " ";
+                structFile << s.getIdentifier() << " ";
             }
             else
             {
@@ -321,7 +321,7 @@ void JavaGenerator::generate_generator_methods(StructDefinition &s, ProgramStruc
             structFile << ") {\n";
             
             // Generate method body - simplified Java implementation
-            if (f.identifier == "toJSON" && bc.identifier == "Json")
+            if (f.identifier == "toJSON" && bc.getIdentifier() == "Json")
             {
                 structFile << "        // Convert to JSON using Jackson ObjectMapper\n";
                 structFile << "        try {\n";
@@ -331,20 +331,20 @@ void JavaGenerator::generate_generator_methods(StructDefinition &s, ProgramStruc
                 structFile << "            throw new RuntimeException(\"Failed to serialize to JSON\", e);\n";
                 structFile << "        }\n";
             }
-            else if (f.identifier == "fromJSON" && bc.identifier == "Json")
+            else if (f.identifier == "fromJSON" && bc.getIdentifier() == "Json")
             {
                 structFile << "        // Parse from JSON using Jackson ObjectMapper\n";
                 structFile << "        try {\n";
                 structFile << "            ObjectMapper mapper = new ObjectMapper();\n";
-                structFile << "            return mapper.readValue(" << f.parameters[0].second << ", " << s.identifier << ".class);\n";
+                structFile << "            return mapper.readValue(" << f.parameters[0].second << ", " << s.getIdentifier() << ".class);\n";
                 structFile << "        } catch (Exception e) {\n";
                 structFile << "            throw new RuntimeException(\"Failed to parse from JSON\", e);\n";
                 structFile << "        }\n";
             }
-            else if (f.identifier == "validate" && bc.identifier == "Java")
+            else if (f.identifier == "validate" && bc.getIdentifier() == "Java")
             {
                 structFile << "        // Validate required fields\n";
-                for (auto &mv : s.member_variables)
+                for (auto& [generator, mv] : s.getMemberVariables())
                 {
                     if (mv.required)
                     {
@@ -521,7 +521,7 @@ std::string JavaGenerator::get_java_default_value(TypeDefinition type, ProgramSt
 JavaGenerator::JavaGenerator()
 {
     name = "Java";
-    base_class.identifier = "Java";
+    base_class.setIdentifier("Java");
     
     // Add validation method
     FunctionDefinition validate;
@@ -531,7 +531,7 @@ JavaGenerator::JavaGenerator()
     validate.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
     {
         structFile << "        // Validate required fields\n";
-        for (auto &mv : s.member_variables)
+        for (auto& [generator, mv] : s.getMemberVariables())
         {
             if (mv.required)
             {
@@ -560,8 +560,8 @@ JavaGenerator::JavaGenerator()
     clone.return_type.identifier() = "Object";
     clone.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
     {
-        structFile << "        " << s.identifier << " cloned = new " << s.identifier << "();\n";
-        for (auto &mv : s.member_variables)
+        structFile << "        " << s.getIdentifier() << " cloned = new " << s.getIdentifier() << "();\n";
+        for (auto& [generator, mv] : s.getMemberVariables())
         {
             if (mv.type.is_array())
             {
@@ -608,7 +608,7 @@ JavaGenerator::JavaGenerator()
         structFile << "        // Parse from JSON using Jackson ObjectMapper\n";
         structFile << "        try {\n";
         structFile << "            ObjectMapper mapper = new ObjectMapper();\n";
-        structFile << "            return mapper.readValue(json, " << s.identifier << ".class);\n";
+        structFile << "            return mapper.readValue(json, " << s.getIdentifier() << ".class);\n";
         structFile << "        } catch (Exception e) {\n";
         structFile << "            throw new RuntimeException(\"Failed to parse from JSON\", e);\n";
         structFile << "        }\n";
@@ -624,11 +624,11 @@ JavaGenerator::JavaGenerator()
     saveToDatabase.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
     {
         structFile << "        // Save to database using JDBC\n";
-        structFile << "        String sql = \"INSERT INTO " << s.identifier << " (";
+        structFile << "        String sql = \"INSERT INTO " << s.getIdentifier() << " (";
         
         // Generate column names
         bool first = true;
-        for (auto &mv : s.member_variables)
+        for (auto& [generator, mv] : s.getMemberVariables())
         {
             if (!first) structFile << ", ";
             structFile << mv.identifier;
@@ -638,7 +638,7 @@ JavaGenerator::JavaGenerator()
         
         // Generate placeholders
         first = true;
-        for (auto &mv : s.member_variables)
+        for (auto& [generator, mv] : s.getMemberVariables())
         {
             if (!first) structFile << ", ";
             structFile << "?";
@@ -649,7 +649,7 @@ JavaGenerator::JavaGenerator()
         structFile << "        try (PreparedStatement stmt = connection.prepareStatement(sql)) {\n";
         
         int paramIndex = 1;
-        for (auto &mv : s.member_variables)
+        for (auto& [generator, mv] : s.getMemberVariables())
         {
             structFile << "            stmt.setObject(" << paramIndex << ", " << mv.identifier << ");\n";
             paramIndex++;
@@ -672,14 +672,14 @@ JavaGenerator::JavaGenerator()
     loadFromDatabase.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
     {
         structFile << "        // Load from database using JDBC\n";
-        structFile << "        String sql = \"SELECT * FROM " << s.identifier << " WHERE id = ?\";\n";
+        structFile << "        String sql = \"SELECT * FROM " << s.getIdentifier() << " WHERE id = ?\";\n";
         structFile << "        try (PreparedStatement stmt = connection.prepareStatement(sql)) {\n";
         structFile << "            stmt.setObject(1, id);\n";
         structFile << "            try (ResultSet rs = stmt.executeQuery()) {\n";
         structFile << "                if (rs.next()) {\n";
-        structFile << "                    " << s.identifier << " obj = new " << s.identifier << "();\n";
+        structFile << "                    " << s.getIdentifier() << " obj = new " << s.getIdentifier() << "();\n";
         
-        for (auto &mv : s.member_variables)
+        for (auto& [generator, mv] : s.getMemberVariables())
         {
             structFile << "                    obj." << mv.identifier << " = ";
             if (mv.type.is_string())
@@ -726,7 +726,7 @@ JavaGenerator::JavaGenerator()
         structFile << "        lua.append(\"{\");\n";
         
         bool first = true;
-        for (auto &mv : s.member_variables)
+        for (auto& [generator, mv] : s.getMemberVariables())
         {
             if (!first)
             {
@@ -782,10 +782,10 @@ JavaGenerator::JavaGenerator()
         structFile << "        if (!luaTable.istable()) {\n";
         structFile << "            throw new IllegalArgumentException(\"Expected Lua table\");\n";
         structFile << "        }\n";
-        structFile << "        " << s.identifier << " obj = new " << s.identifier << "();\n";
+        structFile << "        " << s.getIdentifier() << " obj = new " << s.getIdentifier() << "();\n";
         structFile << "        LuaTable table = luaTable.checktable();\n";
         
-        for (auto &mv : s.member_variables)
+        for (auto& [generator, mv] : s.getMemberVariables())
         {
             structFile << "        LuaValue " << mv.identifier << "Value = table.get(\"" << mv.identifier << "\");\n";
             structFile << "        if (!" << mv.identifier << "Value.isnil()) {\n";
@@ -835,14 +835,14 @@ JavaGenerator::JavaGenerator()
         return true;
     };
     
-    base_class.functions.push_back(validate);
-    base_class.functions.push_back(clone);
-    base_class.functions.push_back(toJson);
-    base_class.functions.push_back(fromJson);
-    base_class.functions.push_back(saveToDatabase);
-    base_class.functions.push_back(loadFromDatabase);
-    base_class.functions.push_back(toLuaTable);
-    base_class.functions.push_back(fromLuaTable);
+    base_class.add_function(validate);
+    base_class.add_function(clone);
+    base_class.add_function(toJson);
+    base_class.add_function(fromJson);
+    base_class.add_function(saveToDatabase);
+    base_class.add_function(loadFromDatabase);
+    base_class.add_function(toLuaTable);
+    base_class.add_function(fromLuaTable);
     
     // Add C++ integration methods (these generate C++ code when used by CppGenerator)
     FunctionDefinition to_cpp_object;
@@ -863,7 +863,7 @@ JavaGenerator::JavaGenerator()
             structFile << "\tjobject java_obj = env->NewObject(java_class, constructor);\n";
             structFile << "\tif (!java_obj) return nullptr;\n\n";
             
-            for (auto &mv : s.member_variables)
+            for (auto& [generator, mv] : s.getMemberVariables())
             {
                 std::string setter_name = "set" + mv.identifier;
                 setter_name[3] = std::toupper(setter_name[3]);
@@ -925,7 +925,7 @@ JavaGenerator::JavaGenerator()
             structFile << "\tjclass java_class = env->GetObjectClass(java_obj);\n";
             structFile << "\tif (!java_class) return;\n\n";
             
-            for (auto &mv : s.member_variables)
+            for (auto& [generator, mv] : s.getMemberVariables())
             {
                 std::string getter_name = "get" + mv.identifier;
                 getter_name[3] = std::toupper(getter_name[3]);
@@ -967,9 +967,9 @@ JavaGenerator::JavaGenerator()
         }
         else // This is Java generator
         {
-            structFile << "    public static " << s.identifier << " " << fd.identifier << "(JNIEnv env, Object javaObj) {\n";
+            structFile << "    public static " << s.getIdentifier() << " " << fd.identifier << "(JNIEnv env, Object javaObj) {\n";
             structFile << "        // Convert from Java object (JNI implementation needed)\n";
-            structFile << "        " << s.identifier << " instance = new " << s.identifier << "();\n";
+            structFile << "        " << s.getIdentifier() << " instance = new " << s.getIdentifier() << "();\n";
             structFile << "        instance.nativeFromCppObject(env, javaObj);\n";
             structFile << "        return instance;\n";
             structFile << "    }\n\n";
@@ -990,16 +990,16 @@ JavaGenerator::JavaGenerator()
         if (gen_type == "int32_t" || gen_type == "int") // This is C++ generator
         {
             structFile << "\t// Generate JNI bridge methods for Java interop\n";
-            structFile << "\tstd::string bridge = \"// JNI Bridge for " << s.identifier << "Schema\\n\";\n";
+            structFile << "\tstd::string bridge = \"// JNI Bridge for " << s.getIdentifier() << "Schema\\n\";\n";
             structFile << "\tbridge += \"extern \\\"C\\\" {\\n\";\n";
-            structFile << "\tbridge += \"JNIEXPORT jlong JNICALL Java_\" + std::string(\"" << s.identifier << "\") + \"_nativeCreate(JNIEnv* env, jclass clazz) {\\n\";\n";
-            structFile << "\tbridge += \"  return (jlong) new " << s.identifier << "Schema();\\n\";\n";
+            structFile << "\tbridge += \"JNIEXPORT jlong JNICALL Java_\" + std::string(\"" << s.getIdentifier() << "\") + \"_nativeCreate(JNIEnv* env, jclass clazz) {\\n\";\n";
+            structFile << "\tbridge += \"  return (jlong) new " << s.getIdentifier() << "Schema();\\n\";\n";
             structFile << "\tbridge += \"}\\n\";\n";
-            structFile << "\tbridge += \"JNIEXPORT void JNICALL Java_\" + std::string(\"" << s.identifier << "\") + \"_nativeDestroy(JNIEnv* env, jclass clazz, jlong ptr) {\\n\";\n";
-            structFile << "\tbridge += \"  delete (" << s.identifier << "Schema*) ptr;\\n\";\n";
+            structFile << "\tbridge += \"JNIEXPORT void JNICALL Java_\" + std::string(\"" << s.getIdentifier() << "\") + \"_nativeDestroy(JNIEnv* env, jclass clazz, jlong ptr) {\\n\";\n";
+            structFile << "\tbridge += \"  delete (" << s.getIdentifier() << "Schema*) ptr;\\n\";\n";
             structFile << "\tbridge += \"}\\n\";\n";
-            structFile << "\tbridge += \"JNIEXPORT jobject JNICALL Java_\" + std::string(\"" << s.identifier << "\") + \"_nativeToCppObject(JNIEnv* env, jobject thiz, jlong ptr) {\\n\";\n";
-            structFile << "\tbridge += \"  " << s.identifier << "Schema* obj = (" << s.identifier << "Schema*) ptr;\\n\";\n";
+            structFile << "\tbridge += \"JNIEXPORT jobject JNICALL Java_\" + std::string(\"" << s.getIdentifier() << "\") + \"_nativeToCppObject(JNIEnv* env, jobject thiz, jlong ptr) {\\n\";\n";
+            structFile << "\tbridge += \"  " << s.getIdentifier() << "Schema* obj = (" << s.getIdentifier() << "Schema*) ptr;\\n\";\n";
             structFile << "\tbridge += \"  jclass clazz = env->GetObjectClass(thiz);\\n\";\n";
             structFile << "\tbridge += \"  return obj->to_cpp_object(env, clazz);\\n\";\n";
             structFile << "\tbridge += \"}\\n\";\n";
@@ -1011,17 +1011,17 @@ JavaGenerator::JavaGenerator()
             structFile << "    public static String " << fd.identifier << "() {\n";
             structFile << "        // Generate JNI bridge documentation for C++ integration\n";
             structFile << "        StringBuilder sb = new StringBuilder();\n";
-            structFile << "        sb.append(\"// JNI Bridge methods for " << s.identifier << "\\n\");\n";
-            structFile << "        sb.append(\"// Use " << s.identifier << "Schema::create_jni_bridge() to get C++ implementation\\n\");\n";
+            structFile << "        sb.append(\"// JNI Bridge methods for " << s.getIdentifier() << "\\n\");\n";
+            structFile << "        sb.append(\"// Use " << s.getIdentifier() << "Schema::create_jni_bridge() to get C++ implementation\\n\");\n";
             structFile << "        return sb.toString();\n";
             structFile << "    }\n\n";
         }
         return true;
     };
     
-    base_class.functions.push_back(to_cpp_object);
-    base_class.functions.push_back(from_cpp_object);
-    base_class.functions.push_back(create_jni_bridge);
+    base_class.add_function(to_cpp_object);
+    base_class.add_function(from_cpp_object);
+    base_class.add_function(create_jni_bridge);
 }
 
 std::string JavaGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefinition type)
@@ -1046,18 +1046,18 @@ bool JavaGenerator::generate_files(ProgramStructure ps, std::string out_path)
     for (auto &gen : generators)
     {
         if (gen == this) continue;
-        if (!gen->base_class.identifier.empty())
+        if (!gen->base_class.getIdentifier().empty())
         {
             base_classes.push_back(gen->base_class);
             
             // Generate interface files for Java
-            std::ofstream interfaceFile(out_path + "/Has" + gen->base_class.identifier + ".java");
+            std::ofstream interfaceFile(out_path + "/Has" + gen->base_class.getIdentifier() + ".java");
             if (interfaceFile.is_open())
             {
                 interfaceFile << "import java.util.*;\n\n";
-                interfaceFile << "public interface Has" << gen->base_class.identifier << " {\n";
+                interfaceFile << "public interface Has" << gen->base_class.getIdentifier() << " {\n";
                 
-                for (auto &f : gen->base_class.functions)
+                for (auto & [generator, f] : gen->base_class.getFunctions())
                 {
                     interfaceFile << "    " << convert_to_local_type(&ps, f.return_type) << " " << f.identifier << "(";
                     

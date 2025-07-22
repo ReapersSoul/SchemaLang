@@ -3,7 +3,7 @@
 LuaGenerator::LuaGenerator()
 {
 	name = "Lua";
-	base_class.identifier = "Lua";
+	base_class.setIdentifier("Lua");
 	
 	// Add lua_push method
 	FunctionDefinition lua_push;
@@ -17,7 +17,7 @@ LuaGenerator::LuaGenerator()
 		structFile << "\tlua_newtable(L);\n";
 		
 		int field_index = 1;
-		for (auto &mv : s.member_variables)
+		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			structFile << "\t// Push field: " << mv.identifier << "\n";
 			structFile << "\tlua_pushstring(L, \"" << mv.identifier << "\");\n";
@@ -109,7 +109,7 @@ LuaGenerator::LuaGenerator()
 		structFile << "\t\treturn; // Not a table\n";
 		structFile << "\t}\n\n";
 		
-		for (auto &mv : s.member_variables)
+		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			structFile << "\t// Convert field: " << mv.identifier << "\n";
 			structFile << "\tlua_pushstring(L, \"" << mv.identifier << "\");\n";
@@ -214,8 +214,8 @@ LuaGenerator::LuaGenerator()
 		return true;
 	};
 	
-	base_class.functions.push_back(lua_push);
-	base_class.functions.push_back(lua_to);
+	base_class.add_function(lua_push);
+	base_class.add_function(lua_to);
 	
 	// Add lua_create_table static method
 	FunctionDefinition lua_create_table;
@@ -232,7 +232,7 @@ LuaGenerator::LuaGenerator()
 		structFile << "\tlua_code += \"function \" + schema_name + \".new(data)\\n\";\n";
 		structFile << "\tlua_code += \"  local instance = {}\\n\";\n";
 		
-		for (auto &mv : s.member_variables)
+		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			structFile << "\tlua_code += \"  instance." << mv.identifier << " = \";\n";
 			if (mv.type.is_string())
@@ -265,12 +265,12 @@ LuaGenerator::LuaGenerator()
 		return true;
 	};
 	
-	base_class.functions.push_back(lua_create_table);
+	base_class.add_function(lua_create_table);
 	
 	// Add required includes for Lua
-	base_class.includes.insert({"Lua","<lua.hpp>"});
-	base_class.includes.insert({"Lua","<lauxlib.h>"});
-	base_class.includes.insert({"Lua","<lualib.h>"});
+	base_class.add_include("<lua.hpp>","Lua");
+	base_class.add_include("<lauxlib.h>","Lua");
+	base_class.add_include("<lualib.h>","Lua");
 }
 
 std::string LuaGenerator::lua_table_name(const std::string& identifier)
@@ -438,10 +438,10 @@ void LuaGenerator::generate_lua_field(ProgramStructure *ps, MemberVariableDefini
 
 void LuaGenerator::generate_lua_constructor(ProgramStructure *ps, StructDefinition &s, std::ofstream &luaFile)
 {
-	luaFile << "function " << s.identifier << ".new(data)\n";
+	luaFile << "function " << s.getIdentifier() << ".new(data)\n";
 	luaFile << "  local instance = {\n";
 	
-	for (auto &mv : s.member_variables)
+	for (auto& [generator, mv] : s.getMemberVariables())
 	{
 		if (mv.type.is_array())
 		{
@@ -454,7 +454,7 @@ void LuaGenerator::generate_lua_constructor(ProgramStructure *ps, StructDefiniti
 	
 	luaFile << "  -- Set values from data if provided\n";
 	luaFile << "  if data then\n";
-	for (auto &mv : s.member_variables)
+	for (auto& [generator, mv] : s.getMemberVariables())
 	{
 		if (mv.type.is_array())
 		{
@@ -466,17 +466,17 @@ void LuaGenerator::generate_lua_constructor(ProgramStructure *ps, StructDefiniti
 	}
 	luaFile << "  end\n\n";
 	
-	luaFile << "  setmetatable(instance, " << s.identifier << ")\n";
+	luaFile << "  setmetatable(instance, " << s.getIdentifier() << ")\n";
 	luaFile << "  return instance\n";
 	luaFile << "end\n\n";
 }
 
 void LuaGenerator::generate_lua_tostring(ProgramStructure *ps, StructDefinition &s, std::ofstream &luaFile)
 {
-	luaFile << "function " << s.identifier << ":__tostring()\n";
-	luaFile << "  local result = \"" << s.identifier << " {\\n\"\n";
+	luaFile << "function " << s.getIdentifier() << ":__tostring()\n";
+	luaFile << "  local result = \"" << s.getIdentifier() << " {\\n\"\n";
 	
-	for (auto &mv : s.member_variables)
+	for (auto& [generator, mv] : s.getMemberVariables())
 	{
 		if (mv.type.is_array())
 		{
@@ -500,10 +500,10 @@ void LuaGenerator::generate_lua_tostring(ProgramStructure *ps, StructDefinition 
 
 void LuaGenerator::generate_lua_validate(ProgramStructure *ps, StructDefinition &s, std::ofstream &luaFile)
 {
-	luaFile << "function " << s.identifier << ":validate()\n";
+	luaFile << "function " << s.getIdentifier() << ":validate()\n";
 	luaFile << "  local errors = {}\n\n";
 	
-	for (auto &mv : s.member_variables)
+	for (auto& [generator, mv] : s.getMemberVariables())
 	{
 		if (mv.type.is_array())
 		{
@@ -553,28 +553,28 @@ void LuaGenerator::generate_lua_validate(ProgramStructure *ps, StructDefinition 
 
 std::string LuaGenerator::generate_lua_table_struct(ProgramStructure *ps, StructDefinition &s)
 {
-	std::string lua_code = "-- Schema: " + s.identifier + "\n";
-	lua_code += "local " + s.identifier + " = {}\n";
-	lua_code += s.identifier + ".__index = " + s.identifier + "\n\n";
+	std::string lua_code = "-- Schema: " + s.getIdentifier() + "\n";
+	lua_code += "local " + s.getIdentifier() + " = {}\n";
+	lua_code += s.getIdentifier() + ".__index = " + s.getIdentifier() + "\n\n";
 	
 	return lua_code;
 }
 
 bool LuaGenerator::generate_struct_lua_file(ProgramStructure *ps, StructDefinition &s, std::string out_path, std::vector<StructDefinition> base_classes)
 {
-	std::ofstream luaFile(out_path + "/" + s.identifier + ".lua");
+	std::ofstream luaFile(out_path + "/" + s.getIdentifier() + ".lua");
 	if (!luaFile.is_open())
 	{
-		std::cout << "Failed to open file: " << out_path + "/" + s.identifier + ".lua" << std::endl;
+		std::cout << "Failed to open file: " << out_path + "/" + s.getIdentifier() + ".lua" << std::endl;
 		return false;
 	}
 	
 	// File header
-	luaFile << "-- " << s.identifier << " Schema\n";
+	luaFile << "-- " << s.getIdentifier() << " Schema\n";
 	luaFile << "-- Auto-generated Lua schema file\n\n";
 	
 	// Include dependencies for enum types
-	for (auto &mv : s.member_variables)
+	for (auto& [generator, mv] : s.getMemberVariables())
 	{
 		if (mv.type.is_enum(ps))
 		{
@@ -589,9 +589,9 @@ bool LuaGenerator::generate_struct_lua_file(ProgramStructure *ps, StructDefiniti
 	// Include dependencies for base classes
 	for (auto &bc : base_classes)
 	{
-		if (!bc.identifier.empty())
+		if (!bc.getIdentifier().empty())
 		{
-			luaFile << "-- Support for " << bc.identifier << " generator methods\n";
+			luaFile << "-- Support for " << bc.getIdentifier() << " generator methods\n";
 		}
 	}
 	
@@ -613,7 +613,7 @@ bool LuaGenerator::generate_struct_lua_file(ProgramStructure *ps, StructDefiniti
 	generate_lua_validate(ps, s, luaFile);
 	
 	// Export the module
-	luaFile << "return " << s.identifier << "\n";
+	luaFile << "return " << s.getIdentifier() << "\n";
 	
 	luaFile.close();
 	return true;
@@ -669,7 +669,7 @@ bool LuaGenerator::generate_main_lua_file(ProgramStructure &ps, std::string out_
 	luaFile << "-- Structs\n";
 	for (auto &s : ps.getStructs())
 	{
-		luaFile << "Schema." << s.identifier << " = require('" << s.identifier << "')\n";
+		luaFile << "Schema." << s.getIdentifier() << " = require('" << s.getIdentifier() << "')\n";
 	}
 	luaFile << "\n";
 	
@@ -705,11 +705,11 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 	// Generate methods from other generators
 	for (auto &bc : base_classes)
 	{
-		if (bc.identifier.empty()) continue;
+		if (bc.getIdentifier().empty()) continue;
 		
-		for (auto &f : bc.functions)
-		{		luaFile << "-- Method from " << bc.identifier << " generator\n";
-		luaFile << "function " << s.identifier << ":" << f.identifier << "(";
+		for (auto & [generator, f] : bc.getFunctions())
+		{		luaFile << "-- Method from " << bc.getIdentifier() << " generator\n";
+		luaFile << "function " << s.getIdentifier() << ":" << f.identifier << "(";
 		
 		// Generate parameters
 		for (size_t i = 0; i < f.parameters.size(); i++)
@@ -724,13 +724,13 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 		luaFile << ")\n";
 		
 		// Generate method body with proper implementations
-		if (f.identifier == "toJSON" && bc.identifier == "Json")
+		if (f.identifier == "toJSON" && bc.getIdentifier() == "Json")
 		{
 			luaFile << "  -- Convert to JSON string using lua-cjson\n";
 			luaFile << "  local cjson = require('cjson')\n";
 			luaFile << "  return cjson.encode(self)\n";
 		}
-		else if (f.identifier == "fromJSON" && bc.identifier == "Json")
+		else if (f.identifier == "fromJSON" && bc.getIdentifier() == "Json")
 		{
 			luaFile << "  -- Load from JSON string using lua-cjson\n";
 			luaFile << "  local cjson = require('cjson')\n";
@@ -739,20 +739,20 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 			luaFile << "    self[k] = v\n";
 			luaFile << "  end\n";
 		}
-		else if (f.identifier == "getSchema" && bc.identifier == "Json")
+		else if (f.identifier == "getSchema" && bc.getIdentifier() == "Json")
 		{
 			luaFile << "  -- Return JSON schema definition\n";
 			luaFile << "  return {\n";
 			luaFile << "    type = 'object',\n";
 			luaFile << "    properties = {\n";
-			for (auto &mv : s.member_variables)
+			for (auto& [generator, mv] : s.getMemberVariables())
 			{
 				luaFile << "      " << mv.identifier << " = { type = '" << lua_type_to_json_type(mv.type) << "' },\n";
 			}
 			luaFile << "    },\n";
 			luaFile << "    required = { ";
 			bool first = true;
-			for (auto &mv : s.member_variables)
+			for (auto& [generator, mv] : s.getMemberVariables())
 			{
 				if (mv.required)
 				{
@@ -765,7 +765,7 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 			luaFile << "  }\n";
 		}
 		// SQLite methods
-		else if (f.identifier.find("SQLite") != std::string::npos && bc.identifier == "Sqlite")
+		else if (f.identifier.find("SQLite") != std::string::npos && bc.getIdentifier() == "Sqlite")
 		{
 			luaFile << "  -- SQLite operations using luasql-sqlite3\n";
 			luaFile << "  local luasql = require('luasql.sqlite3')\n";
@@ -773,9 +773,9 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 			{
 				luaFile << "  local env = luasql.sqlite3()\n";
 				luaFile << "  local conn = env:connect(" << f.parameters[0].second << ")\n";
-				luaFile << "  local sql = \"INSERT INTO " << s.identifier << " (";
+				luaFile << "  local sql = \"INSERT INTO " << s.getIdentifier() << " (";
 				bool first = true;
-				for (auto &mv : s.member_variables)
+				for (auto& [generator, mv] : s.getMemberVariables())
 				{
 					if (!first) luaFile << ", ";
 					luaFile << mv.identifier;
@@ -783,7 +783,7 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 				}
 				luaFile << ") VALUES (";
 				first = true;
-				for (auto &mv : s.member_variables)
+				for (auto& [generator, mv] : s.getMemberVariables())
 				{
 					if (!first) luaFile << ", ";
 					luaFile << "?";
@@ -793,7 +793,7 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 				luaFile << "  local stmt = conn:prepare(sql)\n";
 				luaFile << "  stmt:execute(";
 				first = true;
-				for (auto &mv : s.member_variables)
+				for (auto& [generator, mv] : s.getMemberVariables())
 				{
 					if (!first) luaFile << ", ";
 					luaFile << "self." << mv.identifier;
@@ -808,14 +808,14 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 			{
 				luaFile << "  local env = luasql.sqlite3()\n";
 				luaFile << "  local conn = env:connect(" << f.parameters[0].second << ")\n";
-				luaFile << "  local sql = \"SELECT * FROM " << s.identifier << " WHERE \" .. " << f.parameters[1].second << " .. \" = ?\"\n";
+				luaFile << "  local sql = \"SELECT * FROM " << s.getIdentifier() << " WHERE \" .. " << f.parameters[1].second << " .. \" = ?\"\n";
 				luaFile << "  local cursor = conn:execute(sql, " << f.parameters[1].second << ")\n";
 				luaFile << "  local results = {}\n";
 				luaFile << "  local row = cursor:fetch({})\n";
 				luaFile << "  while row do\n";
-				luaFile << "    local instance = " << s.identifier << ".new({\n";
+				luaFile << "    local instance = " << s.getIdentifier() << ".new({\n";
 				int i = 0;
-				for (auto &mv : s.member_variables)
+				for (auto& [generator, mv] : s.getMemberVariables())
 				{
 					luaFile << "      " << mv.identifier << " = row[" << (i+1) << "],\n";
 					i++;
@@ -836,7 +836,7 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 			}
 		}
 		// MySQL methods
-		else if (f.identifier.find("MySQL") != std::string::npos && bc.identifier == "Mysql")
+		else if (f.identifier.find("MySQL") != std::string::npos && bc.getIdentifier() == "Mysql")
 		{
 			luaFile << "  -- MySQL operations using luasql-mysql\n";
 			luaFile << "  local luasql = require('luasql.mysql')\n";
@@ -844,9 +844,9 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 			{
 				luaFile << "  local env = luasql.mysql()\n";
 				luaFile << "  local conn = env:connect(" << f.parameters[0].second << ")\n";
-				luaFile << "  local sql = \"INSERT INTO " << s.identifier << " (";
+				luaFile << "  local sql = \"INSERT INTO " << s.getIdentifier() << " (";
 				bool first = true;
-				for (auto &mv : s.member_variables)
+				for (auto& [generator, mv] : s.getMemberVariables())
 				{
 					if (!first) luaFile << ", ";
 					luaFile << mv.identifier;
@@ -854,7 +854,7 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 				}
 				luaFile << ") VALUES (";
 				first = true;
-				for (auto &mv : s.member_variables)
+				for (auto& [generator, mv] : s.getMemberVariables())
 				{
 					if (!first) luaFile << ", ";
 					luaFile << "'\" .. tostring(self." << mv.identifier << ") .. \"'";
@@ -873,13 +873,13 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 			}
 		}
 		// Java integration methods
-		else if (bc.identifier == "Java")
+		else if (bc.getIdentifier() == "Java")
 		{
 			if (f.identifier == "validate")
 			{
 				luaFile << "  -- Enhanced validation with Java-style checks\n";
 				luaFile << "  local errors = {}\n";
-				for (auto &mv : s.member_variables)
+				for (auto& [generator, mv] : s.getMemberVariables())
 				{
 					luaFile << "  if self." << mv.identifier << " == nil then\n";
 					luaFile << "    table.insert(errors, '" << mv.identifier << " is required')\n";
@@ -896,8 +896,8 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 			else if (f.identifier == "clone")
 			{
 				luaFile << "  -- Create a deep copy of this object\n";
-				luaFile << "  local copy = " << s.identifier << ".new()\n";
-				for (auto &mv : s.member_variables)
+				luaFile << "  local copy = " << s.getIdentifier() << ".new()\n";
+				for (auto& [generator, mv] : s.getMemberVariables())
 				{
 					if (mv.type.is_array())
 					{
@@ -924,7 +924,7 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 				luaFile << "  -- Parse from JSON using lua-cjson (alias for Jackson-style)\n";
 				luaFile << "  local cjson = require('cjson')\n";
 				luaFile << "  local data = cjson.decode(" << f.parameters[0].second << ")\n";
-				luaFile << "  local instance = " << s.identifier << ".new(data)\n";
+				luaFile << "  local instance = " << s.getIdentifier() << ".new(data)\n";
 				luaFile << "  return instance\n";
 			}
 			else if (f.identifier == "saveToDatabase")
@@ -943,7 +943,7 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 			{
 				luaFile << "  -- Convert to Lua table representation\n";
 				luaFile << "  return {\n";
-				for (auto &mv : s.member_variables)
+				for (auto& [generator, mv] : s.getMemberVariables())
 				{
 					luaFile << "    " << mv.identifier << " = self." << mv.identifier << ",\n";
 				}
@@ -952,7 +952,7 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 			else if (f.identifier == "fromLuaTable")
 			{
 				luaFile << "  -- Create instance from Lua table\n";
-				luaFile << "  return " << s.identifier << ".new(" << f.parameters[0].second << ")\n";
+				luaFile << "  return " << s.getIdentifier() << ".new(" << f.parameters[0].second << ")\n";
 			}
 			else
 			{
@@ -961,7 +961,7 @@ void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefini
 			}
 		}
 		// C++ integration methods
-		else if (bc.identifier == "Cpp")
+		else if (bc.getIdentifier() == "Cpp")
 		{
 			if (f.identifier == "to_java_object")
 			{
@@ -1040,7 +1040,7 @@ bool LuaGenerator::generate_files(ProgramStructure ps, std::string out_path)
 	for (auto &gen : generators)
 	{
 		if (gen == this) continue;
-		if (!gen->base_class.identifier.empty())
+		if (!gen->base_class.getIdentifier().empty())
 		{
 			base_classes.push_back(gen->base_class);
 		}
@@ -1067,7 +1067,7 @@ bool LuaGenerator::generate_files(ProgramStructure ps, std::string out_path)
 	{
 		if (!generate_struct_lua_file(&ps, s, out_path, base_classes))
 		{
-			std::cout << "Failed to generate Lua file for struct: " << s.identifier << std::endl;
+			std::cout << "Failed to generate Lua file for struct: " << s.getIdentifier() << std::endl;
 			return false;
 		}
 	}

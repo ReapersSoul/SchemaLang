@@ -13,31 +13,6 @@ using generator_otherwise_pair = std::pair<std::string, T>;
 
 struct StructDefinition
 {
-	struct CompareBySecond {
-		bool operator()(const generator_otherwise_pair<std::string>& a, const generator_otherwise_pair<std::string>& b) const {
-			return a.second < b.second;  // ignore .first for comparison
-		}
-	};
-	std::set<generator_otherwise_pair<std::string>,CompareBySecond> includes;
-	std::vector<generator_otherwise_pair<std::string>> before_lines;
-	std::string identifier;
-
-	std::vector<FunctionDefinition> functions;
-
-	std::vector<PrivateVariableDefinition> private_variables;
-	std::vector<MemberVariableDefinition> member_variables;
-
-	std::vector<generator_otherwise_pair<std::string>> before_setter_lines;
-	std::vector<generator_otherwise_pair<std::string>> before_getter_lines;
-
-	void clear();
-	void add_function(FunctionDefinition fd);
-	void add_private_variable(PrivateVariableDefinition pv);
-	void add_MemberVariableDefinition(MemberVariableDefinition mv);
-	bool has_MemberVariableDefinition(std::string identifier);
-	bool has_private_variable(std::string identifier);
-	bool has_function(std::string identifier);
-
 	int getUniqueSubsetCount() const
 	{
 		int count = 0;
@@ -47,4 +22,60 @@ struct StructDefinition
 		count = (1 << n) - 1; // 2^n - 1
 		return count;
 	}
+
+	std::string getIdentifier() const { return identifier; }
+	void setIdentifier(const std::string &id) { identifier = id; }
+
+	std::vector<generator_otherwise_pair<std::string>>& getIncludes(){
+		return includes;
+	}
+	std::vector<generator_otherwise_pair<std::string>>& getBeforeLines(){
+		return before_lines;
+	}
+	std::vector<generator_otherwise_pair<std::string>>& getBeforeSetterLines(){
+		return before_setter_lines;
+	}
+	std::vector<generator_otherwise_pair<std::string>>& getBeforeGetterLines(){
+		return before_getter_lines;
+	}
+	std::vector<generator_otherwise_pair<FunctionDefinition>>& getFunctions(){
+		return functions;
+	}
+	std::vector<generator_otherwise_pair<PrivateVariableDefinition>>& getPrivateVariables(){
+		return private_variables;
+	}
+	std::vector<generator_otherwise_pair<MemberVariableDefinition>>& getMemberVariables(){
+		return member_variables;
+	}
+
+
+	bool add_include(std::string include, std::string generator = "");
+	bool add_before_line(std::string line, std::string generator = "");
+	bool add_before_setter_line(std::string line, std::string generator = "");
+	bool add_before_getter_line(std::string line, std::string generator = "");
+	bool add_function(FunctionDefinition fd, std::string generator = "");
+	bool add_private_variable(PrivateVariableDefinition pv, std::string generator = "");
+	bool add_member_variable(MemberVariableDefinition mv, std::string generator = "");
+
+	bool has_include(std::string include);
+	bool has_before_line(std::string line);
+	bool has_before_setter_line(std::string line);
+	bool has_before_getter_line(std::string line);
+	bool has_function(std::string identifier);
+	bool has_private_variable(std::string identifier);
+	bool has_member_variable(std::string identifier);
+
+	void clear();
+private:
+	std::vector<generator_otherwise_pair<std::string>> includes;
+	std::vector<generator_otherwise_pair<std::string>> before_lines;
+	std::string identifier;
+
+	std::vector<generator_otherwise_pair<std::string>> before_setter_lines;
+	std::vector<generator_otherwise_pair<std::string>> before_getter_lines;
+
+	std::vector<generator_otherwise_pair<FunctionDefinition>> functions;
+
+	std::vector<generator_otherwise_pair<PrivateVariableDefinition>> private_variables;
+	std::vector<generator_otherwise_pair<MemberVariableDefinition>> member_variables;
 };
