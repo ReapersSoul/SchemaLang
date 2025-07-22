@@ -16,6 +16,12 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/i
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
+# Copy binary to AnyRPG/tools/ after build
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${PROJECT_NAME}> ${CMAKE_CURRENT_SOURCE_DIR}/../AnyRPG/tools/
+    COMMENT "Copying ${PROJECT_NAME} to AnyRPG/tools/"
+)
+
 find_package(nlohmann_json REQUIRED)
 find_package(Boost REQUIRED COMPONENTS dll)
 target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json Boost::dll)
