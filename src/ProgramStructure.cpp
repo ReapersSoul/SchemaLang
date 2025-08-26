@@ -26,22 +26,22 @@ bool ProgramStructure::isSpecialBreakChar(char c)
 	return c == '{' || c == '}' || c == '(' || c == ')' || c == ',' || c == ';' || c == ':' || c == '<' || c == '>' || c == '=' || c == '.';
 }
 
-void ProgramStructure::reportError(const std::string& message)
+void ProgramStructure::reportError(const std::string &message)
 {
 	reportError(message, current_position);
 }
 
-void ProgramStructure::reportError(const std::string& message, const SourcePosition& position)
+void ProgramStructure::reportError(const std::string &message, const SourcePosition &position)
 {
 	printf("Error: %s:%d:%d: %s\n", position.file_path.c_str(), position.line, position.column, message.c_str());
 }
 
-void ProgramStructure::reportError(const std::string& message, const Token& token)
+void ProgramStructure::reportError(const std::string &message, const Token &token)
 {
 	reportError(message, token.position);
 }
 
-std::vector<Token> ProgramStructure::tokenizeWithPosition(std::string str, const std::string& file_path)
+std::vector<Token> ProgramStructure::tokenizeWithPosition(std::string str, const std::string &file_path)
 {
 	std::vector<Token> tokens;
 	std::string token_value = "";
@@ -315,28 +315,6 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 					return false;
 				}
 			}
-			else if (member_variable_tokens[j] == "min_items")
-			{
-				j++;
-				if (member_variable_tokens[j] != "(")
-				{
-					reportError("Expected '(' after min_items", member_variable_tokens[j]);
-					return false;
-				}
-				j++;
-				if (!isInt(member_variable_tokens[j].value))
-				{
-					reportError("Expected number after min_items(", member_variable_tokens[j]);
-					return false;
-				}
-				current_MemberVariableDefinition.min_items = std::stoi(member_variable_tokens[j].value);
-				j++;
-				if (member_variable_tokens[j] != ")")
-				{
-					reportError("Expected ')' after min_items number", member_variable_tokens[j]);
-					return false;
-				}
-			}
 			else if (member_variable_tokens[j] == "max_items")
 			{
 				j++;
@@ -408,6 +386,46 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 					return false;
 				}
 			}
+			else if (member_variable_tokens[j] == "gens_enabled")
+			{
+				j++;
+				if (member_variable_tokens[j] != "(")
+				{
+					reportError("Expected '(' after gens_enabled", member_variable_tokens[j]);
+					return false;
+				}
+				do
+				{
+					j++;
+					current_MemberVariableDefinition.enabled_for_generators.insert(member_variable_tokens[j]);
+					j++;
+				} while (member_variable_tokens[j] == ",");
+				if (member_variable_tokens[j] != ")")
+				{
+					reportError("Expected ')' after gens_enabled", member_variable_tokens[j]);
+					return false;
+				}
+			}
+			else if (member_variable_tokens[j] == "gens_disabled")
+			{
+				j++;
+				if (member_variable_tokens[j] != "(")
+				{
+					reportError("Expected '(' after gens_disabled", member_variable_tokens[j]);
+					return false;
+				}
+				do
+				{
+					j++;
+					current_MemberVariableDefinition.disabled_for_generators.insert(member_variable_tokens[j]);
+					j++;
+				} while (member_variable_tokens[j] == ",");
+				if (member_variable_tokens[j] != ")")
+				{
+					reportError("Expected ')' after gens_disabled", member_variable_tokens[j]);
+					return false;
+				}
+			}
 			else
 			{
 				reportError("Unexpected token " + member_variable_tokens[j].value + " after " + current_MemberVariableDefinition.identifier, member_variable_tokens[j]);
@@ -433,6 +451,57 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 	i++;
 	current_struct.setIdentifier(tokens[i].value);
 	i++;
+	if (tokens[i] == ":")
+	{
+		i++;
+		if (tokens[i] == "gens_enabled")
+		{
+			i++;
+			if (tokens[i] != "(")
+			{
+				reportError("Expected '(' after gens_enabled", tokens[i]);
+				return false;
+			}
+			do
+			{
+				i++;
+				current_struct.add_gen_enabled(tokens[i]);
+				i++;
+			} while (tokens[i] == ",");
+			if (tokens[i] != ")")
+			{
+				reportError("Expected ')' after gens_enabled", tokens[i]);
+				return false;
+			}
+			i++;
+		}
+		else if (tokens[i] == "gens_disabled")
+		{
+			i++;
+			if (tokens[i] != "(")
+			{
+				reportError("Expected '(' after gens_disabled", tokens[i]);
+				return false;
+			}
+			do
+			{
+				i++;
+				current_struct.add_gen_disabled(tokens[i]);
+				i++;
+			} while (tokens[i] == ",");
+			if (tokens[i] != ")")
+			{
+				reportError("Expected ')' after gens_disabled", tokens[i]);
+				return false;
+			}
+			i++;
+		}
+		else
+		{
+			reportError("Invalid struct modifier", tokens[i]);
+			return false;
+		}
+	}
 	if (tokens[i] != "{")
 	{
 		reportError("Expected '{' after struct identifier", tokens[i]);
@@ -459,7 +528,7 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 
 	// check for an 'id' member variable
 	bool has_id = false;
-	for (auto &[generator,mv] : current_struct.getMemberVariables())
+	for (auto &[generator, mv] : current_struct.getMemberVariables())
 	{
 		if (mv.identifier == "id")
 		{
@@ -549,8 +618,58 @@ bool ProgramStructure::readEnum(std::vector<Token> tokens, int &i, EnumDefinitio
 	i++;
 	current_enum.identifier = tokens[i].value;
 	i++;
+	if (tokens[i] == ":")
+	{
+		i++;
+		if (tokens[i] == "gens_enabled")
+		{
+			i++;
+			if(tokens[i] != "("){
+				reportError("Expected '(' after gens_enabled",tokens[i]);
+				return false;
+			}
+			do{
+				i++;
+				current_enum.enabled_for_generators.insert(tokens[i]);
+				i++;
+			}while(tokens[i] == ","); 
+			if(tokens[i] != ")"){
+				reportError("Expected ')' after gens_enabled",tokens[i]);
+				return false;
+			}
+			i++;
+		}
+		else if (tokens[i] == "gens_disabled")
+		{
+			i++;
+			if(tokens[i] != "("){
+				reportError("Expected '(' after gens_disabled",tokens[i]);
+				return false;
+			}
+			do{
+				i++;
+				current_enum.disabled_for_generators.insert(tokens[i]);
+				i++;
+			}while(tokens[i] == ","); 
+			if(tokens[i] != ")"){
+				reportError("Expected ')' after gens_disabled",tokens[i]);
+				return false;
+			}
+			i++;
+		}
+		else
+		{
+			reportError("Invalid enum modifier", tokens[i]);
+			return false;
+		}
+	}
 	if (tokens[i] != "{")
 	{
+		if (tokens[i] == "gens_enabled" || tokens[i] == "gens_disabled")
+		{
+			reportError("Cant have a whitelist and blacklist on the same struct", tokens[i]);
+			return false;
+		}
 		reportError("Expected '{' after enum identifier", tokens[i]);
 		return false;
 	}
@@ -594,24 +713,26 @@ bool ProgramStructure::validate()
 {
 	for (auto &s : structs)
 	{
-		for (auto& [generator, mv] : s.getMemberVariables())
+		for (auto &[generator, mv] : s.getMemberVariables())
 		{
-			if(mv.type.identifier()==s.getIdentifier())
+			if (mv.type.identifier() == s.getIdentifier())
 			{
 				reportError("Member variable " + mv.identifier + " in struct " + s.getIdentifier() + " can not have the same type as the struct itself.\n"
-					"This is a recursive dependency and will cause issues with certain generators.\n"
-					"Please use the 'reference' modifier to resolve this issue.\n"
-					"Example:\n"
-					"\tstruct " + s.getIdentifier() + "{\n"
-					"\t\t" + mv.type.identifier() + ": " + mv.identifier + ": reference;\n"
-					"\t}");
+																									 "This is a recursive dependency and will cause issues with certain generators.\n"
+																									 "Please use the 'reference' modifier to resolve this issue.\n"
+																									 "Example:\n"
+																									 "\tstruct " +
+							s.getIdentifier() + "{\n"
+												"\t\t" +
+							mv.type.identifier() + ": " + mv.identifier + ": reference;\n"
+																		  "\t}");
 				return false;
 			}
 
 			if (tokenIsStruct(mv.type.identifier()))
 			{
 				StructDefinition &struct_def = getStruct(mv.type.identifier());
-				for (auto &[generator,other_mv] : struct_def.getMemberVariables())
+				for (auto &[generator, other_mv] : struct_def.getMemberVariables())
 				{
 					if (other_mv.type.identifier() == s.getIdentifier())
 					{
@@ -620,23 +741,31 @@ bool ProgramStructure::validate()
 						if (mv_has_ref && other_mv_has_ref)
 						{
 							reportError("Circular dependancy detected. use the 'reference' modifyer to resolve. Resolution examples:\n"
-								   "\tstruct " + s.getIdentifier() + "{\n"
-								   "\t\t" + mv.type.identifier() + ": " + mv.identifier + ": reference;\n"
-								   "\t}\n"
-								   "\n"
-								   "\tstruct " + struct_def.getIdentifier() + "{\n"
-								   "\t\t" + other_mv.type.identifier() + ": " + other_mv.identifier + ";\n"
-								   "\t}\n"
-								   "\n"
-								   "or\n"
-								   "\n"
-								   "\tstruct " + s.getIdentifier() + "{\n"
-								   "\t\t" + mv.type.identifier() + ": " + mv.identifier + ": reference;\n"
-								   "\t}\n"
-								   "\n"
-								   "\tstruct " + struct_def.getIdentifier() + "{\n"
-								   "\t\t" + other_mv.type.identifier() + ": " + other_mv.identifier + ": reference;\n"
-								   "\t}");
+										"\tstruct " +
+										s.getIdentifier() + "{\n"
+															"\t\t" +
+										mv.type.identifier() + ": " + mv.identifier + ": reference;\n"
+																					  "\t}\n"
+																					  "\n"
+																					  "\tstruct " +
+										struct_def.getIdentifier() + "{\n"
+																	 "\t\t" +
+										other_mv.type.identifier() + ": " + other_mv.identifier + ";\n"
+																								  "\t}\n"
+																								  "\n"
+																								  "or\n"
+																								  "\n"
+																								  "\tstruct " +
+										s.getIdentifier() + "{\n"
+															"\t\t" +
+										mv.type.identifier() + ": " + mv.identifier + ": reference;\n"
+																					  "\t}\n"
+																					  "\n"
+																					  "\tstruct " +
+										struct_def.getIdentifier() + "{\n"
+																	 "\t\t" +
+										other_mv.type.identifier() + ": " + other_mv.identifier + ": reference;\n"
+																								  "\t}");
 							return false;
 						}
 					}
@@ -748,7 +877,7 @@ bool ProgramStructure::parseTypeNames(std::vector<Token> tokens)
 			}
 			else
 			{
-				reportError("Expected type name after 'struct' or 'enum'", tokens[i-1]);
+				reportError("Expected type name after 'struct' or 'enum'", tokens[i - 1]);
 				return false;
 			}
 			continue;
@@ -767,18 +896,18 @@ bool ProgramStructure::readFile(std::string file_path)
 		reportError("Failed to open file " + file_path);
 		return false;
 	}
-	
+
 	// Set current file context
 	current_file = file_path;
 	current_position = SourcePosition(file_path, 1, 1);
-	
+
 	std::string whole_file;
 	file.seekg(0, std::ios::end);
 	whole_file.reserve(file.tellg());
 	file.seekg(0, std::ios::beg);
 	whole_file.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 	file.close();
-	
+
 	std::vector<Token> tokens = tokenizeWithPosition(whole_file, file_path);
 	if (!parseTypeNames(tokens))
 	{
@@ -793,21 +922,22 @@ bool ProgramStructure::readFile(std::string file_path)
 	{
 		// Update current parsing position
 		current_position = tokens[i].position;
-		
+
 		std::string token = tokens[i].value;
 		if (token == "include")
 		{
 			i++;
 			std::string include_file = tokens[i].value;
-			//check if this is absolute path or relative path
+			// check if this is absolute path or relative path
 			if (include_file[0] == '/')
 			{
 				readFile(include_file);
-			}else
+			}
+			else
 			{
-				//get the path of the current file
+				// get the path of the current file
 				std::string current_file_path = std::filesystem::path(file_path).parent_path().string();
-				//if the include_file starts with './'
+				// if the include_file starts with './'
 				if (include_file.substr(0, 2) == "./")
 				{
 					include_file = include_file.substr(2);
@@ -820,7 +950,6 @@ bool ProgramStructure::readFile(std::string file_path)
 				}
 			}
 		}
-				
 
 		if (token == "struct")
 		{

@@ -272,13 +272,20 @@ The dynamic generator system makes SchemaLang highly extensible while maintainin
 ### 1. **Struct Definition**
 ```
 struct StructName {
+    field_definition;
+    field_definition;
+    field_definition;
+    more_field_definitions...
+}
+
+struct StructName: gen_modifier(Cpp,SQLite,...){
     field_definitions...
 }
 ```
 
 ### 2. **Field Definition Syntax**
 ```
-type: field_name: modifiers: description("text")
+type: field_name: modifiers: description("text");
 ```
 
 **Components:**
@@ -303,6 +310,10 @@ type: field_name: modifiers: description("text")
 - **Floating Point Types:**
   - `float` - Single precision floating point
   - `double` - Double precision floating point
+
+- **Special Types**
+  - `pointer` - A reference to an item in another struct
+  - `array` - An array of items structure depends on generator used may be Many->One, may be list of full objects, may be list of references
 
 - **Other Types:**
   - `bool` - Boolean (true/false)
@@ -333,8 +344,12 @@ type: field_name: modifiers: description("text")
 - `min_items(n)` - Minimum number of items required (n = positive integer)
 - `max_items(n)` - Maximum number of items allowed (n = positive integer)
 
-### Validation Modifiers
+### AI Generation Modifiers via jsonSchema
 - `description("text")` - Documentation string explaining the field's purpose (required for all fields)
+
+### Generator Modifiers
+- `gens_enabled(GENERATOR,GENERATOR,...)` - Enables a whitelist for which generators will include this item in their generated code 
+- `gens_disabled(GENERATOR,GENERATOR,...)` - Enables a blacklist for which generators will exclude this item in their generated code
 
 ## Enum Definition
 
@@ -362,44 +377,11 @@ enum Status {
 - Values can be explicitly assigned integers using `=`
 - If no value is specified, it auto-increments from the previous value (starting at 0)
 
-## Complete Syntax Grammar
-
-### Structure Definition
-```
-struct_definition ::= "struct" identifier "{" field_list "}"
-field_list ::= field_definition*
-field_definition ::= type ":" identifier ":" modifier_list ";"
-modifier_list ::= modifier (":" modifier)*
-```
-
-### Field Types
-```
-type ::= primitive_type | array_type | enum_type | struct_type
-primitive_type ::= "int8" | "int16" | "int32" | "int64" | "uint8" | "uint16" | "uint32" | "uint64" | "float" | "double" | "bool" | "string" | "char" | "uchar" | "void"
-array_type ::= "array" "<" type ">"
-enum_type ::= identifier (must be previously defined enum)
-struct_type ::= identifier (must be previously defined struct)
-```
-
-### Modifiers
-```
-modifier ::= simple_modifier | parameterized_modifier
-simple_modifier ::= "required" | "optional" | "unique" | "primary_key" | "auto_increment" | "unique_items"
-parameterized_modifier ::= "reference" "(" identifier "." identifier ")" | "description" "(" string ")" | "min_items" "(" integer ")" | "max_items" "(" integer ")"
-```
-
-### Enum Definition
-```
-enum_definition ::= "enum" identifier "{" enum_value_list "}"
-enum_value_list ::= enum_value ("," enum_value)* ","?
-enum_value ::= identifier ("=" integer)?
-```
-
 ### Lexical Rules
 - **Identifiers**: Start with letter or underscore, followed by letters, numbers, or underscores
 - **Strings**: Enclosed in double quotes, support escape sequences with backslash
 - **Integers**: Sequence of digits (0-9)
-- **Comments**: Not explicitly supported in current implementation
+- **Comments**: Supports // and /*...*/
 - **Whitespace**: Spaces, tabs, and newlines are ignored except within strings
 
 ## Examples

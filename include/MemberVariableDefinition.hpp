@@ -24,4 +24,6 @@ struct MemberVariableDefinition
 
 	bool static_member = false;
 	bool const_member = false;
+	std::set<std::string> enabled_for_generators;
+	std::set<std::string> disabled_for_generators;
 };

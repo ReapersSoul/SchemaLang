@@ -333,8 +333,12 @@ void MysqlGenerator::generate_select_all_statement_function_member_variable(Gene
 		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
 		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.getIdentifier()) << "\");\n";
 		structFile << "\t\tmysqlx::RowResult result = table.select(\"*\")\n";
-		structFile << "\t\t\t.where(\"" << escape_identifier(mv.identifier) << " = :param\")\n";
-		structFile << "\t\t\t.bind(\"param\", " << mv.identifier << ")\n";
+		structFile << "\t\t\t.where(\"" << escape_identifier(mv.identifier) << " = :param\")\n";\
+		if(ps->tokenIsEnum(mv.type.identifier())){
+			structFile << "\t\t\t.bind(\"param\", "+mv.type.identifier()+"SchemaToString(" << mv.identifier << "))\n";
+		}else{
+			structFile << "\t\t\t.bind(\"param\", " << mv.identifier << ")\n";
+		}
 		structFile << "\t\t\t.execute();\n";
 		structFile << "\t\tfor (auto row : result) {\n";
 		structFile << "\t\t\t" << s.getIdentifier() << "Schema *obj = new " << s.getIdentifier() << "Schema();\n";
@@ -506,11 +510,21 @@ void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, 
 			}
 			if (s.getMemberVariables()[i].second.required)
 			{
-				structFile << s.getMemberVariables()[i].second.identifier;
+				// Required field - emit value directly (cast enums to int)
+				if (s.getMemberVariables()[i].second.type.is_enum(ps)) {
+					structFile << "(int)" << s.getMemberVariables()[i].second.identifier;
+				} else {
+					structFile << s.getMemberVariables()[i].second.identifier;
+				}
 			}
 			else
 			{
-				structFile << "(" << s.getMemberVariables()[i].second.identifier << ".has_value() ? " << s.getMemberVariables()[i].second.identifier << ".value() : mysqlx::nullvalue)";
+				// Optional field - ensure both ternary branches have the same type by wrapping present value in mysqlx::Value
+				if (s.getMemberVariables()[i].second.type.is_enum(ps)) {
+					structFile << "(" << s.getMemberVariables()[i].second.identifier << ".has_value() ? mysqlx::Value((int)" << s.getMemberVariables()[i].second.identifier << ".value()) : mysqlx::nullvalue)";
+				} else {
+					structFile << "(" << s.getMemberVariables()[i].second.identifier << ".has_value() ? mysqlx::Value(" << s.getMemberVariables()[i].second.identifier << ".value()) : mysqlx::nullvalue)";
+				}
 			}
 			first = false;
 		}
@@ -577,11 +591,21 @@ void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, 
 			}
 			if (s.getMemberVariables()[i].second.required)
 			{
-				structFile << "this->" << s.getMemberVariables()[i].second.identifier;
+				// Required field on instance - emit directly (cast enums to int)
+				if (s.getMemberVariables()[i].second.type.is_enum(ps)) {
+					structFile << "(int)this->" << s.getMemberVariables()[i].second.identifier;
+				} else {
+					structFile << "this->" << s.getMemberVariables()[i].second.identifier;
+				}
 			}
 			else
 			{
-				structFile << "(this->" << s.getMemberVariables()[i].second.identifier << ".has_value() ? this->" << s.getMemberVariables()[i].second.identifier << ".value() : mysqlx::nullvalue)";
+				// Optional instance field - wrap present value in mysqlx::Value so ternary types match
+				if (s.getMemberVariables()[i].second.type.is_enum(ps)) {
+					structFile << "(this->" << s.getMemberVariables()[i].second.identifier << ".has_value() ? mysqlx::Value((int)this->" << s.getMemberVariables()[i].second.identifier << ".value()) : mysqlx::nullvalue)";
+				} else {
+					structFile << "(this->" << s.getMemberVariables()[i].second.identifier << ".has_value() ? mysqlx::Value(this->" << s.getMemberVariables()[i].second.identifier << ".value()) : mysqlx::nullvalue)";
+				}
 			}
 			first = false;
 		}
@@ -682,13 +706,29 @@ void MysqlGenerator::generate_update_all_statement_function_struct(Generator *ge
 				}
 				if (mv.required)
 				{
-					structFile << "\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", " << mv.identifier << ");\n";
+					if(mv.type.is_struct(ps)){
+						continue;
+					}
+					else if(mv.type.is_enum(ps)){
+						structFile << "\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", (int)" << mv.identifier << ");\n";
+					}else{
+						structFile << "\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", " << mv.identifier << ");\n";
+					}
 				}
 				else
 				{
-					structFile << "\t\tif (" << mv.identifier << ".has_value()) {\n";
-					structFile << "\t\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", " << mv.identifier << ".value());\n";
-					structFile << "\t\t}\n";
+					if(mv.type.is_struct(ps)){
+						continue;
+					}
+					else if(mv.type.is_enum(ps)){
+						structFile << "\t\tif (" << mv.identifier << ".has_value()) {\n";
+						structFile << "\t\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", (int)" << mv.identifier << ".value());\n";
+						structFile << "\t\t}\n";
+					}else{
+						structFile << "\t\tif (" << mv.identifier << ".has_value()) {\n";
+						structFile << "\t\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", " << mv.identifier << ".value());\n";
+						structFile << "\t\t}\n";
+					}
 				}
 			}
 		}
@@ -781,13 +821,38 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 			}
 			if (mv.required)
 			{
-				structFile << "\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", " << mv.identifier << ");\n";
+				if(mv.type.is_struct(ps))
+				{
+					continue; // Skip structs for simple update operations
+				}
+				else if(mv.type.is_enum(ps))
+				{
+					structFile << "\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", (int)" << mv.identifier << ");\n";
+				}
+				else
+				{
+					// For other types, just set the value directly
+					structFile << "\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", " << mv.identifier << ");\n";
+				}
 			}
 			else
 			{
-				structFile << "\t\tif (" << mv.identifier << ".has_value()) {\n";
-				structFile << "\t\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", " << mv.identifier << ".value());\n";
-				structFile << "\t\t}\n";
+				if(mv.type.is_struct(ps))
+				{
+					continue; // Skip structs for simple update operations
+				}
+				else if(mv.type.is_enum(ps))
+				{
+					structFile << "\t\tif (" << mv.identifier << ".has_value()) {\n";
+					structFile << "\t\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", (int)" << mv.identifier << ".value());\n";
+					structFile << "\t\t}\n";
+				}
+				else
+				{
+					structFile << "\t\tif (" << mv.identifier << ".has_value()) {\n";
+					structFile << "\t\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", " << mv.identifier << ".value());\n";
+					structFile << "\t\t}\n";
+				}
 			}
 		}
 		
@@ -838,13 +903,37 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 			}
 			if (mv.required)
 			{
-				structFile << "\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", this->" << mv.identifier << ");\n";
+				if(mv.type.is_struct(ps))
+				{
+					continue; // Skip structs for simple update operations
+				}
+				else if(mv.type.is_enum(ps))
+				{
+					structFile << "\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", (int)this->" << mv.identifier << ");\n";
+				}
+				else
+				{
+					structFile << "\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", this->" << mv.identifier << ");\n";
+				}
 			}
 			else
 			{
-				structFile << "\t\tif (this->" << mv.identifier << ".has_value()) {\n";
-				structFile << "\t\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", this->" << mv.identifier << ".value());\n";
-				structFile << "\t\t}\n";
+				if(mv.type.is_struct(ps))
+				{
+					continue; // Skip structs for simple update operations
+				}
+				else if(mv.type.is_enum(ps))
+				{
+					structFile << "\t\tif (this->" << mv.identifier << ".has_value()) {\n";
+					structFile << "\t\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", (int)this->" << mv.identifier << ".value());\n";
+					structFile << "\t\t}\n";
+				}
+				else
+				{
+					structFile << "\t\tif (this->" << mv.identifier << ".has_value()) {\n";
+					structFile << "\t\t\tupdate.set(\"" << escape_identifier(mv.identifier) << "\", this->" << mv.identifier << ".value());\n";
+					structFile << "\t\t}\n";
+				}
 			}
 		}
 		
@@ -1062,6 +1151,13 @@ bool MysqlGenerator::generate_select_files(ProgramStructure *ps, StructDefinitio
 
 bool MysqlGenerator::generate_struct_files(ProgramStructure *ps, StructDefinition &s, std::string out_path)
 {
+
+	if(s.whitelist()||s.blacklist()){
+		if((!s.isGenEnabled(name))||s.isGenDisabled(name)){
+			return true;
+		}
+	}
+
 	if (!std::filesystem::exists(out_path))
 	{
 		std::filesystem::create_directories(out_path);

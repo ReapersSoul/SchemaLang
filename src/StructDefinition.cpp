@@ -60,6 +60,17 @@ bool StructDefinition::add_member_variable(MemberVariableDefinition mv, std::str
 	return true;
 }
 
+bool StructDefinition::add_gen_enabled(std::string gen)
+{
+	enabled_for_generators.insert(gen);
+	return true;
+}
+
+bool StructDefinition::add_gen_disabled(std::string gen){
+	disabled_for_generators.insert(gen);
+	return true;
+}
+
 bool StructDefinition::has_include(std::string include)
 {
 	for (const auto& inc : includes) {
@@ -139,4 +150,22 @@ void StructDefinition::clear(){
 	private_variables.clear();
 	member_variables.clear();
 	identifier.clear();
+}
+
+bool StructDefinition::isGenEnabled(std::string gen)
+{
+	return std::find(enabled_for_generators.begin(),enabled_for_generators.end(),gen)!=enabled_for_generators.end();
+}
+
+bool StructDefinition::isGenDisabled(std::string gen)
+{
+	return std::find(disabled_for_generators.begin(),disabled_for_generators.end(),gen)!=disabled_for_generators.end();
+}
+
+bool StructDefinition::whitelist(){
+	return !enabled_for_generators.empty();
+}
+
+bool StructDefinition::blacklist(){
+	return !disabled_for_generators.empty();
 }

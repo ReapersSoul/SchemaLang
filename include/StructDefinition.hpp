@@ -56,6 +56,8 @@ struct StructDefinition
 	bool add_function(FunctionDefinition fd, std::string generator = "");
 	bool add_private_variable(PrivateVariableDefinition pv, std::string generator = "");
 	bool add_member_variable(MemberVariableDefinition mv, std::string generator = "");
+	bool add_gen_enabled(std::string gen);
+	bool add_gen_disabled(std::string gen);
 
 	bool has_include(std::string include);
 	bool has_before_line(std::string line);
@@ -66,8 +68,13 @@ struct StructDefinition
 	bool has_member_variable(std::string identifier);
 
 	void clear();
+
+	bool isGenEnabled(std::string gen);
+	bool isGenDisabled(std::string gen);
+    bool whitelist();
+	bool blacklist();
 private:
-	std::vector<generator_otherwise_pair<std::string>> includes;
+    std::vector<generator_otherwise_pair<std::string>> includes;
 	std::vector<generator_otherwise_pair<std::string>> before_lines;
 	std::string identifier;
 
@@ -78,4 +85,7 @@ private:
 
 	std::vector<generator_otherwise_pair<PrivateVariableDefinition>> private_variables;
 	std::vector<generator_otherwise_pair<MemberVariableDefinition>> member_variables;
+
+	std::set<std::string> enabled_for_generators;
+	std::set<std::string> disabled_for_generators;
 };
