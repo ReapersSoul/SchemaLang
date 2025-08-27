@@ -26,7 +26,7 @@ struct StructDefinition
 	std::string getIdentifier() const { return identifier; }
 	void setIdentifier(const std::string &id) { identifier = id; }
 
-	std::vector<generator_otherwise_pair<std::string>>& getIncludes(){
+	std::set<generator_otherwise_pair<std::string>>& getIncludes(){
 		return includes;
 	}
 	std::vector<generator_otherwise_pair<std::string>>& getBeforeLines(){
@@ -74,7 +74,7 @@ struct StructDefinition
     bool whitelist();
 	bool blacklist();
 private:
-    std::vector<generator_otherwise_pair<std::string>> includes;
+	std::set<generator_otherwise_pair<std::string>> includes;
 	std::vector<generator_otherwise_pair<std::string>> before_lines;
 	std::string identifier;
 

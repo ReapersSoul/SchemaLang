@@ -6,7 +6,7 @@
 			"request": "launch",
 			"program": "${workspaceFolder}/bin/SchemaLangTranspiler",
 			"args": [
-				"-schemaDirectory=./",
+				"-schema=./inputSchemas/main.schema",
 				"-outputDirectory=./",
 				"-json",
 				"-sqlite",

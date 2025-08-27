@@ -35,6 +35,7 @@ struct Token
 struct ProgramStructure
 {
 	// Current parsing context
+	std::vector<std::string> already_included_files;
 	std::string current_file;
 	SourcePosition current_position;
 

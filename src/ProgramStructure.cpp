@@ -38,7 +38,102 @@ void ProgramStructure::reportError(const std::string &message, const SourcePosit
 
 void ProgramStructure::reportError(const std::string &message, const Token &token)
 {
+	// Try to provide surrounding token context and source line with caret.
+	// Read the source file and attempt to find nearby tokens.
+	std::string file_path = token.position.file_path;
+	std::ifstream file(file_path);
+	if (!file.is_open())
+	{
+		// fallback to existing behavior
+		reportError(message, token.position);
+		return;
+	}
+
+	// Read whole file into a string
+	std::string whole_file((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+	file.close();
+
+	// Tokenize with position to reconstruct tokens and their positions
+	std::vector<Token> all_tokens = tokenizeWithPosition(whole_file, file_path);
+
+	// find index of the token (match by position.line and column and value)
+	int idx = -1;
+	for (int i = 0; i < (int)all_tokens.size(); ++i)
+	{
+		if (all_tokens[i].position.line == token.position.line && all_tokens[i].position.column == token.position.column && all_tokens[i].value == token.value)
+		{
+			idx = i;
+			break;
+		}
+	}
+
+	// Print the basic error header
 	reportError(message, token.position);
+
+	if (idx == -1)
+	{
+		// Couldn't find matching token; nothing more to show
+		return;
+	}
+
+	// Print a few tokens around the error token
+	int context_radius = 3;
+	int start = std::max(0, idx - context_radius);
+	int end = std::min((int)all_tokens.size() - 1, idx + context_radius);
+	printf("Context tokens:\n");
+	for (int i = start; i <= end; ++i)
+	{
+		if (i == idx)
+		{
+			printf(" -> [%s]\n", all_tokens[i].value.c_str());
+		}
+		else
+		{
+			printf("    %s\n", all_tokens[i].value.c_str());
+		}
+	}
+
+	// Print the source line and show a caret under the offending token's column
+	// Find the line in the file
+	int line_no = token.position.line;
+	int cur_line = 1;
+	size_t pos = 0;
+	size_t line_start = 0;
+	size_t line_end = 0;
+	while (pos < whole_file.size())
+	{
+		if (cur_line == line_no)
+		{
+			line_start = pos;
+			// find end of line
+			while (pos < whole_file.size() && whole_file[pos] != '\n') pos++;
+			line_end = pos;
+			break;
+		}
+		if (whole_file[pos] == '\n')
+		{
+			cur_line++;
+		}
+		pos++;
+	}
+	if (line_end > line_start)
+	{
+		std::string line = whole_file.substr(line_start, line_end - line_start);
+		printf("%s\n", line.c_str());
+		// build caret line: columns in SourcePosition are 1-based
+		int caret_col = token.position.column - 1; // zero-based
+		// but the token may start later due to previous tokens; attempt to place caret at column
+		std::string caret;
+		for (int i = 0; i < caret_col && i < (int)line.size(); ++i)
+		{
+			if (line[i] == '\t')
+				caret += '\t';
+			else
+				caret += ' ';
+		}
+		caret += '^';
+		printf("%s\n", caret.c_str());
+	}
 }
 
 std::vector<Token> ProgramStructure::tokenizeWithPosition(std::string str, const std::string &file_path)
@@ -49,18 +144,77 @@ std::vector<Token> ProgramStructure::tokenizeWithPosition(std::string str, const
 	bool in_string = false;
 	bool skip_next = false;
 
-	for (char c : str)
+	for (size_t idx = 0; idx < str.size();)
 	{
+		char c = str[idx];
+		char next = (idx + 1 < str.size() ? str[idx + 1] : '\0');
+
+		// handle comment starts (only when not inside a string)
+		if (!in_string && c == '/' && next == '/')
+		{
+			// single-line comment: skip until newline (or EOF)
+			idx += 2;
+			position.column += 2;
+			while (idx < str.size() && str[idx] != '\n')
+			{
+				idx++;
+				position.column++;
+			}
+			if (idx < str.size() && str[idx] == '\n')
+			{
+				position.line++;
+				position.column = 1;
+				idx++;
+			}
+			continue;
+		}
+		if (!in_string && c == '/' && next == '*')
+		{
+			// multi-line comment: skip until '*/'
+			idx += 2;
+			position.column += 2;
+			bool found_end = false;
+			while (idx < str.size())
+			{
+				if (str[idx] == '\n')
+				{
+					position.line++;
+					position.column = 1;
+					idx++;
+					continue;
+				}
+				if (str[idx] == '*' && idx + 1 < str.size() && str[idx + 1] == '/')
+				{
+					idx += 2;
+					position.column += 2;
+					found_end = true;
+					break;
+				}
+				idx++;
+				position.column++;
+			}
+			if (!found_end)
+			{
+				// Unterminated comment — report and stop tokenizing
+				reportError("Unterminated block comment", position);
+				return tokens;
+			}
+			continue;
+		}
+
 		if (c == '\\')
 		{
+			// preserve previous behavior: skip next char (escape)
 			skip_next = true;
 			position.column++;
+			idx++;
 			continue;
 		}
 		if (skip_next)
 		{
 			skip_next = false;
 			position.column++;
+			idx++;
 			continue;
 		}
 
@@ -69,10 +223,12 @@ std::vector<Token> ProgramStructure::tokenizeWithPosition(std::string str, const
 			in_string = !in_string;
 			if (!in_string)
 			{
+				// end of string, emit token
 				tokens.emplace_back(token_value, position);
 				token_value.clear();
 			}
 			position.column++;
+			idx++;
 			continue;
 		}
 		if (!in_string)
@@ -97,11 +253,13 @@ std::vector<Token> ProgramStructure::tokenizeWithPosition(std::string str, const
 				{
 					position.column++;
 				}
+				idx++;
 				continue;
 			}
 		}
 		token_value += c;
 		position.column++;
+		idx++;
 	}
 	if (!token_value.empty())
 	{
@@ -128,16 +286,58 @@ std::vector<std::string> ProgramStructure::tokenize(std::string str)
 	std::string token = "";
 	bool in_string = false;
 	bool skip_next = false;
-	for (char c : str)
+	for (size_t idx = 0; idx < str.size();)
 	{
+		char c = str[idx];
+		char next = (idx + 1 < str.size() ? str[idx + 1] : '\0');
+
+		// single-line comment
+		if (!in_string && c == '/' && next == '/')
+		{
+			idx += 2;
+			while (idx < str.size() && str[idx] != '\n')
+			{
+				idx++;
+			}
+			if (idx < str.size() && str[idx] == '\n')
+			{
+				idx++;
+			}
+			continue;
+		}
+		// multi-line comment
+		if (!in_string && c == '/' && next == '*')
+		{
+			idx += 2;
+			bool found_end = false;
+			while (idx < str.size())
+			{
+				if (str[idx] == '*' && idx + 1 < str.size() && str[idx + 1] == '/')
+				{
+					idx += 2;
+					found_end = true;
+					break;
+				}
+				idx++;
+			}
+			// if unterminated, just stop scanning remainder
+			if (!found_end)
+			{
+				break;
+			}
+			continue;
+		}
+
 		if (c == '\\')
 		{
 			skip_next = true;
+			idx++;
 			continue;
 		}
 		if (skip_next)
 		{
 			skip_next = false;
+			idx++;
 			continue;
 		}
 
@@ -149,11 +349,12 @@ std::vector<std::string> ProgramStructure::tokenize(std::string str)
 				tokens.push_back(token);
 				token.clear();
 			}
+			idx++;
 			continue;
 		}
 		if (!in_string)
 		{
-			if ((isBreakChar(c) || isSpecialBreakChar(c)))
+			if (isBreakChar(c) || isSpecialBreakChar(c))
 			{
 				if (!token.empty())
 				{
@@ -164,10 +365,12 @@ std::vector<std::string> ProgramStructure::tokenize(std::string str)
 				{
 					tokens.push_back(std::string(1, c));
 				}
+				idx++;
 				continue;
 			}
 		}
 		token += c;
+		idx++;
 	}
 	if (!token.empty())
 	{
@@ -339,13 +542,13 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 			}
 			else if (member_variable_tokens[j] == "reference")
 			{
-				j++;
-				if (tokenIsStruct(current_MemberVariableDefinition.type.identifier()))
+				if (tokenIsStruct(current_MemberVariableDefinition.type.identifier())&&member_variable_tokens[j+1] != "(")
 				{
 					current_MemberVariableDefinition.reference.struct_name = current_MemberVariableDefinition.type.identifier();
 				}
 				else
 				{
+					j++;
 					if (member_variable_tokens[j] != "(")
 					{
 						reportError("Expected '(' after reference", member_variable_tokens[j]);
@@ -624,17 +827,20 @@ bool ProgramStructure::readEnum(std::vector<Token> tokens, int &i, EnumDefinitio
 		if (tokens[i] == "gens_enabled")
 		{
 			i++;
-			if(tokens[i] != "("){
-				reportError("Expected '(' after gens_enabled",tokens[i]);
+			if (tokens[i] != "(")
+			{
+				reportError("Expected '(' after gens_enabled", tokens[i]);
 				return false;
 			}
-			do{
+			do
+			{
 				i++;
 				current_enum.enabled_for_generators.insert(tokens[i]);
 				i++;
-			}while(tokens[i] == ","); 
-			if(tokens[i] != ")"){
-				reportError("Expected ')' after gens_enabled",tokens[i]);
+			} while (tokens[i] == ",");
+			if (tokens[i] != ")")
+			{
+				reportError("Expected ')' after gens_enabled", tokens[i]);
 				return false;
 			}
 			i++;
@@ -642,17 +848,20 @@ bool ProgramStructure::readEnum(std::vector<Token> tokens, int &i, EnumDefinitio
 		else if (tokens[i] == "gens_disabled")
 		{
 			i++;
-			if(tokens[i] != "("){
-				reportError("Expected '(' after gens_disabled",tokens[i]);
+			if (tokens[i] != "(")
+			{
+				reportError("Expected '(' after gens_disabled", tokens[i]);
 				return false;
 			}
-			do{
+			do
+			{
 				i++;
 				current_enum.disabled_for_generators.insert(tokens[i]);
 				i++;
-			}while(tokens[i] == ","); 
-			if(tokens[i] != ")"){
-				reportError("Expected ')' after gens_disabled",tokens[i]);
+			} while (tokens[i] == ",");
+			if (tokens[i] != ")")
+			{
+				reportError("Expected ')' after gens_disabled", tokens[i]);
 				return false;
 			}
 			i++;
@@ -851,6 +1060,7 @@ StructDefinition &ProgramStructure::getStruct(std::string identifier)
 			return s;
 		}
 	}
+	throw std::runtime_error("Struct not found: " + identifier);
 }
 
 EnumDefinition &ProgramStructure::getEnum(std::string identifier)
@@ -862,6 +1072,7 @@ EnumDefinition &ProgramStructure::getEnum(std::string identifier)
 			return e;
 		}
 	}
+	throw std::runtime_error("Enum not found: " + identifier);
 }
 
 bool ProgramStructure::parseTypeNames(std::vector<Token> tokens)
@@ -888,6 +1099,12 @@ bool ProgramStructure::parseTypeNames(std::vector<Token> tokens)
 
 bool ProgramStructure::readFile(std::string file_path)
 {
+	if (std::find(already_included_files.begin(), already_included_files.end(), file_path) != already_included_files.end())
+	{
+		return true;
+	}
+	already_included_files.push_back(file_path);
+
 	std::fstream file;
 	file.open(file_path, std::ios::in);
 	if (!file.is_open())
@@ -969,7 +1186,7 @@ bool ProgramStructure::readFile(std::string file_path)
 			{
 				int count = current_enum.values.size();
 				current_enum.add_value("Unknown", -1);
-				current_enum.add_value("Count",count);
+				current_enum.add_value("Count", count);
 				enums.push_back(current_enum);
 				current_enum.clear();
 			}

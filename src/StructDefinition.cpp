@@ -2,11 +2,9 @@
 
 bool StructDefinition::add_include(std::string include, std::string generator)
 {
-	if (has_include(include)) {
-		return false; // Include already exists
-	}
-	includes.emplace_back(generator, include);
-	return true;
+	auto p = std::make_pair(generator, include);
+	auto result = includes.insert(p);
+	return result.second; // true if inserted, false if already existed
 }
 
 bool StructDefinition::add_before_line(std::string line, std::string generator)
@@ -73,7 +71,7 @@ bool StructDefinition::add_gen_disabled(std::string gen){
 
 bool StructDefinition::has_include(std::string include)
 {
-	for (const auto& inc : includes) {
+	for (const auto &inc : includes) {
 		if (inc.second == include) {
 			return true; // Include exists
 		}

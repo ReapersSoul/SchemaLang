@@ -25,6 +25,7 @@ int main(int argc, char *argv[])
 	}
 
 	std::filesystem::path schemaDirectory;
+	std::filesystem::path schemaFile;
 	std::filesystem::path outputDirectory;
 	std::filesystem::path additionalGeneratorsDirectory;
 	bool EnableExponentialOperations = false;
@@ -147,7 +148,7 @@ int main(int argc, char *argv[])
 				  });
 	ap.addFlag(&javaFlag);
 
-	Parameter schemaDirectoryParameter("schemaDirectory", true, [&](std::string value)
+	Parameter schemaDirectoryParameter("schemaDirectory", false, [&](std::string value)
 									   { 
 										schemaDirectory = value; 
 									// generate classes for each schema file
@@ -212,6 +213,33 @@ int main(int argc, char *argv[])
 		}
 	} }, 4);
 	ap.addParameter(&schemaDirectoryParameter);
+
+	// Single schema file parameter - counterpart to schemaDirectory
+	Parameter schemaFileParameter("schema", false, [&](std::string value)
+		{
+			schemaFile = value;
+			// read single schema file
+			if (!schemaFile.has_extension())
+			{
+				printf("File has no extension: %s\n", schemaFile.string().c_str());
+				return;
+			}
+			if (!(schemaFile.extension().compare(".schema") || schemaFile.extension().compare(".schemaLang")))
+			{
+				printf("File is not a schema file: %s\n", schemaFile.string().c_str());
+				return;
+			}
+			if (!ps.readFile(schemaFile.string()))
+			{
+				std::cout << "Failed to read file: " << schemaFile.string() << std::endl;
+				exit(1);
+			}
+			else
+			{
+				std::cout << "Read file: " << schemaFile.string() << std::endl;
+			}
+		}, 4);
+	ap.addParameter(&schemaFileParameter);
 	Parameter outputDirectoryParameter("outputDirectory", true, [&](std::string value)
 									   { outputDirectory = value; outputDirectory = outputDirectory / "Schemas";; });
 	ap.addParameter(&outputDirectoryParameter);
@@ -324,10 +352,21 @@ int main(int argc, char *argv[])
 		cppGenerator->add_generator(javaGenerator);
 	}
 
-	if (!std::filesystem::exists(schemaDirectory))
+	// Ensure at least one input source was provided
+	if (schemaFile.empty() && schemaDirectory.empty())
 	{
-		std::cout << "Directory does not exist: " << argv[1] << std::endl;
+		std::cout << "Error: No schema input provided. Use -schemaDirectory=<path> or -schema=<file>." << std::endl;
 		return 1;
+	}
+
+	// If a schemaDirectory was provided, validate it exists
+	if (!schemaDirectory.empty())
+	{
+		if (!std::filesystem::exists(schemaDirectory))
+		{
+			std::cout << "Directory does not exist: " << schemaDirectory << std::endl;
+			return 1;
+		}
 	}
 
 	if (jsonFlag.getValue())

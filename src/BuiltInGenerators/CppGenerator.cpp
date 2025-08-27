@@ -381,22 +381,27 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
             data["base_classes"].push_back(base_class_data);
         }
 
-		// Add schema includes for member variable types
+		// Add schema includes for member variable types (deduplicated)
 		data["schema_includes"] = inja::json::array();
+		std::set<std::string> schema_includes_set;
 		for (auto& [generator, mv] : s.getMemberVariables())
 		{
 			// Include the header file for the member variable type if it is a struct or enum
 			if (ps.tokenIsStruct(mv.type.identifier()) || ps.tokenIsEnum(mv.type.identifier()))
 			{
-				data["schema_includes"].push_back(format_include(mv.type.identifier() + "Schema.hpp"));
+				schema_includes_set.insert(format_include(mv.type.identifier() + "Schema.hpp"));
 			}
 			if (mv.type.identifier() == ARRAY)
 			{
 				if (ps.tokenIsStruct(mv.type.element_type().identifier()) || ps.tokenIsEnum(mv.type.element_type().identifier()))
 				{
-					data["schema_includes"].push_back(format_include(mv.type.element_type().identifier() + "Schema.hpp"));
+					schema_includes_set.insert(format_include(mv.type.element_type().identifier() + "Schema.hpp"));
 				}
 			}
+		}
+		for (const auto &inc : schema_includes_set)
+		{
+			data["schema_includes"].push_back(inc);
 		}
 
 		data["member_variables"] = inja::json::array();
