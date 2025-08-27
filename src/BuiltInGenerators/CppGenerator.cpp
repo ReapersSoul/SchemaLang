@@ -122,7 +122,7 @@ std::string CppGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefini
 	// if the type is a struct, return the identifier
 	if (ps->tokenIsStruct(type.identifier()))
 	{
-		return type.identifier() + "Schema *";
+		return type.identifier() + "Schema";
 	}
 
 	return type.identifier();

@@ -1,8 +1,5 @@
 #include {{struct_include}}
 
-// Static member definition
-std::vector<{{struct}}Schema*> {{struct}}Schema::all_{{struct}}Schemas;
-
 // Getter implementations
 {% for mv in member_variables %}
 {% if not mv.required %}

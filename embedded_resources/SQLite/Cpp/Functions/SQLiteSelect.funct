@@ -1,14 +1,14 @@
 {% if header %}
-static std::vector<{{struct}}Schema*> SQLiteSelectAll(sqlite3* db);
-static std::vector<{{struct}}Schema*> SQLiteSelectAll();
+static std::vector<shared_ptr<{{struct}}Schema>> SQLiteSelectAll(sqlite3* db);
+static std::vector<shared_ptr<{{struct}}Schema>> SQLiteSelectAll();
 {% for mv in member_variables %}
-static std::vector<{{struct}}Schema*> SQLiteSelectBy{{mv.identifier}}(sqlite3* db, {{mv.type}} {{mv.identifier}});
-static std::vector<{{struct}}Schema*> SQLiteSelectBy{{mv.identifier}}({{mv.type}} {{mv.identifier}});
+static std::vector<shared_ptr<{{struct}}Schema>> SQLiteSelectBy{{mv.identifier}}(sqlite3* db, {{mv.type}} {{mv.identifier}});
+static std::vector<shared_ptr<{{struct}}Schema>> SQLiteSelectBy{{mv.identifier}}({{mv.type}} {{mv.identifier}});
 {% endfor %}
 {% else %}
-std::vector<{{struct}}Schema*> {{struct}}Schema::SQLiteSelectAll(sqlite3* db)
+std::vector<shared_ptr<{{struct}}Schema>> {{struct}}Schema::SQLiteSelectAll(sqlite3* db)
 {
-    std::vector<{{struct}}Schema*> results;
+    std::vector<shared_ptr<{{struct}}Schema>> results;
     std::string sql = "SELECT {% for mv in member_variables %}{{mv.identifier}}{% if not loop.is_last %}, {% endif %}{% endfor %} FROM {{struct}}";
     
     sqlite3_stmt *stmt;
@@ -19,7 +19,7 @@ std::vector<{{struct}}Schema*> {{struct}}Schema::SQLiteSelectAll(sqlite3* db)
     }
     
     while(sqlite3_step(stmt) == SQLITE_ROW) {
-        {{struct}}Schema* result = new {{struct}}Schema();
+        shared_ptr<{{struct}}Schema> result = new {{struct}}Schema();
 {% for mv in member_variables %}
         // Column {{loop.index0}}: {{mv.identifier}}
 {% if mv.type.is_integer() %}
@@ -46,19 +46,19 @@ std::vector<{{struct}}Schema*> {{struct}}Schema::SQLiteSelectAll(sqlite3* db)
     return results;
 }
 
-std::vector<{{struct}}Schema*> {{struct}}Schema::SQLiteSelectAll()
+std::vector<shared_ptr<{{struct}}Schema>> {{struct}}Schema::SQLiteSelectAll()
 {
     if(db == nullptr) {
         std::cerr << "Database not set! Call SQLiteSetDatabase first." << std::endl;
-        return std::vector<{{struct}}Schema*>();
+        return std::vector<shared_ptr<{{struct}}Schema>>();
     }
     return SQLiteSelectAll(db);
 }
 
 {% for mv in member_variables %}
-std::vector<{{struct}}Schema*> {{struct}}Schema::SQLiteSelectBy{{mv.identifier}}(sqlite3* db, {{mv.type}} {{mv.identifier}})
+std::vector<shared_ptr<{{struct}}Schema>> {{struct}}Schema::SQLiteSelectBy{{mv.identifier}}(sqlite3* db, {{mv.type}} {{mv.identifier}})
 {
-    std::vector<{{struct}}Schema*> results;
+    std::vector<shared_ptr<{{struct}}Schema>> results;
     std::string sql = "SELECT {% for mv2 in member_variables %}{{mv2.identifier}}{% if not loop.is_last %}, {% endif %}{% endfor %} FROM {{struct}} WHERE {{mv.identifier}} = ?";
     
     sqlite3_stmt *stmt;
@@ -82,7 +82,7 @@ std::vector<{{struct}}Schema*> {{struct}}Schema::SQLiteSelectBy{{mv.identifier}}
 {% endif %}
     
     while(sqlite3_step(stmt) == SQLITE_ROW) {
-        {{struct}}Schema* result = new {{struct}}Schema();
+        shared_ptr<{{struct}}Schema> result = new {{struct}}Schema();
 {% for mv2 in member_variables %}
         // Column {{loop.index0}}: {{mv2.identifier}}
 {% if mv2.type.is_integer() %}
@@ -109,11 +109,11 @@ std::vector<{{struct}}Schema*> {{struct}}Schema::SQLiteSelectBy{{mv.identifier}}
     return results;
 }
 
-std::vector<{{struct}}Schema*> {{struct}}Schema::SQLiteSelectBy{{mv.identifier}}({{mv.type}} {{mv.identifier}})
+std::vector<shared_ptr<{{struct}}Schema>> {{struct}}Schema::SQLiteSelectBy{{mv.identifier}}({{mv.type}} {{mv.identifier}})
 {
     if(db == nullptr) {
         std::cerr << "Database not set! Call SQLiteSetDatabase first." << std::endl;
-        return std::vector<{{struct}}Schema*>();
+        return std::vector<shared_ptr<{{struct}}Schema>>();
     }
     return SQLiteSelectBy{{mv.identifier}}(db, {{mv.identifier}});
 }

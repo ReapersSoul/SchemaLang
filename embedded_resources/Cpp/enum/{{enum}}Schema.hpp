@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-enum {{enum}}Schema {
+enum class {{enum}}Schema {
 {% for value in values %}
     {{enum}}_{{value.identifier}} = {{value.value}},
 {% endfor %}

@@ -7,7 +7,6 @@ class TypeDefinition
 	std::string ident;
 	TypeDefinition *elem_type;
 	bool defaulted = false;
-
 public:
 	TypeDefinition();
 	TypeDefinition(std::string ident);

@@ -967,7 +967,9 @@ bool ProgramStructure::readFile(std::string file_path)
 		{
 			if (readEnum(tokens, i, current_enum))
 			{
+				int count = current_enum.values.size();
 				current_enum.add_value("Unknown", -1);
+				current_enum.add_value("Count",count);
 				enums.push_back(current_enum);
 				current_enum.clear();
 			}

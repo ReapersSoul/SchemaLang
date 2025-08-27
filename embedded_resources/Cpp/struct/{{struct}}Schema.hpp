@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <optional>
+#include <memory>
 
 //base classes
 {% for bc in base_classes %}
@@ -31,14 +32,9 @@
 class {{struct}}Schema : {% for bc in base_classes %}public Has{{ bc.identifier }}Schema{% if not loop.is_last %}, {% endif %}{% endfor %}{
 public:
 	{{struct}}Schema() {
-		all_{{struct}}Schemas.push_back(this);
 	}
 
 	~{{struct}}Schema() {
-		auto it = std::find(all_{{struct}}Schemas.begin(), all_{{struct}}Schemas.end(), this);
-		if (it != all_{{struct}}Schemas.end()) {
-			all_{{struct}}Schemas.erase(it);
-		}
 	}
 
 	//getters
@@ -74,7 +70,6 @@ public:
 {% endfor %}
 
 private:
-	static std::vector<{{struct}}Schema*> all_{{struct}}Schemas;
 
 {% for pv in private_variables %}
 	{% if pv.static %}static {% endif %}{% if pv.const %}const {% endif %}{{pv.type}} {{pv.identifier}};
