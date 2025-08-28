@@ -4,11 +4,11 @@
 #include <ArgParser/ArgParser.hpp>
 #include <ProgramStructure.hpp>
 #include <BuiltInGenerators/CppGenerator.hpp>
-#include <BuiltInGenerators/JavaGenerator.hpp>
+//#include <BuiltInGenerators/JavaGenerator.hpp>
 #include <BuiltInGenerators/JsonGenerator.hpp>
 #include <BuiltInGenerators/SqliteGenerator.hpp>
-#include <BuiltInGenerators/MySqlGenerator.hpp>
-#include <BuiltInGenerators/LuaGenerator.hpp>
+//#include <BuiltInGenerators/MySqlGenerator.hpp>
+//#include <BuiltInGenerators/LuaGenerator.hpp>
 #include <boost/dll.hpp>
 #include <boost/function.hpp>
 #include <EmbeddedResources/EmbeddedResourcesEmbeddedVFS.hpp>
@@ -37,9 +37,9 @@ int main(int argc, char *argv[])
 
 	JsonGenerator *jsonGenerator = new JsonGenerator();
 	SqliteGenerator *sqliteGenerator = new SqliteGenerator();
-	MysqlGenerator *mysqlGenerator = new MysqlGenerator();
-	LuaGenerator *luaGenerator = new LuaGenerator();
-	JavaGenerator *javaGenerator = new JavaGenerator();
+	//MysqlGenerator *mysqlGenerator = new MysqlGenerator();
+	//LuaGenerator *luaGenerator = new LuaGenerator();
+	//JavaGenerator *javaGenerator = new JavaGenerator();
 
 	CppGenerator *cppGenerator = new CppGenerator();
 
@@ -120,15 +120,15 @@ int main(int argc, char *argv[])
 	Flag jsonFlag("json", false, [&]
 				  { cppGenerator->add_generator(jsonGenerator); });
 	ap.addFlag(&jsonFlag);
-	Flag luaFlag("lua", false, [&]
-				 { cppGenerator->add_generator(luaGenerator); });
-	ap.addFlag(&luaFlag);
+	//Flag luaFlag("lua", false, [&]
+	//			 { cppGenerator->add_generator(luaGenerator); });
+	//ap.addFlag(&luaFlag);
 	Flag sqliteFlag("sqlite", false, [&]
 					{ cppGenerator->add_generator(sqliteGenerator); });
 	ap.addFlag(&sqliteFlag);
-	Flag mysqlFlag("mysql", false, [&]
-				   { cppGenerator->add_generator(mysqlGenerator); });
-	ap.addFlag(&mysqlFlag);
+	//Flag mysqlFlag("mysql", false, [&]
+	//			   { cppGenerator->add_generator(mysqlGenerator); });
+	//ap.addFlag(&mysqlFlag);
 	Flag cppFlag("cpp", false, [&]
 				 { cppGenerator->add_generator(cppGenerator); });
 	ap.addFlag(&cppFlag);
@@ -262,31 +262,31 @@ int main(int argc, char *argv[])
 	Flag selectAllFilesFlag("selectAllFiles", false, [&]()
 							{
 		exponentialWarning("selectAllFiles");
-		mysqlGenerator->set_generate_select_all_files(true); }, 2);
+		/*mysqlGenerator->set_generate_select_all_files(true);*/ }, 2);
 	ap.addFlag(&selectAllFilesFlag);
 
 	Flag selectFilesFlag("selectFiles", false, [&]()
 						 {
 		exponentialWarning("selectFiles");
-		mysqlGenerator->set_generate_select_files(true); }, 2);
+		/*mysqlGenerator->set_generate_select_files(true);*/ }, 2);
 	ap.addFlag(&selectFilesFlag);
 
 	Flag insertFilesFlag("insertFiles", false, [&]()
 						 {
 		exponentialWarning("insertFiles");
-		mysqlGenerator->set_generate_insert_files(true); }, 2);
+		/*mysqlGenerator->set_generate_insert_files(true);*/ }, 2);
 	ap.addFlag(&insertFilesFlag);
 
 	Flag updateFilesFlag("updateFiles", false, [&]()
 						 {
 		exponentialWarning("updateFiles");
-		mysqlGenerator->set_generate_update_files(true); }, 2);
+		/*mysqlGenerator->set_generate_update_files(true);*/ }, 2);
 	ap.addFlag(&updateFilesFlag);
 
 	Flag deleteFilesFlag("deleteFiles", false, [&]()
 						 {
 		exponentialWarning("deleteFiles");
-		mysqlGenerator->set_generate_delete_files(true); }, 2);
+		/*mysqlGenerator->set_generate_delete_files(true);*/ }, 2);
 	ap.addFlag(&deleteFilesFlag);
 
 	// -R for recursive directory iterator
@@ -300,7 +300,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Set up generator interactions
-	std::vector<Generator*> allGenerators = {jsonGenerator, luaGenerator, sqliteGenerator, mysqlGenerator, javaGenerator, cppGenerator};
+	std::vector<Generator*> allGenerators = {jsonGenerator,/* luaGenerator,*/ sqliteGenerator,/* mysqlGenerator, javaGenerator,*/ cppGenerator};
 	
 	// Add dynamic generators to built-in generators
 	for (Generator* dynamicGen : dynamicGenerators)
@@ -328,29 +328,29 @@ int main(int argc, char *argv[])
 	}
 	
 	// Set up drop-in system for Java and Lua generators (only if those generators are enabled)
-	if (javaFlag.getValue())
-	{
-		javaGenerator->add_generator(jsonGenerator);
-		javaGenerator->add_generator(sqliteGenerator);
-		javaGenerator->add_generator(mysqlGenerator);
-		javaGenerator->add_generator(luaGenerator);
-		javaGenerator->add_generator(cppGenerator);
-	}
+	// if (javaFlag.getValue())
+	// {
+	// 	javaGenerator->add_generator(jsonGenerator);
+	// 	javaGenerator->add_generator(sqliteGenerator);
+	// 	javaGenerator->add_generator(mysqlGenerator);
+	// 	javaGenerator->add_generator(luaGenerator);
+	// 	javaGenerator->add_generator(cppGenerator);
+	// }
 	
-	if (luaFlag.getValue())
-	{
-		luaGenerator->add_generator(jsonGenerator);
-		luaGenerator->add_generator(sqliteGenerator);  
-		luaGenerator->add_generator(mysqlGenerator);
-		luaGenerator->add_generator(javaGenerator);
-		luaGenerator->add_generator(cppGenerator);
-	}
+	// if (luaFlag.getValue())
+	// {
+	// 	luaGenerator->add_generator(jsonGenerator);
+	// 	luaGenerator->add_generator(sqliteGenerator);  
+	// 	luaGenerator->add_generator(mysqlGenerator);
+	// 	luaGenerator->add_generator(javaGenerator);
+	// 	luaGenerator->add_generator(cppGenerator);
+	// }
 	
-	// Set up drop-in system for C++ generator (only add generators that are enabled)
-	if (javaFlag.getValue())
-	{
-		cppGenerator->add_generator(javaGenerator);
-	}
+	// // Set up drop-in system for C++ generator (only add generators that are enabled)
+	// if (javaFlag.getValue())
+	// {
+	// 	cppGenerator->add_generator(javaGenerator);
+	// }
 
 	// Ensure at least one input source was provided
 	if (schemaFile.empty() && schemaDirectory.empty())
@@ -379,15 +379,15 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (luaFlag.getValue())
-	{
-		printf("Generating lua files\n");
-		if (!ps.generate_files(luaGenerator, (outputDirectory / "Lua").string()))
-		{
-			std::cout << "Failed to generate lua files" << std::endl;
-			return 1;
-		}
-	}
+	// if (luaFlag.getValue())
+	// {
+	// 	printf("Generating lua files\n");
+	// 	if (!ps.generate_files(luaGenerator, (outputDirectory / "Lua").string()))
+	// 	{
+	// 		std::cout << "Failed to generate lua files" << std::endl;
+	// 		return 1;
+	// 	}
+	// }
 
 	if (sqliteFlag.getValue())
 	{
@@ -399,15 +399,15 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (mysqlFlag.getValue())
-	{
-		printf("Generating mysql files\n");
-		if (!ps.generate_files(mysqlGenerator, (outputDirectory / "Mysql").string()))
-		{
-			std::cout << "Failed to generate mysql files" << std::endl;
-			return 1;
-		}
-	}
+	// if (mysqlFlag.getValue())
+	// {
+	// 	printf("Generating mysql files\n");
+	// 	if (!ps.generate_files(mysqlGenerator, (outputDirectory / "Mysql").string()))
+	// 	{
+	// 		std::cout << "Failed to generate mysql files" << std::endl;
+	// 		return 1;
+	// 	}
+	// }
 
 	if (cppFlag.getValue())
 	{
@@ -419,15 +419,15 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (javaFlag.getValue())
-	{
-		printf("Generating java files\n");
-		if (!ps.generate_files(javaGenerator, (outputDirectory / "Java").string()))
-		{
-			std::cout << "Failed to generate java files" << std::endl;
-			return 1;
-		}
-	}
+	// if (javaFlag.getValue())
+	// {
+	// 	printf("Generating java files\n");
+	// 	if (!ps.generate_files(javaGenerator, (outputDirectory / "Java").string()))
+	// 	{
+	// 		std::cout << "Failed to generate java files" << std::endl;
+	// 		return 1;
+	// 	}
+	// }
 
 	// Generate files for dynamic generators
 	for (size_t i = 0; i < dynamicGenerators.size(); i++)

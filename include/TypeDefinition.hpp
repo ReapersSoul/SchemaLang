@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <ForwardDeclerations.hpp>
+#include <inja/inja.hpp>
 
 class TypeDefinition
 {
@@ -36,4 +37,6 @@ public:
 	bool is_defaulted() const { return defaulted; }
 	void setDefaulted(bool value) { defaulted = value; }
 	TypeDefinition &element_type();
+
+	inja::json to_json(ProgramStructure*ps, Generator* generator);
 };

@@ -7,6 +7,7 @@
 #include <regex>
 #include <filesystem>
 #include <BaseTypes.hpp>
+#include <inja/inja.hpp>
 
 class ProgramStructure;
 class Generator;

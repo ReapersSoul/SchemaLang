@@ -1,14 +1,14 @@
 {% if header %}
 bool SQLiteUpdate();
 {% else %}
-bool {{struct}}Schema::SQLiteUpdate()
+bool {{identifier}}Schema::SQLiteUpdate()
 {
     if(db == nullptr) {
         std::cerr << "Database not set! Call SQLiteSetDatabase first." << std::endl;
         return false;
     }
     
-    std::string sql = "UPDATE {{struct}} SET {% for mv in member_variables %}{% if not mv.primary_key %}{{mv.identifier}} = ?{% if not loop.is_last %}, {% endif %}{% endif %}{% endfor %} WHERE ";
+    std::string sql = "UPDATE {{identifier}} SET {% for mv in member_variables %}{% if not mv.primary_key %}{{mv.identifier}} = ?{% if not loop.is_last %}, {% endif %}{% endif %}{% endfor %} WHERE ";
     
     // Find primary key for WHERE clause
     bool has_primary_key = false;
@@ -36,34 +36,42 @@ bool {{struct}}Schema::SQLiteUpdate()
     // Bind SET values (non-primary key fields)
 {% for mv in member_variables %}
 {% if not mv.primary_key %}
-{% if mv.type.is_integer() %}
+    {% if mv.type.is_integer %}
     sqlite3_bind_int(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(0){% endif %});
-{% elif mv.type.is_real() %}
+    {% endif %}
+    {% if mv.type.is_real %}
     sqlite3_bind_double(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(0.0){% endif %});
-{% elif mv.type.is_string() %}
+    {% endif %}
+    {% if mv.type.is_string %}
     sqlite3_bind_text(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(""){% endif %}.c_str(), -1, SQLITE_STATIC);
-{% elif mv.type.is_bool() %}
+    {% endif %}
+    {% if mv.type.is_bool %}
     sqlite3_bind_int(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(false){% endif %} ? 1 : 0);
-{% else %}
+    {% endif %}
+    {% if not (mv.type.is_integer or mv.type.is_real or mv.type.is_string or mv.type.is_bool) %}
     sqlite3_bind_text(stmt, bind_index++, std::to_string(this->{{mv.identifier}}{% if not mv.required %}.value_or(0){% endif %}).c_str(), -1, SQLITE_STATIC);
-{% endif %}
+    {% endif %}
 {% endif %}
 {% endfor %}
     
     // Bind WHERE values
 {% for mv in member_variables %}
 {% if mv.primary_key %}
-{% if mv.type.is_integer() %}
+    {% if mv.type.is_integer %}
     sqlite3_bind_int(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(0){% endif %});
-{% elif mv.type.is_real() %}
+    {% endif %}
+    {% if mv.type.is_real %}
     sqlite3_bind_double(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(0.0){% endif %});
-{% elif mv.type.is_string() %}
+    {% endif %}
+    {% if mv.type.is_string %}
     sqlite3_bind_text(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(""){% endif %}.c_str(), -1, SQLITE_STATIC);
-{% elif mv.type.is_bool() %}
+    {% endif %}
+    {% if mv.type.is_bool %}
     sqlite3_bind_int(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(false){% endif %} ? 1 : 0);
-{% else %}
+    {% endif %}
+    {% if not (mv.type.is_integer or mv.type.is_real or mv.type.is_string or mv.type.is_bool) %}
     sqlite3_bind_text(stmt, bind_index++, std::to_string(this->{{mv.identifier}}{% if not mv.required %}.value_or(0){% endif %}).c_str(), -1, SQLITE_STATIC);
-{% endif %}
+    {% endif %}
 {% endif %}
 {% endfor %}
     

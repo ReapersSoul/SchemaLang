@@ -1,60 +1,59 @@
 #include <StructDefinition.hpp>
 
-bool StructDefinition::add_include(std::string include, std::string generator)
+bool StructDefinition::add_include(std::string include)
 {
-	auto p = std::make_pair(generator, include);
-	auto result = includes.insert(p);
+	auto result = includes.insert(include);
 	return result.second; // true if inserted, false if already existed
 }
 
-bool StructDefinition::add_before_line(std::string line, std::string generator)
+bool StructDefinition::add_before_line(std::string line)
 {
 	if (has_before_line(line)) {
 		return false; // Before line already exists
 	}
-	before_lines.emplace_back(generator, line);
+	before_lines.emplace_back(line);
 	return true;
 }
 
-bool StructDefinition::add_before_setter_line(std::string line, std::string generator)
+bool StructDefinition::add_before_setter_line(std::string line)
 {
 	if (has_before_setter_line(line)) {
 		return false; // Before setter line already exists
 	}
-	before_setter_lines.emplace_back(generator, line);
+	before_setter_lines.emplace_back(line);
 	return true;
 }
 
-bool StructDefinition::add_before_getter_line(std::string line, std::string generator)
+bool StructDefinition::add_before_getter_line(std::string line)
 {
 	if (has_before_getter_line(line)) {
 		return false; // Before getter line already exists
 	}
-	before_getter_lines.emplace_back(generator, line);
+	before_getter_lines.emplace_back(line);
 	return true;
 }
 
-bool StructDefinition::add_function(FunctionDefinition fd, std::string generator)
+bool StructDefinition::add_function(FunctionDefinition fd)
 {
-	functions.emplace_back(generator, fd);
+	functions.emplace_back(fd);
 	return true;
 }
 
-bool StructDefinition::add_private_variable(PrivateVariableDefinition pv, std::string generator)
+bool StructDefinition::add_private_variable(PrivateVariableDefinition pv)
 {
 	if (has_private_variable(pv.identifier)) {
 		return false; // Private variable already exists
 	}
-	private_variables.emplace_back(generator, pv);
+	private_variables.emplace_back(pv);
 	return true;
 }
 
-bool StructDefinition::add_member_variable(MemberVariableDefinition mv, std::string generator)
+bool StructDefinition::add_member_variable(MemberVariableDefinition mv)
 {
 	if (has_member_variable(mv.identifier)) {
 		return false; // Member variable already exists
 	}
-	member_variables.emplace_back(generator, mv);
+	member_variables.emplace_back(mv);
 	return true;
 }
 
@@ -72,7 +71,7 @@ bool StructDefinition::add_gen_disabled(std::string gen){
 bool StructDefinition::has_include(std::string include)
 {
 	for (const auto &inc : includes) {
-		if (inc.second == include) {
+		if (inc == include) {
 			return true; // Include exists
 		}
 	}
@@ -82,7 +81,7 @@ bool StructDefinition::has_include(std::string include)
 bool StructDefinition::has_before_line(std::string line)
 {
 	for (const auto& bl : before_lines) {
-		if (bl.second == line) {
+		if (bl == line) {
 			return true; // Before line exists
 		}
 	}
@@ -92,7 +91,7 @@ bool StructDefinition::has_before_line(std::string line)
 bool StructDefinition::has_before_setter_line(std::string line)
 {
 	for (const auto& bl : before_setter_lines) {
-		if (bl.second == line) {
+		if (bl == line) {
 			return true; // Before setter line exists
 		}
 	}
@@ -102,7 +101,7 @@ bool StructDefinition::has_before_setter_line(std::string line)
 bool StructDefinition::has_before_getter_line(std::string line)
 {
 	for (const auto& bl : before_getter_lines) {
-		if (bl.second == line) {
+		if (bl == line) {
 			return true; // Before getter line exists
 		}
 	}
@@ -112,7 +111,7 @@ bool StructDefinition::has_before_getter_line(std::string line)
 bool StructDefinition::has_function(std::string identifier)
 {
 	for (const auto& func : functions) {
-		if (func.second.identifier == identifier) {
+		if (func.identifier == identifier) {
 			return true; // Function exists
 		}
 	}
@@ -122,7 +121,7 @@ bool StructDefinition::has_function(std::string identifier)
 bool StructDefinition::has_private_variable(std::string identifier)
 {
 	for (const auto& pv : private_variables) {
-		if (pv.second.identifier == identifier) {
+		if (pv.identifier == identifier) {
 			return true; // Private variable exists
 		}
 	}
@@ -132,7 +131,7 @@ bool StructDefinition::has_private_variable(std::string identifier)
 bool StructDefinition::has_member_variable(std::string identifier)
 {
 	for (const auto& mv : member_variables) {
-		if (mv.second.identifier == identifier) {
+		if (mv.identifier == identifier) {
 			return true; // Member variable exists
 		}
 	}
@@ -178,43 +177,42 @@ void StructDefinition::update(StructDefinition def)
 	// Merge includes (set of pairs). Use add_include to maintain uniqueness.
 	for (const auto &inc : def.includes) {
 		// inc is pair<generator, include>
-		add_include(inc.second, inc.first);
+		add_include(inc);
 	}
 
 	// Merge before lines
 	for (const auto &bl : def.before_lines) {
-		add_before_line(bl.second, bl.first);
+		add_before_line(bl);
 	}
 
 	// Merge before setter lines
 	for (const auto &bsl : def.before_setter_lines) {
-		add_before_setter_line(bsl.second, bsl.first);
+		add_before_setter_line(bsl);
 	}
 
 	// Merge before getter lines
 	for (const auto &bgl : def.before_getter_lines) {
-		add_before_getter_line(bgl.second, bgl.first);
+		add_before_getter_line(bgl);
 	}
 
 	// Merge functions
 	for (const auto &fn : def.functions) {
-		// fn is pair<generator, FunctionDefinition>
-		if (!has_function(fn.second.identifier)) {
-			add_function(fn.second, fn.first);
+		if (!has_function(fn.identifier)) {
+			add_function(fn);
 		}
 	}
 
 	// Merge private variables
 	for (const auto &pv : def.private_variables) {
-		if (!has_private_variable(pv.second.identifier)) {
-			add_private_variable(pv.second, pv.first);
+		if (!has_private_variable(pv.identifier)) {
+			add_private_variable(pv);
 		}
 	}
 
 	// Merge member variables
 	for (const auto &mv : def.member_variables) {
-		if (!has_member_variable(mv.second.identifier)) {
-			add_member_variable(mv.second, mv.first);
+		if (!has_member_variable(mv.identifier)) {
+			add_member_variable(mv);
 		}
 	}
 
@@ -225,4 +223,32 @@ void StructDefinition::update(StructDefinition def)
 	for (const auto &g : def.disabled_for_generators) {
 		add_gen_disabled(g);
 	}
+}
+
+inja::json StructDefinition::to_json(ProgramStructure* ps, Generator* generator)
+{
+    inja::json j;
+    j["identifier"] = identifier;
+	std::string identifierCamel = identifier;
+	identifierCamel[0] = toupper(identifierCamel[0]);
+	j["identifierCamel"] = identifierCamel;
+    j["includes"] = std::vector<std::string>(includes.begin(), includes.end());
+    j["before_lines"] = before_lines;
+    j["before_setter_lines"] = before_setter_lines;
+    j["before_getter_lines"] = before_getter_lines;
+    j["functions"] = inja::json::array();
+    for (auto &func : functions) {
+        j["functions"].push_back(func.to_json(ps,generator));
+    }
+    j["private_variables"] = inja::json::array();
+    for (auto &pv : private_variables) {
+        j["private_variables"].push_back(pv.to_json(ps,generator));
+    }
+    j["member_variables"] = inja::json::array();
+    for (auto &mv : member_variables) {
+        j["member_variables"].push_back(mv.to_json(ps,generator));
+    }
+    j["enabled_for_generators"] = std::vector<std::string>(enabled_for_generators.begin(), enabled_for_generators.end());
+    j["disabled_for_generators"] = std::vector<std::string>(disabled_for_generators.begin(), disabled_for_generators.end());
+    return j;
 }

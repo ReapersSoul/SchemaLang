@@ -5,7 +5,7 @@
 #include <FunctionDefinition.hpp>
 #include <PrivateVariableDefinition.hpp>
 #include <MemberVariableDefinition.hpp>
-
+#include <inja/inja.hpp>
 #include <map>
 
 template<typename T>
@@ -22,6 +22,28 @@ struct Additions{
 
 	std::vector<std::string> private_variables;
 	std::vector<std::string> member_variables;
+
+	inja::json to_json() const{
+		inja::json j;
+		j["includes"] = includes;
+		j["before_lines"] = before_lines;
+		j["before_setter_lines"] = before_setter_lines;
+		j["before_getter_lines"] = before_getter_lines;
+		j["functions"] = functions;
+		j["private_variables"] = private_variables;
+		j["member_variables"] = member_variables;
+		return j;
+	}
+
+	void clear(){
+		includes.clear();
+		before_lines.clear();
+		before_setter_lines.clear();
+		before_getter_lines.clear();
+		functions.clear();
+		private_variables.clear();
+		member_variables.clear();
+	}
 };
 
 struct StructDefinition
@@ -39,35 +61,35 @@ struct StructDefinition
 	std::string getIdentifier() const { return identifier; }
 	void setIdentifier(const std::string &id) { identifier = id; }
 
-	std::set<generator_otherwise_pair<std::string>>& getIncludes(){
+	std::set<std::string>& getIncludes(){
 		return includes;
 	}
-	std::vector<generator_otherwise_pair<std::string>>& getBeforeLines(){
+	std::vector<std::string>& getBeforeLines(){
 		return before_lines;
 	}
-	std::vector<generator_otherwise_pair<std::string>>& getBeforeSetterLines(){
+	std::vector<std::string>& getBeforeSetterLines(){
 		return before_setter_lines;
 	}
-	std::vector<generator_otherwise_pair<std::string>>& getBeforeGetterLines(){
+	std::vector<std::string>& getBeforeGetterLines(){
 		return before_getter_lines;
 	}
-	std::vector<generator_otherwise_pair<FunctionDefinition>>& getFunctions(){
+	std::vector<FunctionDefinition>& getFunctions(){
 		return functions;
 	}
-	std::vector<generator_otherwise_pair<PrivateVariableDefinition>>& getPrivateVariables(){
+	std::vector<PrivateVariableDefinition>& getPrivateVariables(){
 		return private_variables;
 	}
-	std::vector<generator_otherwise_pair<MemberVariableDefinition>>& getMemberVariables(){
+	std::vector<MemberVariableDefinition>& getMemberVariables(){
 		return member_variables;
 	}
 
-	bool add_include(std::string include, std::string generator = "");
-	bool add_before_line(std::string line, std::string generator = "");
-	bool add_before_setter_line(std::string line, std::string generator = "");
-	bool add_before_getter_line(std::string line, std::string generator = "");
-	bool add_function(FunctionDefinition fd, std::string generator = "");
-	bool add_private_variable(PrivateVariableDefinition pv, std::string generator = "");
-	bool add_member_variable(MemberVariableDefinition mv, std::string generator = "");
+	bool add_include(std::string include);
+	bool add_before_line(std::string line);
+	bool add_before_setter_line(std::string line);
+	bool add_before_getter_line(std::string line);
+	bool add_function(FunctionDefinition fd);
+	bool add_private_variable(PrivateVariableDefinition pv);
+	bool add_member_variable(MemberVariableDefinition mv);
 	bool add_gen_enabled(std::string gen);
 	bool add_gen_disabled(std::string gen);
 
@@ -87,18 +109,20 @@ struct StructDefinition
 	bool blacklist();
 
 	void update(StructDefinition def);
+
+	inja::json to_json(ProgramStructure* ps, Generator* generator);
 private:
-	std::set<generator_otherwise_pair<std::string>> includes;
-	std::vector<generator_otherwise_pair<std::string>> before_lines;
+	std::set<std::string> includes;
+	std::vector<std::string> before_lines;
 	std::string identifier;
 
-	std::vector<generator_otherwise_pair<std::string>> before_setter_lines;
-	std::vector<generator_otherwise_pair<std::string>> before_getter_lines;
+	std::vector<std::string> before_setter_lines;
+	std::vector<std::string> before_getter_lines;
 
-	std::vector<generator_otherwise_pair<FunctionDefinition>> functions;
+	std::vector<FunctionDefinition> functions;
 
-	std::vector<generator_otherwise_pair<PrivateVariableDefinition>> private_variables;
-	std::vector<generator_otherwise_pair<MemberVariableDefinition>> member_variables;
+	std::vector<PrivateVariableDefinition> private_variables;
+	std::vector<MemberVariableDefinition> member_variables;
 
 	std::set<std::string> enabled_for_generators;
 	std::set<std::string> disabled_for_generators;

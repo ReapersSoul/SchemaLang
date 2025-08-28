@@ -3,7 +3,7 @@ static bool SQLiteCreateTable(sqlite3* db);
 static bool SQLiteCreateTable();
 static std::string getSQLiteCreateTableStatement();
 {% else %}
-bool {{struct}}Schema::SQLiteCreateTable(sqlite3* db)
+bool {{identifier}}Schema::SQLiteCreateTable(sqlite3* db)
 {
     char *zErrMsg = 0;
     int rc = sqlite3_exec(db, getSQLiteCreateTableStatement().c_str(), NULL, 0, &zErrMsg);
@@ -15,7 +15,7 @@ bool {{struct}}Schema::SQLiteCreateTable(sqlite3* db)
     return true;
 }
 
-bool {{struct}}Schema::SQLiteCreateTable()
+bool {{identifier}}Schema::SQLiteCreateTable()
 {
     if(db == nullptr) {
         std::cerr << "Database not set! Call SQLiteSetDatabase first." << std::endl;
@@ -24,11 +24,11 @@ bool {{struct}}Schema::SQLiteCreateTable()
     return SQLiteCreateTable(db);
 }
 
-std::string {{struct}}Schema::getSQLiteCreateTableStatement()
+std::string {{identifier}}Schema::getSQLiteCreateTableStatement()
 {
-    return "CREATE TABLE IF NOT EXISTS {{struct}} ("
+    return "CREATE TABLE IF NOT EXISTS {{identifier}} ("
 {% for mv in member_variables %}
-           "{{mv.identifier}} {% if mv.type.is_integer() %}INTEGER{% elif mv.type.is_real() %}REAL{% elif mv.type.is_string() %}TEXT{% elif mv.type.is_bool() %}INTEGER{% else %}TEXT{% endif %}{% if mv.primary_key %} PRIMARY KEY{% endif %}{% if mv.auto_increment %} AUTOINCREMENT{% endif %}{% if mv.required %} NOT NULL{% endif %}{% if not loop.is_last %}, {% endif %}"
+           "{{mv.identifier}} {% if mv.type.is_integer %}INTEGER{% else %}{% if mv.type.is_real %}REAL{% else %}{% if mv.type.is_string %}TEXT{% else %}{% if mv.type.is_bool %}INTEGER{% else %}TEXT{% endif %}{% endif %}{% endif %}{% endif %}{% if mv.primary_key %} PRIMARY KEY{% endif %}{% if mv.auto_increment %} AUTOINCREMENT{% endif %}{% if mv.required %} NOT NULL{% endif %}{% if not loop.is_last %}, {% endif %}"
 {% endfor %}
            ");";
 }

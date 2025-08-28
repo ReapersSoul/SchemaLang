@@ -10,7 +10,7 @@ std::string {{struct}}Schema::toJSON() const
     json += "\"{{mv.identifier}}\": ";
 {% if mv.type.is_string() %}
     json += "\"" + {% if not mv.required %}({{mv.identifier}}.has_value() ? {{mv.identifier}}.value() : ""){% else %}{{mv.identifier}}{% endif %} + "\"";
-{% elif mv.type.is_integer() or mv.type.is_real() %}
+{% elif mv.type.is_integer or mv.type.is_real() %}
     json += std::to_string({% if not mv.required %}{{mv.identifier}}.value_or(0){% else %}{{mv.identifier}}{% endif %});
 {% elif mv.type.is_bool() %}
     json += ({% if not mv.required %}{{mv.identifier}}.value_or(false){% else %}{{mv.identifier}}{% endif %} ? "true" : "false");
@@ -44,7 +44,7 @@ std::string {{struct}}Schema::getJSONSchema() const
     schema += "\"{{mv.identifier}}\": {";
 {% if mv.type.is_string() %}
     schema += "\"type\": \"string\"";
-{% elif mv.type.is_integer() %}
+{% elif mv.type.is_integer %}
     schema += "\"type\": \"integer\"";
 {% elif mv.type.is_real() %}
     schema += "\"type\": \"number\"";

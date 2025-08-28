@@ -5,32 +5,32 @@ static bool MySQLCreateTable();
 bool MySQLInsert();
 bool MySQLUpdate();
 bool MySQLDelete();
-static std::vector<shared_ptr<{{struct}}Schema>> MySQLSelectAll();
+static std::vector<shared_ptr<{{identifier}}Schema>> MySQLSelectAll();
 {% for mv in member_variables %}
-static std::vector<shared_ptr<{{struct}}Schema>> MySQLSelectBy{{mv.identifier}}({{mv.type}} {{mv.identifier}});
+static std::vector<shared_ptr<{{identifier}}Schema>> MySQLSelectBy{{mv.identifier}}({{mv.type}} {{mv.identifier}});
 {% endfor %}
 {% else %}
-bool {{struct}}Schema::MySQLSetConnection(mysqlx::Session* session)
+bool {{identifier}}Schema::MySQLSetConnection(mysqlx::Session* session)
 {
     if(session == nullptr) {
         std::cerr << "MySQL session pointer is null!" << std::endl;
         return false;
     }
-    {{struct}}Schema::mysql_session = session;
+    {{identifier}}Schema::mysql_session = session;
     if(!MySQLCreateTable()) {
-        std::cerr << "Failed to create table for {{struct}} in MySQL database." << std::endl;
+        std::cerr << "Failed to create table for {{identifier}} in MySQL database." << std::endl;
         return false;
     }
-    std::cout << "MySQL connection set for {{struct}} schema." << std::endl;
+    std::cout << "MySQL connection set for {{identifier}} schema." << std::endl;
     return true;
 }
 
-mysqlx::Session* {{struct}}Schema::MySQLGetConnection()
+mysqlx::Session* {{identifier}}Schema::MySQLGetConnection()
 {
-    return {{struct}}Schema::mysql_session;
+    return {{identifier}}Schema::mysql_session;
 }
 
-bool {{struct}}Schema::MySQLCreateTable()
+bool {{identifier}}Schema::MySQLCreateTable()
 {
     if(mysql_session == nullptr) {
         std::cerr << "MySQL session not set! Call MySQLSetConnection first." << std::endl;
@@ -39,9 +39,9 @@ bool {{struct}}Schema::MySQLCreateTable()
     
     try {
         auto schema = mysql_session->getSchema("{{database_name}}");
-        std::string create_sql = "CREATE TABLE IF NOT EXISTS {{struct}} ("
+        std::string create_sql = "CREATE TABLE IF NOT EXISTS {{identifier}} ("
 {% for mv in member_variables %}
-                            "{{mv.identifier}} {% if mv.type.is_integer() %}INT{% elif mv.type.is_real() %}DOUBLE{% elif mv.type.is_string() %}VARCHAR(255){% elif mv.type.is_bool() %}BOOLEAN{% else %}TEXT{% endif %}{% if mv.primary_key %} PRIMARY KEY{% endif %}{% if mv.auto_increment %} AUTO_INCREMENT{% endif %}{% if mv.required %} NOT NULL{% endif %}{% if not loop.is_last %}, {% endif %}"
+                            "{{mv.identifier}} {% if mv.type.is_integer %}INT{% elif mv.type.is_real() %}DOUBLE{% elif mv.type.is_string() %}VARCHAR(255){% elif mv.type.is_bool() %}BOOLEAN{% else %}TEXT{% endif %}{% if mv.primary_key %} PRIMARY KEY{% endif %}{% if mv.auto_increment %} AUTO_INCREMENT{% endif %}{% if mv.required %} NOT NULL{% endif %}{% if not loop.is_last %}, {% endif %}"
 {% endfor %}
                             ")";
         
@@ -54,7 +54,7 @@ bool {{struct}}Schema::MySQLCreateTable()
     }
 }
 
-bool {{struct}}Schema::MySQLInsert()
+bool {{identifier}}Schema::MySQLInsert()
 {
     if(mysql_session == nullptr) {
         std::cerr << "MySQL session not set! Call MySQLSetConnection first." << std::endl;
@@ -63,7 +63,7 @@ bool {{struct}}Schema::MySQLInsert()
     
     try {
         auto schema = mysql_session->getSchema("{{database_name}}");
-        auto table = schema.getTable("{{struct}}");
+        auto table = schema.getTable("{{identifier}}");
         
         auto insert = table.insert({% for mv in member_variables %}"{{mv.identifier}}"{% if not loop.is_last %}, {% endif %}{% endfor %});
         insert.values({% for mv in member_variables %}this->{{mv.identifier}}{% if not mv.required %}.value_or({{mv.type}}{}){% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %});
@@ -76,7 +76,7 @@ bool {{struct}}Schema::MySQLInsert()
     }
 }
 
-bool {{struct}}Schema::MySQLUpdate()
+bool {{identifier}}Schema::MySQLUpdate()
 {
     if(mysql_session == nullptr) {
         std::cerr << "MySQL session not set! Call MySQLSetConnection first." << std::endl;
@@ -85,7 +85,7 @@ bool {{struct}}Schema::MySQLUpdate()
     
     try {
         auto schema = mysql_session->getSchema("{{database_name}}");
-        auto table = schema.getTable("{{struct}}");
+        auto table = schema.getTable("{{identifier}}");
         
         auto update = table.update();
 {% for mv in member_variables %}
@@ -110,7 +110,7 @@ bool {{struct}}Schema::MySQLUpdate()
     }
 }
 
-bool {{struct}}Schema::MySQLDelete()
+bool {{identifier}}Schema::MySQLDelete()
 {
     if(mysql_session == nullptr) {
         std::cerr << "MySQL session not set! Call MySQLSetConnection first." << std::endl;
@@ -119,7 +119,7 @@ bool {{struct}}Schema::MySQLDelete()
     
     try {
         auto schema = mysql_session->getSchema("{{database_name}}");
-        auto table = schema.getTable("{{struct}}");
+        auto table = schema.getTable("{{identifier}}");
         
         auto remove = table.remove();
         
@@ -139,9 +139,9 @@ bool {{struct}}Schema::MySQLDelete()
     }
 }
 
-std::vector<std::shared_ptr<{{struct}}Schema>> {{struct}}Schema::MySQLSelectAll()
+std::vector<std::shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::MySQLSelectAll()
 {
-    std::vector<std::shared_ptr<{{struct}}Schema>> results;
+    std::vector<std::shared_ptr<{{identifier}}Schema>> results;
     
     if(mysql_session == nullptr) {
         std::cerr << "MySQL session not set! Call MySQLSetConnection first." << std::endl;
@@ -150,16 +150,16 @@ std::vector<std::shared_ptr<{{struct}}Schema>> {{struct}}Schema::MySQLSelectAll(
     
     try {
         auto schema = mysql_session->getSchema("{{database_name}}");
-        auto table = schema.getTable("{{struct}}");
+        auto table = schema.getTable("{{identifier}}");
         
         auto select = table.select({% for mv in member_variables %}"{{mv.identifier}}"{% if not loop.is_last %}, {% endif %}{% endfor %});
         auto result = select.execute();
         
         while (auto row = result.fetchOne()) {
-            shared_ptr<{{struct}}Schema> obj = new {{struct}}Schema();
+            shared_ptr<{{identifier}}Schema> obj = new {{identifier}}Schema();
 {% for mv in member_variables %}
             // Set {{mv.identifier}}
-{% if mv.type.is_integer() %}
+{% if mv.type.is_integer %}
             obj->set{{mv.identifier}}(row[{{loop.index0}}].get<int>());
 {% elif mv.type.is_real() %}
             obj->set{{mv.identifier}}(row[{{loop.index0}}].get<double>());
@@ -183,9 +183,9 @@ std::vector<std::shared_ptr<{{struct}}Schema>> {{struct}}Schema::MySQLSelectAll(
 }
 
 {% for mv in member_variables %}
-std::vector<shared_ptr<{{struct}}Schema>> {{struct}}Schema::MySQLSelectBy{{mv.identifier}}({{mv.type}} {{mv.identifier}})
+std::vector<shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::MySQLSelectBy{{mv.identifier}}({{mv.type}} {{mv.identifier}})
 {
-    std::vector<shared_ptr<{{struct}}Schema>> results;
+    std::vector<shared_ptr<{{identifier}}Schema>> results;
     
     if(mysql_session == nullptr) {
         std::cerr << "MySQL session not set! Call MySQLSetConnection first." << std::endl;
@@ -194,7 +194,7 @@ std::vector<shared_ptr<{{struct}}Schema>> {{struct}}Schema::MySQLSelectBy{{mv.id
     
     try {
         auto schema = mysql_session->getSchema("{{database_name}}");
-        auto table = schema.getTable("{{struct}}");
+        auto table = schema.getTable("{{identifier}}");
         
         auto select = table.select({% for mv2 in member_variables %}"{{mv2.identifier}}"{% if not loop.is_last %}, {% endif %}{% endfor %})
                           .where("{{mv.identifier}} = :value")
@@ -202,10 +202,10 @@ std::vector<shared_ptr<{{struct}}Schema>> {{struct}}Schema::MySQLSelectBy{{mv.id
         auto result = select.execute();
         
         while (auto row = result.fetchOne()) {
-            shared_ptr<{{struct}}Schema> obj = new {{struct}}Schema();
+            shared_ptr<{{identifier}}Schema> obj = new {{identifier}}Schema();
 {% for mv2 in member_variables %}
             // Set {{mv2.identifier}}
-{% if mv2.type.is_integer() %}
+{% if mv2.type.is_integer %}
             obj->set{{mv2.identifier}}(row[{{loop.index0}}].get<int>());
 {% elif mv2.type.is_real() %}
             obj->set{{mv2.identifier}}(row[{{loop.index0}}].get<double>());

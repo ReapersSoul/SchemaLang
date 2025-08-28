@@ -731,7 +731,7 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 
 	// check for an 'id' member variable
 	bool has_id = false;
-	for (auto &[generator, mv] : current_struct.getMemberVariables())
+	for (auto & mv : current_struct.getMemberVariables())
 	{
 		if (mv.identifier == "id")
 		{
@@ -922,7 +922,7 @@ bool ProgramStructure::validate()
 {
 	for (auto &s : structs)
 	{
-		for (auto &[generator, mv] : s.getMemberVariables())
+		for (auto &mv : s.getMemberVariables())
 		{
 			if (mv.type.identifier() == s.getIdentifier())
 			{
@@ -941,7 +941,7 @@ bool ProgramStructure::validate()
 			if (tokenIsStruct(mv.type.identifier()))
 			{
 				StructDefinition &struct_def = getStruct(mv.type.identifier());
-				for (auto &[generator, other_mv] : struct_def.getMemberVariables())
+				for (auto &other_mv : struct_def.getMemberVariables())
 				{
 					if (other_mv.type.identifier() == s.getIdentifier())
 					{

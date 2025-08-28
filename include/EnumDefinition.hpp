@@ -21,4 +21,6 @@ struct EnumDefinition
 	void update(EnumDefinition def);
 
 	void clear();
+
+	inja::json to_json(ProgramStructure* ps, Generator* generator);
 };

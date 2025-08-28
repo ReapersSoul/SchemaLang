@@ -1,14 +1,14 @@
 {% if header %}
 bool SQLiteDelete();
 {% else %}
-bool {{struct}}Schema::SQLiteDelete()
+bool {{identifier}}Schema::SQLiteDelete()
 {
     if(db == nullptr) {
         std::cerr << "Database not set! Call SQLiteSetDatabase first." << std::endl;
         return false;
     }
     
-    std::string sql = "DELETE FROM {{struct}} WHERE ";
+    std::string sql = "DELETE FROM {{identifier}} WHERE ";
     
     // Find primary key for WHERE clause
     bool has_primary_key = false;
@@ -37,33 +37,41 @@ bool {{struct}}Schema::SQLiteDelete()
         // Bind primary key value
 {% for mv in member_variables %}
 {% if mv.primary_key %}
-{% if mv.type.is_integer() %}
+    {% if mv.type.is_integer %}
         sqlite3_bind_int(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(0){% endif %});
-{% elif mv.type.is_real() %}
+    {% endif %}
+    {% if mv.type.is_real %}
         sqlite3_bind_double(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(0.0){% endif %});
-{% elif mv.type.is_string() %}
+    {% endif %}
+    {% if mv.type.is_string %}
         sqlite3_bind_text(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(""){% endif %}.c_str(), -1, SQLITE_STATIC);
-{% elif mv.type.is_bool() %}
+    {% endif %}
+    {% if mv.type.is_bool %}
         sqlite3_bind_int(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(false){% endif %} ? 1 : 0);
-{% else %}
+    {% endif %}
+    {% if not (mv.type.is_integer or mv.type.is_real or mv.type.is_string or mv.type.is_bool) %}
         sqlite3_bind_text(stmt, bind_index++, std::to_string(this->{{mv.identifier}}{% if not mv.required %}.value_or(0){% endif %}).c_str(), -1, SQLITE_STATIC);
-{% endif %}
+    {% endif %}
 {% endif %}
 {% endfor %}
     } else {
         // Bind all field values
 {% for mv in member_variables %}
-{% if mv.type.is_integer() %}
+    {% if mv.type.is_integer %}
         sqlite3_bind_int(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(0){% endif %});
-{% elif mv.type.is_real() %}
+    {% endif %}
+    {% if mv.type.is_real %}
         sqlite3_bind_double(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(0.0){% endif %});
-{% elif mv.type.is_string() %}
+    {% endif %}
+    {% if mv.type.is_string %}
         sqlite3_bind_text(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(""){% endif %}.c_str(), -1, SQLITE_STATIC);
-{% elif mv.type.is_bool() %}
+    {% endif %}
+    {% if mv.type.is_bool %}
         sqlite3_bind_int(stmt, bind_index++, this->{{mv.identifier}}{% if not mv.required %}.value_or(false){% endif %} ? 1 : 0);
-{% else %}
+    {% endif %}
+    {% if not (mv.type.is_integer or mv.type.is_real or mv.type.is_string or mv.type.is_bool) %}
         sqlite3_bind_text(stmt, bind_index++, std::to_string(this->{{mv.identifier}}{% if not mv.required %}.value_or(0){% endif %}).c_str(), -1, SQLITE_STATIC);
-{% endif %}
+    {% endif %}
 {% endfor %}
     }
     
@@ -76,12 +84,5 @@ bool {{struct}}Schema::SQLiteDelete()
     }
     
     return true;
-}
-{% endif %}ader %}
-bool SQLiteDelete();
-{% else %}
-bool {{struct}}Schema::SQLiteDelete()
-{
-    return true; // Placeholder for actual Delete logic
 }
 {% endif %}

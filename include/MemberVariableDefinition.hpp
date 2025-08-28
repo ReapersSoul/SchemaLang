@@ -2,10 +2,10 @@
 #include <ForwardDeclerations.hpp>
 #include <TypeDefinition.hpp>
 #include <ReferenceDefinition.hpp>
+#include <set>
 
 struct MemberVariableDefinition
 {
-	std::string generator;
 	TypeDefinition type;
 	std::string identifier = "";
 
@@ -26,4 +26,6 @@ struct MemberVariableDefinition
 	bool const_member = false;
 	std::set<std::string> enabled_for_generators;
 	std::set<std::string> disabled_for_generators;
+
+	inja::json to_json(ProgramStructure*ps,Generator* generator);
 };

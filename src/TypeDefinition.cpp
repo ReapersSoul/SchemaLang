@@ -291,3 +291,45 @@ TypeDefinition &TypeDefinition::element_type()
 	}
 	return *elem_type;
 }
+
+inja::json TypeDefinition::to_json(ProgramStructure*ps, Generator* generator)
+{
+    inja::json j;
+    j["identifier"] = ident;
+	std::string identifierCamel = ident;
+	identifierCamel[0] = toupper(identifierCamel[0]);
+	j["identifierCamel"] = identifierCamel;
+    j["defaulted"] = defaulted;
+    if (elem_type != nullptr)
+    {
+        j["elem_type"] = elem_type->to_json(ps,generator);
+    }
+    else
+    {
+        j["elem_type"] = nullptr;
+    }
+	j["estimated"]=generator->convert_to_local_type(ps,*this);
+
+    j["is_array"] = is_array();
+	j["is_struct"]=is_struct(ps);
+	j["is_enum"]=is_enum(ps);
+	j["is_base_type"]=is_base_type();
+	j["is_number"]=is_number();
+	j["is_integer"]=is_integer();
+	j["is_real"]=is_real();
+	j["is_bool"]=is_bool();
+	j["is_string"]=is_string();
+	j["is_char"]=is_char();
+	j["is_array_of_struct"]=is_array_of_struct(ps);
+	j["is_array_of_enum"]=is_array_of_enum(ps);
+	j["is_array_of_base_type"]=is_array_of_base_type();
+	j["is_array_of_number"]=is_array_of_number();
+	j["is_array_of_integer"]=is_array_of_integer();
+	j["is_array_of_real"]=is_array_of_real();
+	j["is_array_of_bool"]=is_array_of_bool();
+	j["is_array_of_string"]=is_array_of_string();
+	j["is_array_of_char"]=is_array_of_char();
+	j["is_optional"]=is_optional();
+
+    return j;
+}

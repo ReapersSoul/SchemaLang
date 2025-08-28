@@ -22,3 +22,20 @@ void EnumDefinition::clear()
 {
 	values.clear();
 }
+
+inja::json EnumDefinition::to_json(ProgramStructure* ps, Generator* generator)
+{
+	inja::json j;
+	j["identifier"] = identifier;
+	std::string identifierCamel = identifier;
+	identifierCamel[0] = toupper(identifierCamel[0]);
+	j["identifierCamel"] = identifierCamel;
+	j["values"] = inja::json::array();
+	for (const auto &val : values) {
+		inja::json value_json;
+		value_json["name"] = val.first;
+		value_json["value"] = val.second;
+		j["values"].push_back(value_json);
+	}
+	return j;
+}

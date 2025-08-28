@@ -1,4 +1,5 @@
 #include <BuiltInGenerators/CppGenerator.hpp>
+#include <stdexcept>
 
 bool CppGenerator::generate_base_class_header_file(Generator *gen, ProgramStructure *ps, std::string out_path)
 {
@@ -11,15 +12,15 @@ bool CppGenerator::generate_base_class_header_file(Generator *gen, ProgramStruct
 	baseClassFile << "#pragma once\n";
 	for (auto &include : gen->base_class.getIncludes())
 	{
-		baseClassFile << "#include " << include.second << "\n";
+		baseClassFile << "#include " << include << "\n";
 	}
 	for (auto &line : gen->base_class.getBeforeLines())
 	{
-		baseClassFile << line.second << "\n";
+		baseClassFile << line << "\n";
 	}
 	baseClassFile << "class Has" + gen->base_class.getIdentifier() + "Schema{\n";
 	baseClassFile << "public:\n";
-	for (auto & [generator, f] : gen->base_class.getFunctions())
+	for (auto &f : gen->base_class.getFunctions())
 	{
 		baseClassFile << "\tvirtual " << convert_to_local_type(ps, f.return_type) << " " << f.identifier << "(";
 		for (int i = 0; i < f.parameters.size(); i++)
@@ -39,7 +40,7 @@ bool CppGenerator::generate_base_class_header_file(Generator *gen, ProgramStruct
 
 CppGenerator::CppGenerator()
 {
-	name="Cpp";
+	name = "Cpp";
 }
 
 bool CppGenerator::add_generator(Generator *gen)
@@ -128,8 +129,7 @@ std::string CppGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefini
 	return type.identifier();
 }
 
-
-std::string CppGenerator::get_default_of_type(ProgramStructure * ps, TypeDefinition type)
+std::string CppGenerator::get_default_of_type(ProgramStructure *ps, TypeDefinition type)
 {
 	if (type.is_integer())
 	{
@@ -170,7 +170,7 @@ std::string CppGenerator::get_default_of_type(ProgramStructure * ps, TypeDefinit
 	return "";
 }
 
-std::string CppGenerator::format_include(const std::string& filename) const
+std::string CppGenerator::format_include(const std::string &filename) const
 {
 	std::string full_path = include_prefix.empty() ? filename : include_prefix + "/" + filename;
 	if (use_angle_brackets)
@@ -203,7 +203,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 	for (auto &gen : generators)
 	{
 		if (gen == this)
-		{          
+		{
 			continue;
 		}
 		if (!gen->base_class.getIdentifier().empty())
@@ -216,14 +216,14 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 			base_classes.push_back(gen->base_class);
 		}
 
-		for (auto &s : ps.getStructs())
-		{
-			if (!gen->add_generator_specific_content_to_struct(this, &ps, s))
-			{
-				printf("Error: Failed to add Generator specific functions for %s\n", gen->base_class.getIdentifier().c_str());
-				return false;
-			}
-		}
+		// for (auto &s : ps.getStructs())
+		// {
+		// 	if (!gen->add_generator_specific_content_to_struct(this, &ps, s))
+		// 	{
+		// 		printf("Error: Failed to add Generator specific functions for %s\n", gen->base_class.getIdentifier().c_str());
+		// 		return false;
+		// 	}
+		// }
 	}
 
 	inja::Environment env;
@@ -251,229 +251,111 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 
 	for (auto &s : ps.getStructs())
 	{
-		inja::json data;
-		data["struct"] = s.getIdentifier();
-		data["struct_include"] = format_include(s.getIdentifier() + "Schema.hpp");
-
-		data["generators"] = inja::json::object();
-
-		data["functions"] = inja::json::array();
-		for (auto &[generator,f] : s.getFunctions())
-		{
-
-			inja::json function_data;
-			function_data["identifier"] = f.identifier;
-			function_data["return_type"] = convert_to_local_type(&ps, f.return_type);
-			function_data["static"] = f.static_function;
-			function_data["parameters"] = inja::json::array();
-			for (auto &p : f.parameters)
-			{
-				inja::json parameter_data;
-				parameter_data["type"] = convert_to_local_type(&ps, p.first);
-				parameter_data["identifier"] = p.second;
-				if (!p.first.is_defaulted())
-				{
-					parameter_data["defaultArg"] = false;
-				}
-				else
-				{
-					parameter_data["defaultArg"] = get_default_of_type(&ps, p.first);
-				}
-				function_data["parameters"].push_back(parameter_data);
-			}
-			function_data["can_generate_function"] = f.generate_function != nullptr;
-
-			// add the function to the data
-			if (f.generate_function)
-			{
-				std::stringstream ss;
-				f.generate_function(this, &ps, s, f, ss);
-				function_data["generate_function"] = ss.str();
-			}
-			if (f.generator.empty())
-			{
-				data["functions"].push_back(function_data);
-			}
-			else
-			{
-				if (data["generators"].find(f.generator) == data["generators"].end())
-				{
-					data["generators"][f.generator] = inja::json::object();
-					data["generators"][f.generator]["functions"] = inja::json::array();
-				}
-
-				data["generators"][f.generator]["functions"].push_back(function_data);
-			}
-		}
-
-		data["includes"] = inja::json::array();
-		for (auto &include : s.getIncludes())
-		{
-			if (include.first.empty())
-			{
-				data["includes"].push_back(include.second);
-			}
-			else
-			{
-				if (data["generators"].find(include.first) == data["generators"].end())
-				{
-					data["generators"][include.first] = inja::json::object();
-					data["generators"][include.first]["includes"] = inja::json::array();
-				}
-				data["generators"][include.first]["includes"].push_back(include.second);
-			}
-		}
-
-		data["base_classes"] = inja::json::array();
-        for (auto &bc : base_classes)
-        {
-            if (bc.getIdentifier().empty())
-            {
-                continue;
-            }
-            inja::json base_class_data;
-            base_class_data["identifier"] = bc.getIdentifier();
-            base_class_data["formatted_include"] = format_include("Has" + bc.getIdentifier() + "Schema.hpp");
-            
-            // Add functions from base class
-            base_class_data["functions"] = inja::json::array();
-            for (auto & [generator, f] : bc.getFunctions())
-            {
-                inja::json function_data;
-                function_data["identifier"] = f.identifier;
-                function_data["return_type"] = convert_to_local_type(&ps, f.return_type);
-                function_data["static"] = f.static_function;
-                function_data["parameters"] = inja::json::array();
-                for (auto &p : f.parameters)
-                {
-                    inja::json parameter_data;
-                    parameter_data["type"] = convert_to_local_type(&ps, p.first);
-                    parameter_data["identifier"] = p.second;
-					if (!p.first.is_defaulted())
-					{
-						parameter_data["defaultArg"] = false;
-					}
-					else
-					{
-						parameter_data["defaultArg"] = get_default_of_type(&ps, p.first);
-					}
-                    function_data["parameters"].push_back(parameter_data);
-                }
-                function_data["can_generate_function"] = f.generate_function != nullptr;
-				if (f.generate_function)
-				{
-					std::stringstream ss;
-					f.generate_function(this, &ps, s, f, ss);
-					function_data["generate_function"] = ss.str();
-				}
-                function_data["is_override"] = true;
-                
-                base_class_data["functions"].push_back(function_data);
-            }
-            
-            // Add includes from base class
-            base_class_data["includes"] = inja::json::array();
-            for (auto &[generator,include] : bc.getIncludes())
-            {
-                base_class_data["includes"].push_back(include);
-            }
-            
-            data["base_classes"].push_back(base_class_data);
-        }
-
-		// Add schema includes for member variable types (deduplicated)
-		data["schema_includes"] = inja::json::array();
-		std::set<std::string> schema_includes_set;
-		for (auto& [generator, mv] : s.getMemberVariables())
-		{
-			// Include the header file for the member variable type if it is a struct or enum
-			if (ps.tokenIsStruct(mv.type.identifier()) || ps.tokenIsEnum(mv.type.identifier()))
-			{
-				schema_includes_set.insert(format_include(mv.type.identifier() + "Schema.hpp"));
-			}
-			if (mv.type.identifier() == ARRAY)
-			{
-				if (ps.tokenIsStruct(mv.type.element_type().identifier()) || ps.tokenIsEnum(mv.type.element_type().identifier()))
-				{
-					schema_includes_set.insert(format_include(mv.type.element_type().identifier() + "Schema.hpp"));
-				}
-			}
-		}
-		for (const auto &inc : schema_includes_set)
-		{
-			data["schema_includes"].push_back(inc);
-		}
-
-		data["member_variables"] = inja::json::array();
-		for (auto& [generator, mv] : s.getMemberVariables())
-		{
-			inja::json mv_data;
-			mv_data["identifier"] = mv.identifier;
-			std::string identifierCamel = mv.identifier;
-			std::function<std::string(std::string)> capitalFirst = [](std::string str) {
-				if (str.empty()) return str;
-				str[0] = std::toupper(str[0]);
-				return str;
-			};
-			identifierCamel = capitalFirst(identifierCamel);
-			mv_data["identifierCamel"] = identifierCamel;
-			mv_data["description"] = mv.description;
-			mv_data["isArray"] = mv.type.is_array();
-			if(mv.type.is_array()){
-				mv_data["elementType"] = convert_to_local_type(&ps, mv.type.element_type());
-			}
-			mv_data["type"] = convert_to_local_type(&ps, mv.type);
-			mv_data["static"] = mv.static_member;
-			mv_data["required"] = mv.required;
-			if (mv.default_value.empty())
-			{
-				mv_data["default_value"] = false;
-			}
-			else
-			{
-				mv_data["default_value"] = mv.default_value;
-			}
-			data["member_variables"].push_back(mv_data);
-		}
-		data["private_variables"] = inja::json::array();
-		for (auto &[generator,pv] : s.getPrivateVariables())
-		{
-			inja::json pv_data;
-			pv_data["identifier"] = pv.identifier;
-			pv_data["type"] = convert_to_local_type(&ps, pv.type);
-			pv_data["static"] = pv.static_member;
-			pv_data["const"] = pv.const_member;
-			data["private_variables"].push_back(pv_data);
-		}
-
-		//nested template data
-		data["before_setter_lines"] = inja::json::array();
-		for (auto &[generator,line] : s.getBeforeSetterLines())
-		{
-			inja::json line_data;
-			line_data["line"] = env.render(line, data);
-			data["before_setter_lines"].push_back(line_data);
-		}
-		data["before_getter_lines"] = inja::json::array();
-		for (auto &[genrator,line] : s.getBeforeSetterLines())
-		{
-			inja::json line_data;
-			line_data["line"] = env.render(line, data);
-			data["before_getter_lines"].push_back(line_data);
-		}
-
+		inja::json data = s.to_json(&ps, this);
+		data["header_include"] = format_include(s.getIdentifier() + "Schema.hpp");
 		try
 		{
 			for (auto &file : struct_name_content_pairs)
 			{
-				std::ofstream of(env.render(out_path + "/" + file.first, data));
+				// render output path in its own try/catch
+				std::string rendered_path;
+				try
+				{
+					rendered_path = env.render(out_path + "/" + file.first, data);
+				}
+				catch (const std::exception &e)
+				{
+					throw std::runtime_error(std::string("Error rendering output path for ") + file.first + ": " + e.what());
+				}
+
+				std::ofstream of(rendered_path);
 				if (!of.is_open())
 				{
-					std::cout << "Failed to open file: " << env.render(out_path + "/" + file.first, data);
+					std::cout << "Failed to open file: " << rendered_path << std::endl;
 				}
-				of << env.render(file.second, data);
+				if (file.first.find(".hpp") != std::string::npos)
+				{
+					data["header"] = true;
+				}
+				else
+				{
+					data["header"] = false;
+				}
+
+				// additions
+				Additions additions;
+				data["additions"] = inja::json::array();
+				for (auto &gen : generators)
+				{
+					if (gen == this)
+						continue;
+					if (!gen->fetch_additions(this, additions, data))
+					{
+						printf("Warning: Failed to fetch additions from generator %s\n", gen->name.c_str());
+						continue;
+					}
+
+					inja::json addition_data;
+					addition_data["gen_name"] = gen->name;
+					addition_data["includes"] = inja::json::array();
+					for (auto &inc : additions.includes)
+					{
+						addition_data["includes"].push_back(inc);
+					}
+
+					addition_data["before_setter_lines"] = inja::json::array();
+					for (auto &before_setter_line : additions.before_setter_lines)
+					{
+						addition_data["before_setter_lines"].push_back(before_setter_line);
+					}
+
+					addition_data["before_getter_lines"] = inja::json::array();
+					for (auto &before_getter_line : additions.before_getter_lines)
+					{
+						addition_data["before_getter_lines"].push_back(before_getter_line);
+					}
+
+					addition_data["functions"] = inja::json::array();
+					for (auto &func : additions.functions)
+					{
+						addition_data["functions"].push_back(func);
+					}
+
+					addition_data["private_variables"] = inja::json::array();
+					for (auto &pv : additions.private_variables)
+					{
+						addition_data["private_variables"].push_back(pv);
+					}
+
+					addition_data["member_variables"] = inja::json::array();
+					for (auto &mv : additions.member_variables)
+					{
+						addition_data["member_variables"].push_back(mv);
+					}
+
+					data["additions"].push_back(addition_data);
+				}
+
+				printf("%s",env.render("{% for add in additions %}"
+						"// private variables from {{add.gen_name}}"
+						"{% for pv in add.private_variables %}"
+							"{{pv}}"
+						"{% endfor %}{% endfor %}",data));
+
+				// render template content in its own try/catch
+				std::string rendered_content;
+				try
+				{
+					rendered_content = env.render(file.second, data);
+				}
+				catch (const std::exception &e)
+				{
+					throw std::runtime_error(std::string("Error rendering template ") + file.first + ": " + e.what());
+				}
+
+				of << rendered_content;
 				of.close();
-				std::cout << "Generated file: " << env.render(out_path + "/" + file.first, data) << std::endl;
+				std::cout << "Generated file: " << rendered_path << std::endl;
 			}
 		}
 		catch (const std::exception &e)
@@ -495,8 +377,10 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 			inja::json value_data;
 			value_data["identifier"] = v.first;
 			std::string identifierCamel = v.first;
-			std::function<std::string(std::string)> capitalFirst = [](std::string str) {
-				if (str.empty()) return str;
+			std::function<std::string(std::string)> capitalFirst = [](std::string str)
+			{
+				if (str.empty())
+					return str;
 				str[0] = std::toupper(str[0]);
 				return str;
 			};
@@ -510,14 +394,37 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		{
 			for (auto &file : enum_name_content_pairs)
 			{
-				std::ofstream of(env.render(out_path + "/" + file.first, data));
+				// render output path separately
+				std::string rendered_path;
+				try
+				{
+					rendered_path = env.render(out_path + "/" + file.first, data);
+				}
+				catch (const std::exception &e)
+				{
+					throw std::runtime_error(std::string("Error rendering output path for ") + file.first + ": " + e.what());
+				}
+
+				std::ofstream of(rendered_path);
 				if (!of.is_open())
 				{
-					std::cout << "Failed to open file: " << env.render(out_path + "/" + file.first, data);
+					std::cout << "Failed to open file: " << rendered_path << std::endl;
 				}
-				of << env.render(file.second, data);
+
+				// render template content separately
+				std::string rendered_content;
+				try
+				{
+					rendered_content = env.render(file.second, data);
+				}
+				catch (const std::exception &ex)
+				{
+					throw std::runtime_error(std::string("Error rendering template ") + file.first + ": " + ex.what());
+				}
+
+				of << rendered_content;
 				of.close();
-				std::cout << "Generated file: " << env.render(out_path + "/" + file.first, data) << std::endl;
+				std::cout << "Generated file: " << rendered_path << std::endl;
 			}
 		}
 		catch (const std::exception &ex)
