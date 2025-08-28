@@ -1,27 +1,45 @@
 #include {{struct_include}}
 
 // Getter implementations
-{% for mv in member_variables %}
-{% if not mv.required %}
-std::optional<{{mv.type}}> {{struct}}Schema::get{{mv.identifier}}() const {
+{% for mv in member_variables %}{% if not mv.required %}{% if mv.isArray %}
+std::optional<{{mv.type}}>&{{struct}}Schema::get{{mv.identifierCamel}}() const {
     return this->{{mv.identifier}};
 }
 {% else %}
-{{mv.type}} {{struct}}Schema::get{{mv.identifier}}() const {
+std::optional<{{mv.type}}> {{struct}}Schema::get{{mv.identifierCamel}}() const {
     return this->{{mv.identifier}};
 }
-{% endif %}
-{% endfor %}
+{% endif %}{% else %}{% if mv.isArray %}
+{{mv.type}} &{{struct}}Schema::get{{mv.identifierCamel}}() const {
+    return this->{{mv.identifier}};
+}
+{% else %}
+{{mv.type}} {{struct}}Schema::get{{mv.identifierCamel}}() const {
+    return this->{{mv.identifier}};
+}
+{% endif %}{% endif %}{% endfor %}
 
 // Setter implementations
 {% for mv in member_variables %}
-void {{struct}}Schema::set{{mv.identifier}}({{mv.type}} value) {
+void {{struct}}Schema::set{{mv.identifierCamel}}({{mv.type}} value) {
 {% for sl in before_setter_lines %}
     {{sl.line}}
 {% endfor %}
     this->{{mv.identifier}} = value;
 }
 {% endfor %}
+
+{% for mv in member_variables %}{% if mv.isArray %}
+void {{struct}}Schema::addTo{{mv.identifierCamel}}({{mv.elementType}} value) {
+    this->{{mv.identifier}}.push_back(value);
+}
+{% endif %}{% endfor %}
+
+{% for mv in member_variables %}{% if mv.isArray %}
+void {{struct}}Schema::clear{{mv.identifierCamel}}() {
+    this->{{mv.identifier}}.clear();
+}
+{% endif %}{% endfor %}
 
 // Function implementations
 {% for f in functions %}

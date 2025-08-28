@@ -34,29 +34,57 @@ public:
 	{{struct}}Schema() {
 	}
 
-	~{{struct}}Schema() {
+	virtual ~{{struct}}Schema() {
 	}
 
 	//getters
-{% for mv in member_variables %}{% if not mv.required %}
-	std::optional<{{mv.type}}> get{{mv.identifier}}() const;
+{% for mv in member_variables %}{% if not mv.required %}{% if mv.isArray %}
+	// Optional getter for {{mv.identifier}}
+	// Returns an optional containing the value of {{mv.identifier}} if it exists, or std::nullopt otherwise.
+	// {{mv.identifier}}: {{mv.description}}
+	virtual std::optional<{{mv.type}}> &get{{mv.identifierCamel}}() const;
 {% else %}
-	{{mv.type}} get{{mv.identifier}}() const;
-{% endif %}{% endfor %}
+	// Optional getter for {{mv.identifier}}
+	// Returns an optional containing the value of {{mv.identifier}} if it exists, or std::nullopt otherwise.
+	// {{mv.identifier}}: {{mv.description}}
+	virtual std::optional<{{mv.type}}> get{{mv.identifierCamel}}() const;
+{% endif %}{% else %}{% if mv.isArray %}
+	// Getter for {{mv.identifier}}
+	// {{mv.identifier}}: {{mv.description}}
+	virtual {{mv.type}} &get{{mv.identifierCamel}}() const;
+{% else %}
+	// Getter for {{mv.identifier}}
+	// {{mv.identifier}}: {{mv.description}}
+	virtual {{mv.type}} get{{mv.identifierCamel}}() const;
+{% endif %}{% endif %}{% endfor %}
 
 	//setters
 {% for mv in member_variables %}
-	void set{{mv.identifier}}({{mv.type}} value);
+	// Setter for {{mv.identifier}}
+	// {{mv.identifier}}: {{mv.description}}
+	virtual void set{{mv.identifierCamel}}({{mv.type}} value);
 {% endfor %}
 
+{% for mv in member_variables %}{% if mv.isArray %}
+	// Adder for {{mv.identifier}}
+	// {{mv.identifier}}: {{mv.description}}
+	virtual void addTo{{mv.identifierCamel}}({{mv.elementType}} value);
+{% endif %}{% endfor %}
+
+{% for mv in member_variables %}{% if mv.isArray %}
+	// Adder for {{mv.identifier}}
+	// {{mv.identifier}}: {{mv.description}}
+	virtual void clear{{mv.identifierCamel}}();
+{% endif %}{% endfor %}
+
 {% for f in functions %}
-	{% if f.static %}static {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if param.defaultArg %}={{param.defaultArg}}{% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %});
+	{% if f.static %}static {% else %}virtual {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if param.defaultArg %}={{param.defaultArg}}{% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %});
 {% endfor %}
 
 {% for key,g in generators %}
 	// Generator: {{key}}
 {% for f in g.functions %}
-	{% if f.static %}static {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if param.defaultArg %}={{param.defaultArg}}{% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %});
+	{% if f.static %}static {% else %}virtual {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if param.defaultArg %}={{param.defaultArg}}{% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %});
 {% endfor %}
 
 {% endfor %}
@@ -64,7 +92,7 @@ public:
 {% for bc in base_classes %}
     // Base class: {{bc.identifier}}
 {% for f in bc.functions %}
-    {% if f.static %}static {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if param.defaultArg %}={{param.defaultArg}}{% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %}) override;
+    {% if f.static %}static {% else %}virtual {% endif %}{{f.return_type}} {{f.identifier}}({% for param in f.parameters %}{{param.type}} {{param.identifier}}{% if param.defaultArg %}={{param.defaultArg}}{% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %}) override;
 {% endfor %}
 
 {% endfor %}
@@ -77,8 +105,12 @@ private:
 
 {% for mv in member_variables %}
 {% if not mv.required %}
+	// Optional member variable for {{mv.identifier}}
+	// {{mv.identifier}}: {{mv.description}}
 	std::optional<{{mv.type}}> {{mv.identifier}}{% if mv.default_value %} = {{mv.default_value}}{% endif %};
 {% else %}
+	// Member variable for {{mv.identifier}}
+	// {{mv.identifier}}: {{mv.description}}
 	{{mv.type}} {{mv.identifier}}{% if mv.default_value %} = {{mv.default_value}}{% endif %};
 {% endif %}
 {% endfor %}

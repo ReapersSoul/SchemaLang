@@ -122,7 +122,7 @@ std::string CppGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefini
 	// if the type is a struct, return the identifier
 	if (ps->tokenIsStruct(type.identifier()))
 	{
-		return type.identifier() + "Schema";
+		return "std::shared_ptr<" + type.identifier() + "Schema>";
 	}
 
 	return type.identifier();
@@ -157,7 +157,7 @@ std::string CppGenerator::get_default_of_type(ProgramStructure * ps, TypeDefinit
 	}
 	else if (type.is_struct(ps))
 	{
-		return type.identifier() + "Schema()";
+		return "std::make_shared<" + type.identifier() + "Schema>()";
 	}
 	else if (type.is_enum(ps))
 	{
@@ -409,6 +409,19 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		{
 			inja::json mv_data;
 			mv_data["identifier"] = mv.identifier;
+			std::string identifierCamel = mv.identifier;
+			std::function<std::string(std::string)> capitalFirst = [](std::string str) {
+				if (str.empty()) return str;
+				str[0] = std::toupper(str[0]);
+				return str;
+			};
+			identifierCamel = capitalFirst(identifierCamel);
+			mv_data["identifierCamel"] = identifierCamel;
+			mv_data["description"] = mv.description;
+			mv_data["isArray"] = mv.type.is_array();
+			if(mv.type.is_array()){
+				mv_data["elementType"] = convert_to_local_type(&ps, mv.type.element_type());
+			}
 			mv_data["type"] = convert_to_local_type(&ps, mv.type);
 			mv_data["static"] = mv.static_member;
 			mv_data["required"] = mv.required;
@@ -481,6 +494,14 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		{
 			inja::json value_data;
 			value_data["identifier"] = v.first;
+			std::string identifierCamel = v.first;
+			std::function<std::string(std::string)> capitalFirst = [](std::string str) {
+				if (str.empty()) return str;
+				str[0] = std::toupper(str[0]);
+				return str;
+			};
+			identifierCamel = capitalFirst(identifierCamel);
+			value_data["identifierCamel"] = identifierCamel;
 			value_data["value"] = v.second;
 			data["values"].push_back(value_data);
 		}

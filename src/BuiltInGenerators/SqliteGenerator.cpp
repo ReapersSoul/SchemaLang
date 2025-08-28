@@ -386,8 +386,10 @@ void SqliteGenerator::generate_select_all_statement_function_member_variable(Gen
 	}
 	FunctionDefinition select_all_statement;
 	select_all_statement.generator = "SQLite";
-	select_all_statement.identifier = "SQLiteSelectBy" + mv.identifier;
-	select_all_statement.return_type.identifier() = "std::vector<" + s.getIdentifier() + "Schema*>";
+	std::string identifierCamel = mv.identifier;
+	identifierCamel[0] = toupper(identifierCamel[0]);
+	select_all_statement.identifier = "SQLiteSelectBy" + identifierCamel;
+	select_all_statement.return_type.identifier() = "std::vector<std::shared_ptr<" + s.getIdentifier() + "Schema>>";
 	select_all_statement.static_function = true;
 	select_all_statement.parameters.push_back(std::make_pair(sqlite_db, "db"));
 	if(mv.required){
@@ -411,7 +413,7 @@ void SqliteGenerator::generate_select_all_statement_function_member_variable(Gen
 			return true;
 		}
 
-		structFile << "\tstd::vector<" << s.getIdentifier() << "Schema*> results;\n";
+		structFile << "\tstd::vector<std::shared_ptr<" << s.getIdentifier() << "Schema>> results;\n";
 		structFile << "\tchar *zErrMsg = 0;\n";
 		structFile << "\tstd::string sql = \"";
 		structFile << generate_select_all_statement_string_member_variable(s, mv);
@@ -420,9 +422,12 @@ void SqliteGenerator::generate_select_all_statement_function_member_variable(Gen
 		structFile << "\tsqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, NULL);\n";
 		structFile << generate_bind(gen,ps,mv, 0);
 		structFile << "\twhile(sqlite3_step(stmt) == SQLITE_ROW){\n";
-		structFile << "\t\t" << s.getIdentifier() << "Schema* result = new " << s.getIdentifier() << "Schema();\n";
+		structFile << "\t\tstd::shared_ptr<" << s.getIdentifier() << "Schema> result = std::make_shared<" << s.getIdentifier() << "Schema>();\n";
 		for (auto &[generator,mv_field] : s.getMemberVariables())
 		{
+			std::string identifierCamel = mv_field.identifier;
+			identifierCamel[0] = toupper(identifierCamel[0]);
+
 			if (mv_field.type.is_array())
 			{
 				// Skip arrays for now - they need special handling
@@ -441,27 +446,27 @@ void SqliteGenerator::generate_select_all_statement_function_member_variable(Gen
 			{
 				//std::string local_type = gen->convert_to_local_type(ps, mv_field.type);
 				//local_type = local_type.substr(0, local_type.size() - 2);
-				structFile << "\t\tresult->set" << mv_field.identifier << "(sqlite3_column_int(stmt, " << mv_field.identifier << "_index));\n";
+				structFile << "\t\tresult->set" << identifierCamel << "(sqlite3_column_int(stmt, " << mv_field.identifier << "_index));\n";
 			}
 			else if (mv_field.type.is_real())
 			{
-				structFile << "\t\tresult->set" << mv_field.identifier << "(sqlite3_column_double(stmt, " << mv_field.identifier << "_index));\n";
+				structFile << "\t\tresult->set" << identifierCamel << "(sqlite3_column_double(stmt, " << mv_field.identifier << "_index));\n";
 			}
 			else if (mv_field.type.is_bool())
 			{
-				structFile << "\t\tresult->set" << mv_field.identifier << "(sqlite3_column_int(stmt, " << mv_field.identifier << "_index));\n";
+				structFile << "\t\tresult->set" << identifierCamel << "(sqlite3_column_int(stmt, " << mv_field.identifier << "_index));\n";
 			}
 			else if (mv_field.type.is_string())
 			{
-				structFile << "\t\tresult->set" << mv_field.identifier << "(std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, " << mv_field.identifier << "_index))));\n";
+				structFile << "\t\tresult->set" << identifierCamel << "(std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, " << mv_field.identifier << "_index))));\n";
 			}
 			else if (mv_field.type.is_char())
 			{
-				structFile << "\t\tresult->set" << mv_field.identifier << "(sqlite3_column_text(stmt, " << mv_field.identifier << "_index)[0]);\n";
+				structFile << "\t\tresult->set" << identifierCamel << "(sqlite3_column_text(stmt, " << mv_field.identifier << "_index)[0]);\n";
 			}
 			else
 			{
-				structFile << "\t\tresult->set" << mv_field.identifier << "(sqlite3_column_" << gen->convert_to_local_type(ps, mv_field.type) << "(stmt, " << mv_field.identifier << "_index));\n";
+				structFile << "\t\tresult->set" << identifierCamel << "(sqlite3_column_" << gen->convert_to_local_type(ps, mv_field.type) << "(stmt, " << mv_field.identifier << "_index));\n";
 			}
 		}
 		structFile << "\t\tresults.push_back(result);\n";
@@ -1296,6 +1301,14 @@ bool SqliteGenerator::generate_files(ProgramStructure ps, std::string out_path)
 			// Create fields data for SQLite template compatibility
 			inja::json field_data;
 			field_data["name"] = mv.identifier;
+			std::string identifierCamel = mv.identifier;
+			std::function<std::string(std::string)> capitalFirst = [](std::string str) {
+				if (str.empty()) return str;
+				str[0] = std::toupper(str[0]);
+				return str;
+			};
+			identifierCamel = capitalFirst(identifierCamel);
+			field_data["identifierCamel"] = identifierCamel;
 			field_data["enabled"] = true;
 			if(!mv.enabled_for_generators.empty() || !mv.disabled_for_generators.empty()){
 				if(std::find(mv.enabled_for_generators.begin(), mv.enabled_for_generators.end(), name) != mv.enabled_for_generators.end()){

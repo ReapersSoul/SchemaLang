@@ -13,6 +13,8 @@ struct Generator
 
 	virtual bool generate_files(ProgramStructure ps, std::string out_path) = 0;
 
+	virtual bool fetch_additions(Generator *gen, Additions &additions) = 0;
+
 	virtual bool add_generator(Generator *gen){
 		return false;
 	};

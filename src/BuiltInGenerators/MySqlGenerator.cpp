@@ -320,7 +320,7 @@ void MysqlGenerator::generate_select_all_statement_function_member_variable(Gene
 	FunctionDefinition select_all_statement;
 	select_all_statement.generator = "MySQL";
 	select_all_statement.identifier = "MySQLSelectBy" + mv.identifier;
-	select_all_statement.return_type.identifier() = "std::vector<" + s.getIdentifier() + "Schema*>";
+	select_all_statement.return_type.identifier() = "std::vector<std::shared_ptr<" + s.getIdentifier() + "Schema>>";
 	select_all_statement.static_function = true;
 	select_all_statement.parameters.push_back(std::make_pair(mysql_session, "session"));
 	select_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
@@ -328,7 +328,7 @@ void MysqlGenerator::generate_select_all_statement_function_member_variable(Gene
 	select_all_statement.generate_function = [this, &mv](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		std::string sql = generate_select_all_statement_string_member_variable(s, mv);
-		structFile << "\tstd::vector<" << s.getIdentifier() << "Schema*> results;\n";
+		structFile << "\tstd::vector<std::shared_ptr<" << s.getIdentifier() << "Schema>> results;\n";
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
 		structFile << "\t\tmysqlx::Table table = db.getTable(\"" << escape_identifier(s.getIdentifier()) << "\");\n";
@@ -341,7 +341,7 @@ void MysqlGenerator::generate_select_all_statement_function_member_variable(Gene
 		}
 		structFile << "\t\t\t.execute();\n";
 		structFile << "\t\tfor (auto row : result) {\n";
-		structFile << "\t\t\t" << s.getIdentifier() << "Schema *obj = new " << s.getIdentifier() << "Schema();\n";
+		structFile << "\t\t\tstd::shared_ptr<" << s.getIdentifier() << "Schema> obj = std::make_shared<" << s.getIdentifier() << "Schema>();\n";
 		structFile << "\t\t\t// Populate object from row data\n";
 		structFile << "\t\t\tresults.push_back(obj);\n";
 		structFile << "\t\t}\n";

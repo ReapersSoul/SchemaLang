@@ -11,6 +11,19 @@
 template<typename T>
 using generator_otherwise_pair = std::pair<std::string, T>;
 
+struct Additions{
+	std::set<std::string> includes;
+	std::vector<std::string> before_lines;
+
+	std::vector<std::string> before_setter_lines;
+	std::vector<std::string> before_getter_lines;
+
+	std::set<std::string> functions;
+
+	std::vector<std::string> private_variables;
+	std::vector<std::string> member_variables;
+};
+
 struct StructDefinition
 {
 	int getUniqueSubsetCount() const
@@ -47,7 +60,6 @@ struct StructDefinition
 	std::vector<generator_otherwise_pair<MemberVariableDefinition>>& getMemberVariables(){
 		return member_variables;
 	}
-
 
 	bool add_include(std::string include, std::string generator = "");
 	bool add_before_line(std::string line, std::string generator = "");
