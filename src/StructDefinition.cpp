@@ -167,3 +167,62 @@ bool StructDefinition::whitelist(){
 bool StructDefinition::blacklist(){
 	return !disabled_for_generators.empty();
 }
+
+void StructDefinition::update(StructDefinition def)
+{
+	// Merge
+	if (identifier!=def.identifier){
+		throw std::runtime_error("Conflicting identifiers in StructDefinition::update");
+	}
+
+	// Merge includes (set of pairs). Use add_include to maintain uniqueness.
+	for (const auto &inc : def.includes) {
+		// inc is pair<generator, include>
+		add_include(inc.second, inc.first);
+	}
+
+	// Merge before lines
+	for (const auto &bl : def.before_lines) {
+		add_before_line(bl.second, bl.first);
+	}
+
+	// Merge before setter lines
+	for (const auto &bsl : def.before_setter_lines) {
+		add_before_setter_line(bsl.second, bsl.first);
+	}
+
+	// Merge before getter lines
+	for (const auto &bgl : def.before_getter_lines) {
+		add_before_getter_line(bgl.second, bgl.first);
+	}
+
+	// Merge functions
+	for (const auto &fn : def.functions) {
+		// fn is pair<generator, FunctionDefinition>
+		if (!has_function(fn.second.identifier)) {
+			add_function(fn.second, fn.first);
+		}
+	}
+
+	// Merge private variables
+	for (const auto &pv : def.private_variables) {
+		if (!has_private_variable(pv.second.identifier)) {
+			add_private_variable(pv.second, pv.first);
+		}
+	}
+
+	// Merge member variables
+	for (const auto &mv : def.member_variables) {
+		if (!has_member_variable(mv.second.identifier)) {
+			add_member_variable(mv.second, mv.first);
+		}
+	}
+
+	// Merge enabled/disabled generator sets
+	for (const auto &g : def.enabled_for_generators) {
+		add_gen_enabled(g);
+	}
+	for (const auto &g : def.disabled_for_generators) {
+		add_gen_disabled(g);
+	}
+}

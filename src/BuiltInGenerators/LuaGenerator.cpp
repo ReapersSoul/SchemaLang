@@ -321,7 +321,7 @@ std::string LuaGenerator::get_lua_default_value(ProgramStructure *ps, TypeDefini
 		try {
 			EnumDefinition e = ps->getEnum(type.identifier());
 			if (!e.values.empty()) {
-				return "\"" + e.values[0].first + "\"";
+				return "\"" + e.values.begin()->first + "\"";
 			}
 		} catch (...) {
 			// Fallback if enum not found

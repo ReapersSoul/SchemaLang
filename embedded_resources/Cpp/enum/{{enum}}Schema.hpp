@@ -3,7 +3,7 @@
 
 enum class {{enum}}Schema {
 {% for value in values %}
-    {{enum}}_{{value.identifier}} = {{value.value}},
+    {{value.identifier}} = {{value.value}},
 {% endfor %}
 };
 

@@ -1168,15 +1168,62 @@ bool ProgramStructure::readFile(std::string file_path)
 			}
 		}
 
+		if (token == "declare"){
+			i++;
+			//if struct or enum
+			if (tokens[i] == "struct")
+			{
+				i++;
+				// Handle forward declaration of struct
+				StructDefinition forward_decl;
+				forward_decl.setIdentifier(tokens[i].value);
+				MemberVariableDefinition id_member;
+				id_member.type = TypeDefinition("int64");
+				id_member.identifier = "id";
+				id_member.primary_key = true;
+				id_member.auto_increment = true;
+				id_member.required = true;
+				id_member.unique = true;
+				id_member.description = "Primary unique identifier for " + current_struct.getIdentifier();
+				forward_decl.add_member_variable(id_member);
+				structs.push_back(forward_decl);
+				i ++; // Skip the struct name token
+			}
+			else if (tokens[i] == "enum")
+			{
+				i++;
+				// Handle forward declaration of enum
+				EnumDefinition forward_decl;
+				forward_decl.identifier = tokens[i].value;
+				enums.push_back(forward_decl);
+				i ++; // Skip the enum name token
+			}
+			else{
+				reportError("Expected 'struct' or 'enum' after 'declare'", tokens[i]);
+				return false;
+			}
+			if(tokens[i] != ";"){
+				reportError("Expected ';' after forward declaration", tokens[i]);
+				return false;
+			}
+		}
+
 		if (token == "struct")
 		{
 			if (readStruct(tokens, i, current_struct))
 			{
-				structs.push_back(current_struct);
+				auto it = std::find_if(structs.begin(), structs.end(), [&](const StructDefinition& s) { return s.getIdentifier() == current_struct.getIdentifier(); });
+				if (it != structs.end())
+				{
+					it->update(current_struct);
+				}else{
+					structs.push_back(current_struct);
+				}
 				current_struct.clear();
 			}
 			else
 			{
+				reportError("Failed to read struct", tokens[i]);
 				return false;
 			}
 		}
@@ -1187,11 +1234,20 @@ bool ProgramStructure::readFile(std::string file_path)
 				int count = current_enum.values.size();
 				current_enum.add_value("Unknown", -1);
 				current_enum.add_value("Count", count);
-				enums.push_back(current_enum);
+				auto it = std::find_if(enums.begin(),enums.end(),[&](const EnumDefinition& e){return e.identifier==current_enum.identifier;});
+				if (it != enums.end())
+				{
+					it->update(current_enum);
+				}
+				else
+				{
+					enums.push_back(current_enum);
+				}
 				current_enum.clear();
 			}
 			else
 			{
+				reportError("Failed to read enum", tokens[i]);
 				return false;
 			}
 		}
@@ -1199,6 +1255,7 @@ bool ProgramStructure::readFile(std::string file_path)
 		{
 			if (!readConfig(tokens, i))
 			{
+				reportError("Failed to read config", tokens[i]);
 				return false;
 			}
 		}

@@ -11,10 +11,10 @@ void JavaGenerator::generate_enum_file(EnumDefinition e, std::string out_path)
     
     enumFile << "public enum " << e.identifier << " {\n";
     
-    for (size_t i = 0; i < e.values.size(); i++)
+    for (auto value:e.values)
     {
-        enumFile << "    " << e.values[i].first << "(" << e.values[i].second << ")";
-        if (i < e.values.size() - 1)
+        enumFile << "    " << value.first << "(" << value.second << ")";
+        if (value != *e.values.rbegin())
         {
             enumFile << ",\n";
         }
@@ -504,7 +504,7 @@ std::string JavaGenerator::get_java_default_value(TypeDefinition type, ProgramSt
         EnumDefinition e = ps->getEnum(type.identifier());
         if (!e.values.empty())
         {
-            return type.identifier() + "." + e.values[0].first;
+            return type.identifier() + "." + e.values.begin()->first;
         }
         return "null";
     }

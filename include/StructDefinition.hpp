@@ -73,6 +73,8 @@ struct StructDefinition
 	bool isGenDisabled(std::string gen);
     bool whitelist();
 	bool blacklist();
+
+	void update(StructDefinition def);
 private:
 	std::set<generator_otherwise_pair<std::string>> includes;
 	std::vector<generator_otherwise_pair<std::string>> before_lines;
