@@ -1,3 +1,4 @@
 {% if header %}
 static mysqlx::Session* mysql_session;
+static std::string database_name;
 {% endif %}

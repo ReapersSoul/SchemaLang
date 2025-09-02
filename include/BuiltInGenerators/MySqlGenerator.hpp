@@ -15,6 +15,9 @@ public:
 	// Constructor
 	MysqlGenerator();
 
+	std::string format_include(std::string ident) override{return"";};
+	std::string format_default(ProgramStructure *ps, TypeDefinition type,std::string value="") override{return value;};
+
 	// Utility functions
 	std::vector<std::vector<int>> comb(int N, int K);
 	std::vector<std::vector<int>> comb(int N);

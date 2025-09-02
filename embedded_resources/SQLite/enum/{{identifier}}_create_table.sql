@@ -1,5 +1,5 @@
 CREATE TABLE
-    IF NOT EXISTS {{enum}} (
+    IF NOT EXISTS {{identifier}} (
         id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
         name TEXT NOT NULL UNIQUE,
         value INTEGER NOT NULL
@@ -7,7 +7,7 @@ CREATE TABLE
 
 
 -- insert into if not exists if conflict do nothing
-INSERT INTO {{enum}} (name, value)
+INSERT INTO {{identifier}} (name, value)
 {% for value in values %}
 VALUES ('{{value.name}}', {{value.value}})
 {% if not loop.is_last %}, {% endif %}

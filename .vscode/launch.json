@@ -10,7 +10,7 @@
 				"-outputDirectory=./",
 				"-json",
 				"-sqlite",
-				//"-mysql",
+				"-mysql",
 				"-cpp",
 				//"-lua",
 				"-cppUseAngleBrackets",

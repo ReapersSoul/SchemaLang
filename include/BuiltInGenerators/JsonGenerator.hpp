@@ -15,6 +15,9 @@ class JsonGenerator : public Generator
 	json structToSchema(StructDefinition s, ProgramStructure *ps);
 
 public:
+	std::string format_include(std::string ident) override{return"";};
+	std::string format_default(ProgramStructure *ps, TypeDefinition type,std::string value="") override{return value;};
+
 	JsonGenerator();
 
 	std::string convert_to_local_type(ProgramStructure *ps, TypeDefinition type);

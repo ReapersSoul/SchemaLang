@@ -38,10 +38,10 @@ bool {{identifier}}Schema::MySQLCreateTable()
     }
     
     try {
-        auto schema = mysql_session->getSchema("{{database_name}}");
+        auto schema = mysql_session->getSchema(database_name);
         std::string create_sql = "CREATE TABLE IF NOT EXISTS {{identifier}} ("
 {% for mv in member_variables %}
-                            "{{mv.identifier}} {% if mv.type.is_integer %}INT{% elif mv.type.is_real() %}DOUBLE{% elif mv.type.is_string() %}VARCHAR(255){% elif mv.type.is_bool() %}BOOLEAN{% else %}TEXT{% endif %}{% if mv.primary_key %} PRIMARY KEY{% endif %}{% if mv.auto_increment %} AUTO_INCREMENT{% endif %}{% if mv.required %} NOT NULL{% endif %}{% if not loop.is_last %}, {% endif %}"
+                "{{mv.identifier}} {% if mv.type.is_integer %}INT{% endif %}{% if mv.type.is_real %}DOUBLE{% endif %}{% if mv.type.is_string %}VARCHAR(255){% endif %}{% if mv.type.is_bool %}BOOLEAN{% endif %}{% if not (mv.type.is_integer or mv.type.is_real or mv.type.is_string or mv.type.is_bool) %}TEXT{% endif %}{% if mv.primary_key %} PRIMARY KEY{% endif %}{% if mv.auto_increment %} AUTO_INCREMENT{% endif %}{% if mv.required %} NOT NULL{% endif %}{% if not loop.is_last %}, {% endif %}"
 {% endfor %}
                             ")";
         
@@ -62,11 +62,11 @@ bool {{identifier}}Schema::MySQLInsert()
     }
     
     try {
-        auto schema = mysql_session->getSchema("{{database_name}}");
+        auto schema = mysql_session->getSchema(database_name);
         auto table = schema.getTable("{{identifier}}");
         
-        auto insert = table.insert({% for mv in member_variables %}"{{mv.identifier}}"{% if not loop.is_last %}, {% endif %}{% endfor %});
-        insert.values({% for mv in member_variables %}this->{{mv.identifier}}{% if not mv.required %}.value_or({{mv.type}}{}){% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %});
+    auto insert = table.insert({% for mv in member_variables %}"{{mv.identifier}}"{% if not loop.is_last %}, {% endif %}{% endfor %});
+    insert.values({% for mv in member_variables %}this->{{mv.identifier}}{% if not mv.required %}.value_or({{mv.type}}{}){% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %});
         insert.execute();
         return true;
     }
@@ -84,20 +84,20 @@ bool {{identifier}}Schema::MySQLUpdate()
     }
     
     try {
-        auto schema = mysql_session->getSchema("{{database_name}}");
+        auto schema = mysql_session->getSchema(database_name);
         auto table = schema.getTable("{{identifier}}");
         
         auto update = table.update();
 {% for mv in member_variables %}
 {% if not mv.primary_key %}
-        update.set("{{mv.identifier}}", this->{{mv.identifier}}{% if not mv.required %}.value_or({{mv.type}}{}){% endif %});
+    update.set("{{mv.identifier}}", this->{{mv.identifier}}{% if not mv.required %}.value_or({{mv.type}}{}){% endif %});
 {% endif %}
 {% endfor %}
         
         // Add WHERE clause for primary key
 {% for mv in member_variables %}
 {% if mv.primary_key %}
-        update.where("{{mv.identifier}} = :pk").bind("pk", this->{{mv.identifier}}{% if not mv.required %}.value_or({{mv.type}}{}){% endif %});
+    update.where("{{mv.identifier}} = :pk").bind("pk", this->{{mv.identifier}}{% if not mv.required %}.value_or({{mv.type}}{}){% endif %});
 {% endif %}
 {% endfor %}
         
@@ -118,7 +118,7 @@ bool {{identifier}}Schema::MySQLDelete()
     }
     
     try {
-        auto schema = mysql_session->getSchema("{{database_name}}");
+        auto schema = mysql_session->getSchema(database_name);
         auto table = schema.getTable("{{identifier}}");
         
         auto remove = table.remove();
@@ -126,7 +126,7 @@ bool {{identifier}}Schema::MySQLDelete()
         // Add WHERE clause for primary key
 {% for mv in member_variables %}
 {% if mv.primary_key %}
-        remove.where("{{mv.identifier}} = :pk").bind("pk", this->{{mv.identifier}}{% if not mv.required %}.value_or({{mv.type}}{}){% endif %});
+    remove.where("{{mv.identifier}} = :pk").bind("pk", this->{{mv.identifier}}{% if not mv.required %}.value_or({{mv.type}}{}){% endif %});
 {% endif %}
 {% endfor %}
         
@@ -149,7 +149,7 @@ std::vector<std::shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::MySQLSe
     }
     
     try {
-        auto schema = mysql_session->getSchema("{{database_name}}");
+        auto schema = mysql_session->getSchema("{{identifier}}");
         auto table = schema.getTable("{{identifier}}");
         
         auto select = table.select({% for mv in member_variables %}"{{mv.identifier}}"{% if not loop.is_last %}, {% endif %}{% endfor %});
@@ -160,15 +160,19 @@ std::vector<std::shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::MySQLSe
 {% for mv in member_variables %}
             // Set {{mv.identifier}}
 {% if mv.type.is_integer %}
-            obj->set{{mv.identifier}}(row[{{loop.index0}}].get<int>());
-{% elif mv.type.is_real() %}
-            obj->set{{mv.identifier}}(row[{{loop.index0}}].get<double>());
-{% elif mv.type.is_string() %}
-            obj->set{{mv.identifier}}(row[{{loop.index0}}].get<std::string>());
-{% elif mv.type.is_bool() %}
-            obj->set{{mv.identifier}}(row[{{loop.index0}}].get<bool>());
-{% else %}
-            obj->set{{mv.identifier}}(row[{{loop.index0}}].get<{{mv.type}}>());
+            obj->set{{mv.identifier}}(row[{{loop.index1}}].get<int>());
+{% endif %}
+{% if mv.type.is_real %}
+            obj->set{{mv.identifier}}(row[{{loop.index1}}].get<double>());
+{% endif %}
+{% if mv.type.is_string %}
+            obj->set{{mv.identifier}}(row[{{loop.index1}}].get<std::string>());
+{% endif %}
+{% if mv.type.is_bool %}
+            obj->set{{mv.identifier}}(row[{{loop.index1}}].get<bool>());
+{% endif %}
+{% if not (mv.type.is_integer or mv.type.is_real or mv.type.is_string or mv.type.is_bool) %}
+            obj->set{{mv.identifier}}(row[{{loop.index1}}].get<{{mv.type}}>());
 {% endif %}
 {% endfor %}
             results.push_back(obj);
@@ -193,7 +197,7 @@ std::vector<shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::MySQLSelectB
     }
     
     try {
-        auto schema = mysql_session->getSchema("{{database_name}}");
+        auto schema = mysql_session->getSchema("{{identifier}}");
         auto table = schema.getTable("{{identifier}}");
         
         auto select = table.select({% for mv2 in member_variables %}"{{mv2.identifier}}"{% if not loop.is_last %}, {% endif %}{% endfor %})
@@ -206,15 +210,19 @@ std::vector<shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::MySQLSelectB
 {% for mv2 in member_variables %}
             // Set {{mv2.identifier}}
 {% if mv2.type.is_integer %}
-            obj->set{{mv2.identifier}}(row[{{loop.index0}}].get<int>());
-{% elif mv2.type.is_real() %}
-            obj->set{{mv2.identifier}}(row[{{loop.index0}}].get<double>());
-{% elif mv2.type.is_string() %}
-            obj->set{{mv2.identifier}}(row[{{loop.index0}}].get<std::string>());
-{% elif mv2.type.is_bool() %}
-            obj->set{{mv2.identifier}}(row[{{loop.index0}}].get<bool>());
-{% else %}
-            obj->set{{mv2.identifier}}(row[{{loop.index0}}].get<{{mv2.type}}>());
+            obj->set{{mv2.identifier}}(row[{{loop.index1}}].get<int>());
+{% endif %}
+{% if mv2.type.is_real %}
+            obj->set{{mv2.identifier}}(row[{{loop.index1}}].get<double>());
+{% endif %}
+{% if mv2.type.is_string %}
+            obj->set{{mv2.identifier}}(row[{{loop.index1}}].get<std::string>());
+{% endif %}
+{% if mv2.type.is_bool %}
+            obj->set{{mv2.identifier}}(row[{{loop.index1}}].get<bool>());
+{% endif %}
+{% if not (mv2.type.is_integer or mv2.type.is_real or mv2.type.is_string or mv2.type.is_bool) %}
+            obj->set{{mv2.identifier}}(row[{{loop.index1}}].get<{{mv2.type}}>());
 {% endif %}
 {% endfor %}
             results.push_back(obj);

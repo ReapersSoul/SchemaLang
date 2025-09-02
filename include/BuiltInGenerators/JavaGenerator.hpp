@@ -30,6 +30,10 @@ class JavaGenerator : public Generator
 	std::string get_java_default_value(TypeDefinition type, ProgramStructure *ps);
 
 public:
+	std::string format_include(std::string ident) override{return"";};
+
+	std::string format_default(ProgramStructure *ps, TypeDefinition type,std::string value="") override{return value;};
+
 	JavaGenerator();
 
 	bool add_generator(Generator *gen) override;

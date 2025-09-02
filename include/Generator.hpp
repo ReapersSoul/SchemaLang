@@ -9,6 +9,9 @@ struct Generator
 	StructDefinition base_class;
 	std::string name;
 
+	virtual std::string format_include(std::string ident)=0;
+	virtual std::string format_default(ProgramStructure *ps, TypeDefinition type,std::string value="")=0;
+
 	virtual std::string convert_to_local_type(ProgramStructure *ps, TypeDefinition type) = 0;
 
 	virtual bool add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s) = 0;

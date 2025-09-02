@@ -21,7 +21,9 @@ public:
 	std::string get_default_of_type(ProgramStructure *ps, TypeDefinition type);
 
 	// Helper method to format includes with prefix and bracket type
-	std::string format_include(const std::string& filename) const;
+	std::string format_include(std::string ident) override;
+
+	std::string format_default(ProgramStructure *ps, TypeDefinition type,std::string value="") override;
 
 	bool add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s);
 

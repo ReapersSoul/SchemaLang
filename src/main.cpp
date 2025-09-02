@@ -7,7 +7,7 @@
 //#include <BuiltInGenerators/JavaGenerator.hpp>
 #include <BuiltInGenerators/JsonGenerator.hpp>
 #include <BuiltInGenerators/SqliteGenerator.hpp>
-//#include <BuiltInGenerators/MySqlGenerator.hpp>
+#include <BuiltInGenerators/MySqlGenerator.hpp>
 //#include <BuiltInGenerators/LuaGenerator.hpp>
 #include <boost/dll.hpp>
 #include <boost/function.hpp>
@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 
 	JsonGenerator *jsonGenerator = new JsonGenerator();
 	SqliteGenerator *sqliteGenerator = new SqliteGenerator();
-	//MysqlGenerator *mysqlGenerator = new MysqlGenerator();
+	MysqlGenerator *mysqlGenerator = new MysqlGenerator();
 	//LuaGenerator *luaGenerator = new LuaGenerator();
 	//JavaGenerator *javaGenerator = new JavaGenerator();
 
@@ -126,9 +126,9 @@ int main(int argc, char *argv[])
 	Flag sqliteFlag("sqlite", false, [&]
 					{ cppGenerator->add_generator(sqliteGenerator); });
 	ap.addFlag(&sqliteFlag);
-	//Flag mysqlFlag("mysql", false, [&]
-	//			   { cppGenerator->add_generator(mysqlGenerator); });
-	//ap.addFlag(&mysqlFlag);
+	Flag mysqlFlag("mysql", false, [&]
+				   { cppGenerator->add_generator(mysqlGenerator); });
+	ap.addFlag(&mysqlFlag);
 	Flag cppFlag("cpp", false, [&]
 				 { cppGenerator->add_generator(cppGenerator); });
 	ap.addFlag(&cppFlag);
@@ -262,31 +262,31 @@ int main(int argc, char *argv[])
 	Flag selectAllFilesFlag("selectAllFiles", false, [&]()
 							{
 		exponentialWarning("selectAllFiles");
-		/*mysqlGenerator->set_generate_select_all_files(true);*/ }, 2);
+		mysqlGenerator->set_generate_select_all_files(true); }, 2);
 	ap.addFlag(&selectAllFilesFlag);
 
 	Flag selectFilesFlag("selectFiles", false, [&]()
 						 {
 		exponentialWarning("selectFiles");
-		/*mysqlGenerator->set_generate_select_files(true);*/ }, 2);
+		mysqlGenerator->set_generate_select_files(true); }, 2);
 	ap.addFlag(&selectFilesFlag);
 
 	Flag insertFilesFlag("insertFiles", false, [&]()
 						 {
 		exponentialWarning("insertFiles");
-		/*mysqlGenerator->set_generate_insert_files(true);*/ }, 2);
+		mysqlGenerator->set_generate_insert_files(true); }, 2);
 	ap.addFlag(&insertFilesFlag);
 
 	Flag updateFilesFlag("updateFiles", false, [&]()
 						 {
 		exponentialWarning("updateFiles");
-		/*mysqlGenerator->set_generate_update_files(true);*/ }, 2);
+		mysqlGenerator->set_generate_update_files(true); }, 2);
 	ap.addFlag(&updateFilesFlag);
 
 	Flag deleteFilesFlag("deleteFiles", false, [&]()
 						 {
 		exponentialWarning("deleteFiles");
-		/*mysqlGenerator->set_generate_delete_files(true);*/ }, 2);
+		mysqlGenerator->set_generate_delete_files(true); }, 2);
 	ap.addFlag(&deleteFilesFlag);
 
 	// -R for recursive directory iterator
@@ -300,7 +300,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Set up generator interactions
-	std::vector<Generator*> allGenerators = {jsonGenerator,/* luaGenerator,*/ sqliteGenerator,/* mysqlGenerator, javaGenerator,*/ cppGenerator};
+	std::vector<Generator*> allGenerators = {jsonGenerator,/* luaGenerator,*/ sqliteGenerator, mysqlGenerator,/* javaGenerator,*/ cppGenerator};
 	
 	// Add dynamic generators to built-in generators
 	for (Generator* dynamicGen : dynamicGenerators)
@@ -399,15 +399,15 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	// if (mysqlFlag.getValue())
-	// {
-	// 	printf("Generating mysql files\n");
-	// 	if (!ps.generate_files(mysqlGenerator, (outputDirectory / "Mysql").string()))
-	// 	{
-	// 		std::cout << "Failed to generate mysql files" << std::endl;
-	// 		return 1;
-	// 	}
-	// }
+	if (mysqlFlag.getValue())
+	{
+		printf("Generating mysql files\n");
+		if (!ps.generate_files(mysqlGenerator, (outputDirectory / "Mysql").string()))
+		{
+			std::cout << "Failed to generate mysql files" << std::endl;
+			return 1;
+		}
+	}
 
 	if (cppFlag.getValue())
 	{

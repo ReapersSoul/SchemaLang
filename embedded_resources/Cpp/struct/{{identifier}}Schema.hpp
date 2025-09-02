@@ -51,7 +51,7 @@ public:
 {% for mv in member_variables %}{% if mv.type.is_array %}
 	// Adder for {{mv.identifier}}
 	// {{mv.identifier}}: {{mv.description}}
-	virtual void addTo{{mv.identifierCamel}}({{mv.elementType.estimated}} value);
+	virtual void addTo{{mv.identifierCamel}}({{mv.type.elem_type.estimated}} value);
 {% endif %}{% endfor %}
 
 {% for mv in member_variables %}{% if mv.type.is_array %}
@@ -74,31 +74,24 @@ private:
 {% if not mv.required %}
 	// Optional member variable for {{mv.identifier}}
 	// {{mv.identifier}}: {{mv.description}}
-	std::optional<{{mv.type.estimated}}> {{mv.identifier}}{% if mv.default_value %} = {{mv.default_value}}{% endif %};
+	std::optional<{{mv.type.estimated}}> {{mv.identifier}}{% if mv.type.defaulted %} = {{mv.default_value}}{% endif %};
 {% else %}
 	// Member variable for {{mv.identifier}}
 	// {{mv.identifier}}: {{mv.description}}
-	{{mv.type.estimated}} {{mv.identifier}}{% if mv.default_value %} = {{mv.default_value}}{% endif %};
+	{{mv.type.estimated}} {{mv.identifier}}{% if mv.type.defaulted %} = {{mv.default_value}}{% endif %};
 {% endif %}
 {% endfor %}
 
 {% for add in additions %}
 // private variables from {{add.gen_name}}
 {% for pv in add.private_variables %}
-	{{pv.type.estimated}} {{pv.identifier}};
+	{{pv}}
 {% endfor %}{% endfor %}
 
 {% for add in additions %}
 // members variables from {{add.gen_name}}
-
-{% for mv in add.member_variables %}{% if not mv.required %}
-	// Optional member variable for {{mv.identifier}}
-	// {{mv.identifier}}: {{mv.description}}
-	std::optional<{{mv.type.estimated}}> {{mv.identifier}}{% if mv.default_value %} = {{mv.default_value}}{% endif %};
-{% else %}
-	// Member variable for {{mv.identifier}}
-	// {{mv.identifier}}: {{mv.description}}
-	{{mv.type.estimated}} {{mv.identifier}}{% if mv.default_value %} = {{mv.default_value}}{% endif %};
-{% endif %}{% endfor %}{% endfor %}
+{% for mv in add.member_variables %}
+	{{mv}}
+{% endfor %}{% endfor %}
 
 };

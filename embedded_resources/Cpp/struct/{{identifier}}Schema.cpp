@@ -30,7 +30,7 @@ void {{identifier}}Schema::set{{mv.identifierCamel}}({{mv.type.estimated}} value
 {% endfor %}
 
 {% for mv in member_variables %}{% if mv.type.is_array %}
-void {{identifier}}Schema::addTo{{mv.identifierCamel}}({{mv.elementType.estimated}} value) {
+void {{identifier}}Schema::addTo{{mv.identifierCamel}}({{mv.type.elem_type.estimated}} value) {
     this->{{mv.identifier}}.push_back(value);
 }
 {% endif %}{% endfor %}
