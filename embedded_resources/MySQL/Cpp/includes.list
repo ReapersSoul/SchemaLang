@@ -1,3 +1,4 @@
+<algorithm>
 <mysqlx/xdevapi.h>
 <iostream>
 <string>

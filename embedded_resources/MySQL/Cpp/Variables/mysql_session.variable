@@ -1,4 +1,7 @@
 {% if header %}
-static mysqlx::Session* mysql_session;
+static std::shared_ptr<mysqlx::Session> mysql_session;
 static std::string database_name;
+{% else %}
+std::shared_ptr<mysqlx::Session> {{identifier}}Schema::mysql_session = nullptr;
+std::string {{identifier}}Schema::database_name = "default_db";
 {% endif %}

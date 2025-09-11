@@ -1,0 +1,41 @@
+{% if header %}
+/*
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(Wall, start, end, type, id, thickness)
+    
+    static void default_value(Wall& wall) {
+        wall.start = ImVec2(0, 0);
+        wall.end = ImVec2(1, 0);
+        wall.type = WallType::Interior;
+        wall.id = "";
+        wall.thickness = 0.2f;
+*/
+
+NLOHMANN_DEFINE_TYPE_INTRUSIVE({{identifier}}Schema,
+{% for mv in member_variables %}
+{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
+{{mv.identifier}}{% if not loop.is_last %},{% endif %}
+{% endif %}
+{% endfor %}
+)
+
+SCHEMA_DEFINE({{identifier}}Schema,
+{% for mv in member_variables %}
+{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
+SCHEMA_FIELD({{mv.identifier}}, schema::desc("{{mv.description}}"){% if not mv.required %} | schema::optional(){% endif %}){% if not loop.is_last %},{% endif %}
+{% endif %}
+{% endfor %})
+
+{% else %}
+{% endif %}
+
+/*NLOHMANN_JSON_SERIALIZE_ENUM(RoomType, {
+    {RoomType::Bedroom, "Bedroom"},
+    {RoomType::Kitchen, "Kitchen"},
+    {RoomType::LivingRoom, "Living Room"},
+    {RoomType::Bathroom, "Bathroom"},
+    {RoomType::Office, "Office"},
+    {RoomType::Storage, "Storage"},
+    {RoomType::Hallway, "Hallway"},
+    {RoomType::Staircase, "Staircase"},
+    {RoomType::Custom, "Custom"}
+});*/

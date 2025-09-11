@@ -72,6 +72,8 @@ struct ProgramStructure
 	std::vector<EnumDefinition> enums;
 	std::vector<std::string> type_names;
 
+	inja::json to_json(Generator* generator);
+
 public:
 	bool tokenIsType(std::string token);
 

@@ -218,7 +218,8 @@ struct FieldInfo {
 template<typename T>
 nlohmann::json integer_schema(const FieldOptions& options = {}) {
     FieldOptions applied_options = apply_callback(options);
-    nlohmann::json schema{{"type", "integer"}};
+    nlohmann::json schema;
+    schema["type"] = "integer";
     if (applied_options.has_min) schema["minimum"] = applied_options.min_value;
     if (applied_options.has_max) schema["maximum"] = applied_options.max_value;
     if (!applied_options.description.empty()) schema["description"] = applied_options.description;
@@ -229,7 +230,8 @@ nlohmann::json integer_schema(const FieldOptions& options = {}) {
 template<typename T>
 nlohmann::json number_schema(const FieldOptions& options = {}) {
     FieldOptions applied_options = apply_callback(options);
-    nlohmann::json schema{{"type", "number"}};
+    nlohmann::json schema;
+    schema["type"] = "number";
     if (applied_options.has_min) schema["minimum"] = applied_options.min_value;
     if (applied_options.has_max) schema["maximum"] = applied_options.max_value;
     if (!applied_options.description.empty()) schema["description"] = applied_options.description;
@@ -240,7 +242,8 @@ nlohmann::json number_schema(const FieldOptions& options = {}) {
 template<typename T>
 nlohmann::json string_schema(const FieldOptions& options = {}) {
     FieldOptions applied_options = apply_callback(options);
-    nlohmann::json schema{{"type", "string"}};
+    nlohmann::json schema;
+    schema["type"] = "string";
     if (applied_options.has_min_length) schema["minLength"] = applied_options.min_length;
     if (applied_options.has_max_length) schema["maxLength"] = applied_options.max_length;
     if (!applied_options.description.empty()) schema["description"] = applied_options.description;
@@ -252,7 +255,8 @@ nlohmann::json string_schema(const FieldOptions& options = {}) {
 template<typename T>
 nlohmann::json boolean_schema(const FieldOptions& options = {}) {
     FieldOptions applied_options = apply_callback(options);
-    nlohmann::json schema{{"type", "boolean"}};
+    nlohmann::json schema;
+    schema["type"] = "boolean";
     if (!applied_options.description.empty()) schema["description"] = applied_options.description;
     return schema;
 }
@@ -295,7 +299,8 @@ nlohmann::json get_field_schema(const FieldOptions& options = {}) {
     FieldOptions applied_options = apply_callback(options);
     // Handle enums automatically
     if constexpr (std::is_enum_v<T>) {
-        nlohmann::json schema{{"type", "string"}};
+        nlohmann::json schema;
+        schema["type"] = "string";  // Enums are represented as strings in JSON Schema
         
         // Get enum values using magic_enum if not already provided in options
         if (applied_options.enum_values.empty()) {
@@ -331,7 +336,8 @@ nlohmann::json get_field_schema(const FieldOptions& options = {}) {
     } 
     // Handle JSON
     else if constexpr (std::is_same_v<std::remove_cv_t<std::remove_reference_t<T>>, nlohmann::json>) {
-        nlohmann::json schema{{"type", "object"}};
+        nlohmann::json schema;
+        schema["type"] = "object";
         if (!applied_options.description.empty()) schema["description"] = applied_options.description;
         return schema;
     } 
@@ -353,7 +359,8 @@ nlohmann::json get_field_schema(const FieldOptions& options = {}) {
     }
     // Handle std::array specifically
     else if constexpr (is_std_array<T>::value) {
-        nlohmann::json schema{{"type", "array"}};
+        nlohmann::json schema;
+        schema["type"] = "array";
         using ValueType = typename T::value_type;
         schema["items"] = get_field_schema<ValueType>();
         // std::array has a fixed size
@@ -368,7 +375,8 @@ nlohmann::json get_field_schema(const FieldOptions& options = {}) {
     }
     // Handle containers (like vector)
     else if constexpr (has_value_type<T>::value) {
-        nlohmann::json schema{{"type", "array"}};
+        nlohmann::json schema;
+        schema["type"] = "array";
         using ValueType = typename T::value_type;
         schema["items"] = get_field_schema<ValueType>();
         if (applied_options.has_min_items) schema["minItems"] = applied_options.min_items;
@@ -379,7 +387,8 @@ nlohmann::json get_field_schema(const FieldOptions& options = {}) {
     }
     // Handle any other type as generic object
     else {
-        nlohmann::json schema{{"type", "object"}};
+        nlohmann::json schema;
+        schema["type"] = "object";
         if (!applied_options.description.empty()) schema["description"] = applied_options.description;
         return schema;
     }

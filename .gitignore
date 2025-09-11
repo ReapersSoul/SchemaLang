@@ -2,3 +2,4 @@ build
 bin
 settings.json
 tasks.json
+.cache

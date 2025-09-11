@@ -9,8 +9,8 @@ struct Generator
 	StructDefinition base_class;
 	std::string name;
 
-	virtual std::string format_include(std::string ident)=0;
-	virtual std::string format_default(ProgramStructure *ps, TypeDefinition type,std::string value="")=0;
+	virtual std::string format_include(std::string ident) = 0;
+	virtual std::string format_default(ProgramStructure *ps, TypeDefinition type, std::string value = "") = 0;
 
 	virtual std::string convert_to_local_type(ProgramStructure *ps, TypeDefinition type) = 0;
 
@@ -24,6 +24,7 @@ struct Generator
 		std::string base_path = "/" + name + "/" + gen->name + "/";
 		if (!existsEmbeddedResourcesEmbeddedFile(base_path.c_str()))
 		{
+			printf("Warning: No embedded resources found for generator %s at path %s\n", gen->name.c_str(), base_path.c_str());
 			return false;
 		}
 		inja::Environment env;
@@ -110,9 +111,10 @@ struct Generator
 		return true;
 	}
 
+	virtual bool generate_additional_files(Generator *gen, ProgramStructure * ps, std::string out_path);
+
 	virtual bool add_generator(Generator *gen)
 	{
 		return false;
 	}
-
 };

@@ -2,6 +2,7 @@
 #include <vector>
 #include <optional>
 #include <memory>
+#include <concepts>
 {% for include in includes %}
 #include {{include}}
 {% endfor %}
@@ -21,25 +22,16 @@ public:
 	}
 
 	//getters
-{% for mv in member_variables %}{% if not mv.required %}{% if mv.type.is_array %}
+{% for mv in member_variables %}{% if not mv.required %}
 	// Optional getter for {{mv.identifier}}
 	// Returns an optional containing the value of {{mv.identifier}} if it exists, or std::nullopt otherwise.
 	// {{mv.identifier}}: {{mv.description}}
-	virtual std::optional<{{mv.type.estimated}}> &get{{mv.identifierCamel}}() const;
-{% else %}
-	// Optional getter for {{mv.identifier}}
-	// Returns an optional containing the value of {{mv.identifier}} if it exists, or std::nullopt otherwise.
-	// {{mv.identifier}}: {{mv.description}}
-	virtual std::optional<{{mv.type.estimated}}> get{{mv.identifierCamel}}() const;
-{% endif %}{% else %}{% if mv.type.is_array %}
-	// Getter for {{mv.identifier}}
-	// {{mv.identifier}}: {{mv.description}}
-	virtual {{mv.type.estimated}} &get{{mv.identifierCamel}}() const;
+	virtual std::optional<{{mv.type.estimated}}> &get{{mv.identifierCamel}}();
 {% else %}
 	// Getter for {{mv.identifier}}
 	// {{mv.identifier}}: {{mv.description}}
-	virtual {{mv.type.estimated}} get{{mv.identifierCamel}}() const;
-{% endif %}{% endif %}{% endfor %}
+	virtual {{mv.type.estimated}} &get{{mv.identifierCamel}}();
+{% endif %}{% endfor %}
 
 	//setters
 {% for mv in member_variables %}
@@ -64,7 +56,19 @@ public:
 	{% if f.static %}static {% else %}virtual {% endif %}{{f.return_type.estimated}} {{f.identifier}}({% for param in f.parameters %}{{param.type.estimated}} {{param.identifier}}{% if param.defaultArg %}={{param.defaultArg}}{% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %});
 {% endfor %}
 
-private:
+{% for add in additions %}
+// functions from {{add.gen_name}}
+{% for f in add.functions %}
+	{{f}}
+{% endfor %}{% endfor %}
+	//"as" must be child class to use 
+	template<typename T>
+		requires std::derived_from<T, {{identifier}}Schema>
+	T* as() {
+		return dynamic_cast<T*>(this);
+	}
+
+protected:
 
 {% for pv in private_variables %}
 	{% if pv.static %}static {% endif %}{% if pv.const %}const {% endif %}{{pv.type.estimated}} {{pv.identifier}};

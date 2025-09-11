@@ -233,17 +233,18 @@ inja::json StructDefinition::to_json(ProgramStructure* ps, Generator* generator)
 	std::string identifierCamel = identifier;
 	identifierCamel[0] = toupper(identifierCamel[0]);
 	j["identifierCamel"] = identifierCamel;
-    j["includes"] = std::vector<std::string>(includes.begin(), includes.end());
+	std::set<std::string> includesSet(includes.begin(), includes.end());
 	for (auto &mv:member_variables){
 		if(mv.type.is_struct(ps)||mv.type.is_enum(ps)){
-			j["includes"].push_back(generator->format_include(mv.type.identifier()));
+			includesSet.insert(generator->format_include(mv.type.identifier()));
 		}
 		if(mv.type.is_array()){
 			if(mv.type.element_type().is_struct(ps)||mv.type.element_type().is_enum(ps)){
-				j["includes"].push_back(generator->format_include(mv.type.element_type().identifier()));
+				includesSet.insert(generator->format_include(mv.type.element_type().identifier()));
 			}	
 		}
 	}
+    j["includes"] = includesSet;
 	
     j["before_lines"] = before_lines;
     j["before_setter_lines"] = before_setter_lines;

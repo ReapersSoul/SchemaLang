@@ -1,15 +1,17 @@
 {% if header %}
-static std::vector<shared_ptr<{{identifier}}Schema>> SQLiteSelectAll(sqlite3* db);
-static std::vector<shared_ptr<{{identifier}}Schema>> SQLiteSelectAll();
+static std::vector<std::shared_ptr<{{identifier}}Schema>> SQLiteSelectAll(sqlite3* db);
+static std::vector<std::shared_ptr<{{identifier}}Schema>> SQLiteSelectAll();
 {% for mv in member_variables %}
-static std::vector<shared_ptr<{{identifier}}Schema>> SQLiteSelectBy{{mv.identifierCamel}}(sqlite3* db, {{mv.type}} {{mv.identifier}});
-static std::vector<shared_ptr<{{identifier}}Schema>> SQLiteSelectBy{{mv.identifierCamel}}({{mv.type}} {{mv.identifier}});
+{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
+static std::vector<std::shared_ptr<{{identifier}}Schema>> SQLiteSelectBy{{mv.identifierCamel}}(sqlite3* db, {{mv.type.estimated}} {{mv.identifier}});
+static std::vector<std::shared_ptr<{{identifier}}Schema>> SQLiteSelectBy{{mv.identifierCamel}}({{mv.type.estimated}} {{mv.identifier}});
+{% endif %}
 {% endfor %}
 {% else %}
-std::vector<shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::SQLiteSelectAll(sqlite3* db)
+std::vector<std::shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::SQLiteSelectAll(sqlite3* db)
 {
-    std::vector<shared_ptr<{{identifier}}Schema>> results;
-    std::string sql = "SELECT {% for mv in member_variables %}{{mv.identifier}}{% if not loop.is_last %}, {% endif %}{% endfor %} FROM {{identifier}}";
+    std::vector<std::shared_ptr<{{identifier}}Schema>> results;
+    std::string sql = "SELECT {% for mv in member_variables %}{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}{{mv.identifier}}{% if not loop.is_last %}, {% endif %}{% endif %}{% endfor %} FROM {{identifier}}";
     
     sqlite3_stmt *stmt;
     int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, NULL);
@@ -19,29 +21,33 @@ std::vector<shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::SQLiteSelect
     }
     
     while(sqlite3_step(stmt) == SQLITE_ROW) {
-        shared_ptr<{{identifier}}Schema> result = new {{identifier}}Schema();
+        std::shared_ptr<{{identifier}}Schema> result = std::make_shared<{{identifier}}Schema>();
+{% set column_index = 0 %}
 {% for mv in member_variables %}
-        // Column {{loop.index}}: {{mv.identifier}}
+{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
+        // Column {{column_index}}: {{mv.identifier}}
     {% if mv.type.is_integer %}
-        result->set{{mv.identifierCamel}}(sqlite3_column_int(stmt, {{loop.index}}));
+        result->set{{mv.identifierCamel}}(sqlite3_column_int(stmt, {{column_index}}));
     {% endif %}
     {% if mv.type.is_real %}
-        result->set{{mv.identifierCamel}}(sqlite3_column_double(stmt, {{loop.index}}));
+        result->set{{mv.identifierCamel}}(sqlite3_column_double(stmt, {{column_index}}));
     {% endif %}
     {% if mv.type.is_string %}
-        const char* {{mv.identifier}}_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, {{loop.index}}));
+        const char* {{mv.identifier}}_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, {{column_index}}));
         if({{mv.identifier}}_str) result->set{{mv.identifierCamel}}(std::string({{mv.identifier}}_str));
     {% endif %}
     {% if mv.type.is_bool %}
-        result->set{{mv.identifierCamel}}(sqlite3_column_int(stmt, {{loop.index}}) != 0);
+        result->set{{mv.identifierCamel}}(sqlite3_column_int(stmt, {{column_index}}) != 0);
     {% endif %}
     {% if not (mv.type.is_integer or mv.type.is_real or mv.type.is_string or mv.type.is_bool) %}
-        const char* {{mv.identifier}}_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, {{loop.index}}));
+        const char* {{mv.identifier}}_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, {{column_index}}));
         if({{mv.identifier}}_str) {
             // Handle custom type conversion here
             // result->set{{mv.identifierCamel}}(convert_from_string({{mv.identifier}}_str));
         }
     {% endif %}
+{% set column_index = column_index + 1 %}
+{% endif %}
 {% endfor %}
         results.push_back(result);
     }
@@ -50,20 +56,21 @@ std::vector<shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::SQLiteSelect
     return results;
 }
 
-std::vector<shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::SQLiteSelectAll()
+std::vector<std::shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::SQLiteSelectAll()
 {
     if(db == nullptr) {
         std::cerr << "Database not set! Call SQLiteSetDatabase first." << std::endl;
-        return std::vector<shared_ptr<{{identifier}}Schema>>();
+        return std::vector<std::shared_ptr<{{identifier}}Schema>>();
     }
     return SQLiteSelectAll(db);
 }
 
 {% for mv in member_variables %}
-std::vector<shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::SQLiteSelectBy{{mv.identifierCamel}}(sqlite3* db, {{mv.type}} {{mv.identifier}})
+{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
+std::vector<std::shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::SQLiteSelectBy{{mv.identifierCamel}}(sqlite3* db, {{mv.type.estimated}} {{mv.identifier}})
 {
-    std::vector<shared_ptr<{{identifier}}Schema>> results;
-    std::string sql = "SELECT {% for mv2 in member_variables %}{{mv2.identifier}}{% if not loop.is_last %}, {% endif %}{% endfor %} FROM {{identifier}} WHERE {{mv.identifier}} = ?";
+    std::vector<std::shared_ptr<{{identifier}}Schema>> results;
+    std::string sql = "SELECT {% for mv2 in member_variables %}{% if not (mv2.type.is_array or mv2.type.is_struct or mv2.type.is_enum) %}{{mv2.identifier}}{% if not loop.is_last %}, {% endif %}{% endif %}{% endfor %} FROM {{identifier}} WHERE {{mv.identifier}} = ?";
     
     sqlite3_stmt *stmt;
     int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, NULL);
@@ -90,29 +97,33 @@ std::vector<shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::SQLiteSelect
     {% endif %}
     
     while(sqlite3_step(stmt) == SQLITE_ROW) {
-        shared_ptr<{{identifier}}Schema> result = new {{identifier}}Schema();
+        std::shared_ptr<{{identifier}}Schema> result = std::make_shared<{{identifier}}Schema>();
+{% set column_index = 0 %}
 {% for mv2 in member_variables %}
-        // Column {{loop.index}}: {{mv2.identifier}}
+{% if not (mv2.type.is_array or mv2.type.is_struct or mv2.type.is_enum) %}
+        // Column {{column_index}}: {{mv2.identifier}}
     {% if mv2.type.is_integer %}
-        result->set{{mv2.identifier}}(sqlite3_column_int(stmt, {{loop.index}}));
+        result->set{{mv2.identifierCamel}}(sqlite3_column_int(stmt, {{column_index}}));
     {% endif %}
     {% if mv2.type.is_real %}
-        result->set{{mv2.identifier}}(sqlite3_column_double(stmt, {{loop.index}}));
+        result->set{{mv2.identifierCamel}}(sqlite3_column_double(stmt, {{column_index}}));
     {% endif %}
     {% if mv2.type.is_string %}
-        const char* {{mv2.identifier}}_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, {{loop.index}}));
-        if({{mv2.identifier}}_str) result->set{{mv2.identifier}}(std::string({{mv2.identifier}}_str));
+        const char* {{mv2.identifier}}_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, {{column_index}}));
+        if({{mv2.identifier}}_str) result->set{{mv2.identifierCamel}}(std::string({{mv2.identifier}}_str));
     {% endif %}
     {% if mv2.type.is_bool %}
-        result->set{{mv2.identifier}}(sqlite3_column_int(stmt, {{loop.index}}) != 0);
+        result->set{{mv2.identifierCamel}}(sqlite3_column_int(stmt, {{column_index}}) != 0);
     {% endif %}
     {% if not (mv2.type.is_integer or mv2.type.is_real or mv2.type.is_string or mv2.type.is_bool) %}
-        const char* {{mv2.identifier}}_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, {{loop.index}}));
+        const char* {{mv2.identifier}}_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, {{column_index}}));
         if({{mv2.identifier}}_str) {
             // Handle custom type conversion here
             // result->set{{mv2.identifier}}(convert_from_string({{mv2.identifier}}_str));
         }
     {% endif %}
+{% set column_index = column_index + 1 %}
+{% endif %}
 {% endfor %}
         results.push_back(result);
     }
@@ -121,14 +132,15 @@ std::vector<shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::SQLiteSelect
     return results;
 }
 
-std::vector<shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::SQLiteSelectBy{{mv.identifierCamel}}({{mv.type}} {{mv.identifier}})
+std::vector<std::shared_ptr<{{identifier}}Schema>> {{identifier}}Schema::SQLiteSelectBy{{mv.identifierCamel}}({{mv.type.estimated}} {{mv.identifier}})
 {
     if(db == nullptr) {
         std::cerr << "Database not set! Call SQLiteSetDatabase first." << std::endl;
-        return std::vector<shared_ptr<{{identifier}}Schema>>();
+        return std::vector<std::shared_ptr<{{identifier}}Schema>>();
     }
-    return SQLiteSelectBy{{mv.identifier}}(db, {{mv.identifier}});
+    return SQLiteSelectBy{{mv.identifierCamel}}(db, {{mv.identifier}});
 }
 
+{% endif %}
 {% endfor %}
 {% endif %}

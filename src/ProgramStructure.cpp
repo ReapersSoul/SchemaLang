@@ -1009,6 +1009,25 @@ bool ProgramStructure::validate()
 	return true;
 }
 
+inja::json ProgramStructure::to_json(Generator *generator)
+{
+	inja::json j;
+	j["includes"] = inja::json::array();
+	j["structs"] = inja::json::array();
+	j["enums"] = inja::json::array();
+	for (auto &s : structs)
+	{
+		j["includes"].push_back(generator->format_include(s.getIdentifier()));
+		j["structs"].push_back(s.to_json(this, generator));
+	}
+	for (auto &e : enums)
+	{
+		j["includes"].push_back(generator->format_include(e.identifier));
+		j["enums"].push_back(e.to_json(this, generator));
+	}
+	return j;
+}
+
 bool ProgramStructure::tokenIsType(std::string token)
 {
 	if (token == "int8" || token == "int16" || token == "int32" || token == "int64" || token == "uint8" || token == "uint16" || token == "uint32" || token == "uint64" || token == "float" || token == "double" || token == "bool" || token == "string" || token == "char" || token == "array")

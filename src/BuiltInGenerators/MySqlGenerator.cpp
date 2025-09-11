@@ -1415,7 +1415,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 	// 	}
 
 	// 	PrivateVariableDefinition session;
-	// 	session.type = TypeDefinition("mysqlx::Session*");
+	// 	session.type = TypeDefinition("std::shared_ptr<mysqlx::Session>");
 	// 	session.identifier = "session";
 	// 	session.static_member = true;
 	// 	s.add_private_variable(session);
@@ -1423,7 +1423,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 	// 	// Add getter for session
 	// 	FunctionDefinition getSession;
 	// 	getSession.identifier = "getSession";
-	// 	getSession.return_type = TypeDefinition("mysqlx::Session*");
+	// 	getSession.return_type = TypeDefinition("std::shared_ptr<mysqlx::Session>");
 	// 	getSession.static_function = true;
 	// 	getSession.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	// 	{
@@ -1437,7 +1437,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 	// 	setSession.identifier = "setSession";
 	// 	setSession.return_type.identifier() = "void";
 	// 	setSession.static_function = true;
-	// 	setSession.parameters.push_back(std::make_pair(TypeDefinition("mysqlx::Session*"), "newSession"));
+	// 	setSession.parameters.push_back(std::make_pair(TypeDefinition("std::shared_ptr<mysqlx::Session>"), "newSession"));
 	// 	setSession.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	// 	{
 	// 		structFile << "\tsession = newSession;\n";

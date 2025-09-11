@@ -172,7 +172,7 @@ std::string CppGenerator::get_default_of_type(ProgramStructure *ps, TypeDefiniti
 
 std::string CppGenerator::format_include(std::string ident)
 {
-	std::string full_path = include_prefix.empty() ? ident+"Schema.hpp" : include_prefix + "/" + ident+"Schema.hpp";
+	std::string full_path = include_prefix.empty() ? ident + "Schema.hpp" : include_prefix + "/" + ident + "Schema.hpp";
 	if (use_angle_brackets)
 	{
 		return "<" + full_path + ">";
@@ -183,17 +183,21 @@ std::string CppGenerator::format_include(std::string ident)
 	}
 }
 
-
 std::string CppGenerator::format_default(ProgramStructure *ps, TypeDefinition type, std::string value)
 {
-	if(type.is_struct(ps)||type.is_enum(ps)){
-		return type.identifier()+"Schema("+value+")";
+	if (type.is_struct(ps) || type.is_enum(ps))
+	{
+		return type.identifier() + "Schema(" + value + ")";
 	}
-	if(type.is_array()){
-		if(type.element_type().is_struct(ps)||type.element_type().is_enum(ps)){
-			return "std::vector<"+type.element_type().identifier()+"Schema>(" + value + ")";
-		}else{
-			return "std::vector<"+type.element_type().identifier()+">("+value+")";
+	if (type.is_array())
+	{
+		if (type.element_type().is_struct(ps) || type.element_type().is_enum(ps))
+		{
+			return "std::vector<" + type.element_type().identifier() + "Schema>(" + value + ")";
+		}
+		else
+		{
+			return "std::vector<" + type.element_type().identifier() + ">(" + value + ")";
 		}
 	}
 	return value;
@@ -268,13 +272,13 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 	for (auto &s : ps.getStructs())
 	{
 		inja::json data = s.to_json(&ps, this);
-
-
-		//print the variables for debugging
-		for (auto &member : s.getMemberVariables())
-		{
-			std::cout << "Member: " << member.identifier << " data: " << member.to_json(&ps,this) << std::endl;
-		}
+		data["includePrefix"]=include_prefix;
+		data["useAngleBrackets"] = use_angle_brackets;
+		// print the variables for debugging
+		// for (auto &member : s.getMemberVariables())
+		// {
+		// 	std::cout << "Member: " << member.identifier << " data: " << member.to_json(&ps, this) << std::endl;
+		// }
 
 		data["header_include"] = format_include(s.getIdentifier());
 		try
@@ -388,7 +392,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 	{
 		inja::json data;
 		data["enum"] = e.identifier;
-		data["enum_include"] = format_include(e.identifier + "Schema.hpp");
+		data["enum_include"] = format_include(e.identifier);
 
 		data["values"] = inja::json::array();
 		for (auto &v : e.values)
@@ -450,6 +454,27 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		{
 			std::cout << "Error generating file for enum " << e.identifier << ": " << ex.what() << std::endl;
 			return false;
+		}
+	}
+
+	for (auto &gen : generators)
+	{
+		if (gen == this)
+		{
+			continue;
+		}
+		try
+		{
+			if (!gen->generate_additional_files(this, &ps, out_path))
+			{
+				printf("Warning: Failed to generate additional files from generator %s\n", gen->name.c_str());
+				continue;
+			}
+		}
+		catch (const std::exception &e)
+		{
+			printf("Warning: Exception generating additional files from generator %s: %s\n", gen->name.c_str(), e.what());
+			continue;
 		}
 	}
 
