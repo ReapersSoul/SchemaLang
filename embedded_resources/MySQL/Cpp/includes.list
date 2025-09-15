@@ -3,3 +3,4 @@
 <iostream>
 <string>
 <vector>
+{{format_include("MySQLDB.hpp")}}

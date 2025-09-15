@@ -2,3 +2,4 @@
 <iostream>
 <string>
 <vector>
+{{format_include("SQLiteDB.hpp")}}

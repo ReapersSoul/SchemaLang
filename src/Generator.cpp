@@ -14,13 +14,24 @@ bool Generator::generate_additional_files(Generator *gen, ProgramStructure *ps, 
 	// open file
 	std::string path = base_path + "Files/";
 	std::vector<std::string> files = listEmbeddedResourcesEmbeddedFiles(path.c_str());
+	inja::json data = ps->to_json(gen);
+	env.add_callback("format_include", 1, [gen](inja::Arguments &args) {
+		std::string ident = args.at(0)->get<std::string>();
+		return gen->format_include(ident);
+	});
+	env.add_callback("format_default", 2, [gen, ps](inja::Arguments &args) {
+		TypeDefinition type;
+		type.from_json(*args.at(0));
+		std::string value = args.at(1)->get<std::string>();
+		return gen->format_default(ps, type, value);
+	});
 	for (auto &file : files)
 	{
 		try
 		{
 			std::vector<uint8_t> fileData = loadEmbeddedResourcesEmbeddedFile((path + file).c_str());
 			std::string content(reinterpret_cast<const char *>(fileData.data()), fileData.size());
-			content = env.render(content, ps->to_json(gen));
+			content = env.render(content, data);
 			std::ofstream of(out_path + "/" + file);
 			if (!of.is_open())
 			{

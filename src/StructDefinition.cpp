@@ -236,11 +236,11 @@ inja::json StructDefinition::to_json(ProgramStructure* ps, Generator* generator)
 	std::set<std::string> includesSet(includes.begin(), includes.end());
 	for (auto &mv:member_variables){
 		if(mv.type.is_struct(ps)||mv.type.is_enum(ps)){
-			includesSet.insert(generator->format_include(mv.type.identifier()));
+			includesSet.insert(generator->format_include(mv.type.identifier()+"Schema.hpp"));
 		}
 		if(mv.type.is_array()){
 			if(mv.type.element_type().is_struct(ps)||mv.type.element_type().is_enum(ps)){
-				includesSet.insert(generator->format_include(mv.type.element_type().identifier()));
+				includesSet.insert(generator->format_include(mv.type.element_type().identifier()+"Schema.hpp"));
 			}	
 		}
 	}

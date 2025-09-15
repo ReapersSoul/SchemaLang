@@ -5,7 +5,6 @@
 
 class CppGenerator : public Generator
 {
-	std::vector<Generator *> generators;
 	std::string include_prefix = "";
 	bool use_angle_brackets = false; // false for quotes "", true for angle brackets <>
 

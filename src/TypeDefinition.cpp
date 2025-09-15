@@ -309,6 +309,11 @@ inja::json TypeDefinition::to_json(ProgramStructure*ps, Generator* generator)
         j["elem_type"] = nullptr;
     }
 	j["estimated"]=generator->convert_to_local_type(ps,*this);
+	if(generator->generators.size()>0){
+		for(auto gen:generator->generators){
+			j[gen->name+"_estimated"]= gen->convert_to_local_type(ps,*this);
+		}
+	}
 
     j["is_array"] = is_array();
 	j["is_struct"]=is_struct(ps);
@@ -332,4 +337,19 @@ inja::json TypeDefinition::to_json(ProgramStructure*ps, Generator* generator)
 	j["is_optional"]=is_optional();
 
     return j;
+}
+
+void TypeDefinition::from_json(inja::json j)
+{
+	ident = j["identifier"].get<std::string>();
+	defaulted = j["defaulted"].get<bool>();
+	if (!j["elem_type"].is_null())
+	{
+		elem_type = new TypeDefinition();
+		elem_type->from_json(j["elem_type"]);
+	}
+	else
+	{
+		elem_type = nullptr;
+	}
 }

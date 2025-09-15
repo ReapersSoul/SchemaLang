@@ -39,4 +39,5 @@ public:
 	TypeDefinition &element_type();
 
 	inja::json to_json(ProgramStructure*ps, Generator* generator);
+	void from_json(inja::json j);
 };

@@ -6,6 +6,7 @@
 
 struct Generator
 {
+	std::vector<Generator *> generators;
 	StructDefinition base_class;
 	std::string name;
 
@@ -18,7 +19,7 @@ struct Generator
 
 	virtual bool generate_files(ProgramStructure ps, std::string out_path) = 0;
 
-	virtual bool fetch_additions(Generator *gen, Additions &additions, inja::json data)
+	virtual bool fetch_additions(ProgramStructure *ps, Generator *gen, Additions &additions, inja::json data)
 	{
 
 		std::string base_path = "/" + name + "/" + gen->name + "/";
@@ -29,7 +30,16 @@ struct Generator
 		}
 		inja::Environment env;
 		env.set_trim_blocks(true);
-
+		env.add_callback("format_include", 1, [gen](inja::Arguments &args) {
+			std::string ident = args.at(0)->get<std::string>();
+			return gen->format_include(ident);
+		});
+		env.add_callback("format_default", 2, [gen, ps](inja::Arguments &args) {
+			TypeDefinition type;
+			type.from_json(*args.at(0));
+			std::string value = args.at(1)->get<std::string>();
+			return gen->format_default(ps, type, value);
+		});
 		// open file
 		std::string path = base_path + "Functions/";
 		std::vector<std::string> files = listEmbeddedResourcesEmbeddedFiles(path.c_str());

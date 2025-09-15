@@ -13,7 +13,7 @@
 #include {{include}}
 {% endfor %}{% endfor %}
 
-class {{identifier}}Schema{
+class {{identifier}}Schema : public std::enable_shared_from_this<{{identifier}}Schema> {
 public:
 	{{identifier}}Schema() {
 	}

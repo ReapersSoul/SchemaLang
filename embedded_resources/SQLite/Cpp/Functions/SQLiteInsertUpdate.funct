@@ -1,0 +1,12 @@
+{% if header %}
+uint64_t SQLiteInsertUpdate(SQLiteDB* db);
+{% else %}
+uint64_t {{identifier}}Schema::SQLiteInsertUpdate(SQLiteDB* db)
+{
+    if(db == nullptr) {
+        std::cerr << "Database not set! Call SQLiteSetDatabase first." << std::endl;
+        return false;
+    }
+    return db->insertOrUpdate{{identifierCamel}}(shared_from_this());
+}
+{% endif %}

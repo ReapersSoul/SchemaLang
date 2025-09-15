@@ -172,7 +172,7 @@ std::string CppGenerator::get_default_of_type(ProgramStructure *ps, TypeDefiniti
 
 std::string CppGenerator::format_include(std::string ident)
 {
-	std::string full_path = include_prefix.empty() ? ident + "Schema.hpp" : include_prefix + "/" + ident + "Schema.hpp";
+	std::string full_path = include_prefix.empty() ? ident : include_prefix + "/" + ident;
 	if (use_angle_brackets)
 	{
 		return "<" + full_path + ">";
@@ -185,20 +185,8 @@ std::string CppGenerator::format_include(std::string ident)
 
 std::string CppGenerator::format_default(ProgramStructure *ps, TypeDefinition type, std::string value)
 {
-	if (type.is_struct(ps) || type.is_enum(ps))
-	{
-		return type.identifier() + "Schema(" + value + ")";
-	}
-	if (type.is_array())
-	{
-		if (type.element_type().is_struct(ps) || type.element_type().is_enum(ps))
-		{
-			return "std::vector<" + type.element_type().identifier() + "Schema>(" + value + ")";
-		}
-		else
-		{
-			return "std::vector<" + type.element_type().identifier() + ">(" + value + ")";
-		}
+	if(value.empty()){
+		return get_default_of_type(ps, type);
 	}
 	return value;
 }
@@ -280,7 +268,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		// 	std::cout << "Member: " << member.identifier << " data: " << member.to_json(&ps, this) << std::endl;
 		// }
 
-		data["header_include"] = format_include(s.getIdentifier());
+		data["header_include"] = format_include(s.getIdentifier()+"Schema.hpp");
 		try
 		{
 			for (auto &file : struct_name_content_pairs)
@@ -318,7 +306,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 						continue;
 					// Use a fresh Additions object per-generator so fetched additions don't accumulate
 					Additions additions;
-					if (!gen->fetch_additions(this, additions, data))
+					if (!gen->fetch_additions(&ps, this, additions, data))
 					{
 						printf("Warning: Failed to fetch additions from generator %s\n", gen->name.c_str());
 						continue;
@@ -392,7 +380,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 	{
 		inja::json data;
 		data["enum"] = e.identifier;
-		data["enum_include"] = format_include(e.identifier);
+		data["enum_include"] = format_include(e.identifier+"Schema.hpp");
 
 		data["values"] = inja::json::array();
 		for (auto &v : e.values)

@@ -1017,12 +1017,12 @@ inja::json ProgramStructure::to_json(Generator *generator)
 	j["enums"] = inja::json::array();
 	for (auto &s : structs)
 	{
-		j["includes"].push_back(generator->format_include(s.getIdentifier()));
+		j["includes"].push_back(generator->format_include(s.getIdentifier()+"Schema.hpp"));
 		j["structs"].push_back(s.to_json(this, generator));
 	}
 	for (auto &e : enums)
 	{
-		j["includes"].push_back(generator->format_include(e.identifier));
+		j["includes"].push_back(generator->format_include(e.identifier+"Schema.hpp"));
 		j["enums"].push_back(e.to_json(this, generator));
 	}
 	return j;
