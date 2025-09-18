@@ -404,7 +404,7 @@ nlohmann::json get_field_schema(const FieldOptions& options = {}) {
 
 // Simplified schema definition macro that works in static context
 #define SCHEMA_DEFINE(Type, ...) \
-    static nlohmann::json schema() { \
+    nlohmann::json schema() { \
         using T = Type; \
         nlohmann::json schema = { \
             {"type", "object"}, \

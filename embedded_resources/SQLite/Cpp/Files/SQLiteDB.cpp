@@ -1,5 +1,6 @@
 #pragma once
 #include {{format_include("SQLiteDB.hpp")}}
+#include {{format_include("SQLiteQueryBuilder.hpp")}}
 {% for include in includes %}
 #include {{include}}
 {% endfor %}
@@ -394,6 +395,11 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::select{{stru
 {% endfor %}
 {% endfor %}
 
+// Fluent query builder - now creates builder and calls From() automatically
+SQLiteQueryBuilder<{{struct.identifier}}Schema> SQLiteDB::Select{{struct.identifierCamel}}() {
+    return SQLiteQueryBuilder<{{struct.identifier}}Schema>(this).From("{{struct.identifier}}");
+}
+
 //updateInsert
 int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{struct.identifier}}Schema> obj) {
     if (!isConnected()) {
@@ -492,18 +498,18 @@ int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{str
 {% endfor %}
     
     // Bind parent ID fields for array relationships
-    {% for inner_struct in structs %}
-    {% for mv in inner_struct.member_variables %}
-    {% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}
-        // Bind {{inner_struct.identifier}}_id
-        if (obj->get{{inner_struct.identifier}}Id().has_value()) {
-            sqlite3_bind_int64(stmt, param++, obj->get{{inner_struct.identifier}}Id().value());
-        } else {
-            sqlite3_bind_null(stmt, param++);
-        }
-    {% endif %}
-    {% endfor %}
-    {% endfor %}
+{% for inner_struct in structs %}
+{% for mv in inner_struct.member_variables %}
+{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}
+    // Bind {{inner_struct.identifier}}_id
+    if (obj->get{{inner_struct.identifier}}Id().has_value()) {
+        sqlite3_bind_int64(stmt, param++, obj->get{{inner_struct.identifier}}Id().value());
+    } else {
+        sqlite3_bind_null(stmt, param++);
+    }
+{% endif %}
+{% endfor %}
+{% endfor %}
     
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         sqlite3_finalize(stmt);
@@ -540,4 +546,69 @@ bool SQLiteDB::delete{{struct.identifierCamel}}ById(int64_t id) {
     
     return success;
 }
+
+bool SQLiteDB::has{{struct.identifierCamel}}ById(int64_t id){
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::has{{struct.identifierCamel}}ById(" + std::to_string(id) + ") - Database not connected. Call connect() first.");
+    }
+    
+    const char* sql = R"(SELECT 1 FROM {{struct.identifier}} WHERE id = ? LIMIT 1;)";
+    
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
+    }
+    
+    sqlite3_bind_int64(stmt, 1, id);
+    
+    bool exists = (sqlite3_step(stmt) == SQLITE_ROW);
+    
+    sqlite3_finalize(stmt);
+    return exists;
+}
+
+{% for mv in struct.member_variables %}
+{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
+{% if mv.identifier != "id" %}
+bool SQLiteDB::has{{struct.identifierCamel}}By{{mv.identifierCamel}}({{mv.type.estimated}} value){
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::has{{struct.identifierCamel}}By{{mv.identifierCamel}}() - Database not connected. Call connect() first.");
+    }
+    
+    const char* sql = R"(SELECT 1 FROM {{struct.identifier}} WHERE {{mv.identifier}} = ? LIMIT 1;)";
+    
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
+    }
+    
+    // Bind the parameter
+    {% if mv.type.identifier == "string" or mv.type.identifier == "std::string" %}
+    sqlite3_bind_text(stmt, 1, value.c_str(), -1, SQLITE_STATIC);
+    {% else if mv.type.identifier == "int" or mv.type.identifier == "int32_t" %}
+    sqlite3_bind_int(stmt, 1, value);
+    {% else if mv.type.identifier == "int64_t" or mv.type.identifier == "long" %}
+    sqlite3_bind_int64(stmt, 1, value);
+    {% else if mv.type.identifier == "float" %}
+    sqlite3_bind_double(stmt, 1, static_cast<double>(value));
+    {% else if mv.type.identifier == "double" %}
+    sqlite3_bind_double(stmt, 1, value);
+    {% else if mv.type.identifier == "bool" %}
+    sqlite3_bind_int(stmt, 1, value ? 1 : 0);
+    {% else if mv.type.identifier == "int8_t" or mv.type.identifier == "signed char" %}
+    sqlite3_bind_int(stmt, 1, static_cast<int>(value));
+    {% else %}
+    // Handle other types as needed
+    sqlite3_bind_text(stmt, 1, "", -1, SQLITE_STATIC);
+    {% endif %}
+    
+    bool exists = (sqlite3_step(stmt) == SQLITE_ROW);
+    
+    sqlite3_finalize(stmt);
+    return exists;
+}
+{% endif %}
+{% endif %}
+{% endfor %}
+
 {% endfor %}

@@ -14,6 +14,8 @@ class {{struct.identifier}}Schema;
 enum class {{enum.identifier}}Schema;
 {% endfor %} #}
 
+template<typename T>
+class SQLiteQueryBuilder;
 
 class SQLiteDB
 {
@@ -48,9 +50,23 @@ public:
 {% endfor %}
 {% endfor %}
 
+    // Fluent query builder - now returns builder without table preset
+    SQLiteQueryBuilder<{{struct.identifier}}Schema> Select{{struct.identifierCamel}}();
+
     virtual int64_t insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{struct.identifier}}Schema> obj);
 
     virtual bool delete{{struct.identifierCamel}}ById(int64_t id);
+
+    virtual bool has{{struct.identifierCamel}}ById(int64_t id);
+
+{% for mv in struct.member_variables %}
+{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
+{% if mv.identifier != "id" %}
+    virtual bool has{{struct.identifierCamel}}By{{mv.identifierCamel}}({{mv.type.estimated}} value);
+{% endif %}
+{% endif %}
+{% endfor %}
+
 
 {#    // // Bulk insert/update
     // int64_t insertOrUpdateBulk{{struct}}(std::vector<std::shared_ptr<{{struct}}Schema>> objects);
@@ -107,7 +123,11 @@ public:
     // template<typename Func>
     // bool executeInTransaction(Func operation);
 #}
+{% endfor %}
 
+    // Generic query builder factory methods
+{% for struct in structs %}
+    SQLiteQueryBuilder<{{struct.identifier}}Schema> Query{{struct.identifierCamel}}();
 {% endfor %}
 
 private:

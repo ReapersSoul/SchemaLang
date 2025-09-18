@@ -35,7 +35,7 @@ static void default_value({{identifier}}Schema &obj){
 SCHEMA_DEFINE({{identifier}}Schema,
 {% for mv in member_variables %}
 {% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
-SCHEMA_FIELD({{mv.identifier}}, schema::desc("{{mv.description}}"){% if not mv.required %} | schema::optional(){% endif %} | schema::callback([&](FieldOptions & options){
+SCHEMA_FIELD({{mv.identifier}}, schema::desc("{{mv.description}}"){% if not mv.required %} | schema::optional(){% endif %} | schema::callback([&](schema::FieldOptions & options){
     {{mv.identifier}}GlobalSchemaCallback(options);
     {{mv.identifier}}LocalSchemaCallback(options);
     })){% if not loop.is_last %},{% endif %}
@@ -44,8 +44,8 @@ SCHEMA_FIELD({{mv.identifier}}, schema::desc("{{mv.description}}"){% if not mv.r
 
 {% for mv in member_variables %}
 {% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
-static std::function<void(FieldOptions &)> {{mv.identifier}}GlobalSchemaCallback(FieldOptions & options);
-virtual void {{mv.identifier}}LocalSchemaCallback(FieldOptions & options) {
+static std::function<void(schema::FieldOptions &)> {{mv.identifier}}GlobalSchemaCallback;
+virtual void {{mv.identifier}}LocalSchemaCallback(schema::FieldOptions & options) {
     // You can modify the options here
 }
 {% endif %}
@@ -54,7 +54,7 @@ virtual void {{mv.identifier}}LocalSchemaCallback(FieldOptions & options) {
 {% else %}
 {% for mv in member_variables %}
 {% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
-std::function<void(FieldOptions &)> {{mv.identifier}}GlobalSchemaCallback(FieldOptions & options)=[](FieldOptions & options){
+std::function<void(schema::FieldOptions &)> {{identifier}}Schema::{{mv.identifier}}GlobalSchemaCallback=[](schema::FieldOptions & options){
     // You can modify the options here
 };
 {% endif %}

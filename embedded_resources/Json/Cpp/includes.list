@@ -6,3 +6,4 @@
 {% else %}
 "{{includePrefix}}/SchemaGenerator.hpp"
 {% endif %}
+<functional>
