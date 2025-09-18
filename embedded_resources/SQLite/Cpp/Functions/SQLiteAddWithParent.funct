@@ -1,0 +1,20 @@
+{% if header %}
+{% for mv in member_variables %}{% if mv.type.is_array %}
+	virtual void addTo{{mv.identifierCamel}}WithParent({{mv.type.elem_type.estimated}} value);
+{% endif %}{% endfor %}
+{% else %}
+{% for mv in member_variables %}{% if mv.type.is_array %}
+// Convenience method: Add and automatically set parent relationship
+void {{identifier}}Schema::addTo{{mv.identifierCamel}}WithParent({{mv.type.elem_type.estimated}} value) {
+    {% if mv.type.elem_type.is_struct %}
+    // Set parent relationship if this is a struct with parent ID methods
+    if constexpr (requires { value->set{{identifier}}Id(int64_t{}); }) {
+        if (this->getId() > 0) {
+            value->set{{identifier}}Id(this->getId());
+        }
+    }
+    {% endif %}
+    addTo{{mv.identifierCamel}}(value);
+}
+{% endif %}{% endfor %}
+{% endif %}

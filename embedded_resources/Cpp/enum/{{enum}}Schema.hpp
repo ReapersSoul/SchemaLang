@@ -7,6 +7,6 @@ enum class {{enum}}Schema {
 {% endfor %}
 };
 
-static std::string {{enum}}SchemaToString({{enum}}Schema e);
+std::string {{enum}}SchemaToString({{enum}}Schema e);
 
-static {{enum}}Schema {{enum}}SchemaFromString(std::string str);
+{{enum}}Schema {{enum}}SchemaFromString(std::string str);

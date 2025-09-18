@@ -13,7 +13,13 @@ template<typename BasicJsonType>
 friend void from_json(const BasicJsonType& j, {{identifier}}Schema& {{identifier}}) {
 {% for mv in member_variables %}
 {% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
-    {{identifier}}.{{mv.identifier}} = j.value("{{mv.identifier}}", {% if mv.required %}{{format_default(mv.type,"")}}{% else %}std::nullopt{% endif %});
+{% if mv.required %}
+    {{identifier}}.{{mv.identifier}} = j.value("{{mv.identifier}}", {{format_default(mv.type,"")}});
+{% else %}
+    if (j.contains("{{mv.identifier}}")) {
+        {{identifier}}.{{mv.identifier}} = j.value("{{mv.identifier}}", {{format_default(mv.type,"")}});
+    }
+{% endif %}
 {% endif %}
 {% endfor %}
 }
@@ -29,9 +35,28 @@ static void default_value({{identifier}}Schema &obj){
 SCHEMA_DEFINE({{identifier}}Schema,
 {% for mv in member_variables %}
 {% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
-SCHEMA_FIELD({{mv.identifier}}, schema::desc("{{mv.description}}"){% if not mv.required %} | schema::optional(){% endif %}){% if not loop.is_last %},{% endif %}
+SCHEMA_FIELD({{mv.identifier}}, schema::desc("{{mv.description}}"){% if not mv.required %} | schema::optional(){% endif %} | schema::callback([&](FieldOptions & options){
+    {{mv.identifier}}GlobalSchemaCallback(options);
+    {{mv.identifier}}LocalSchemaCallback(options);
+    })){% if not loop.is_last %},{% endif %}
 {% endif %}
 {% endfor %})
 
+{% for mv in member_variables %}
+{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
+static std::function<void(FieldOptions &)> {{mv.identifier}}GlobalSchemaCallback(FieldOptions & options);
+virtual void {{mv.identifier}}LocalSchemaCallback(FieldOptions & options) {
+    // You can modify the options here
+}
+{% endif %}
+{% endfor %}
+
 {% else %}
+{% for mv in member_variables %}
+{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
+std::function<void(FieldOptions &)> {{mv.identifier}}GlobalSchemaCallback(FieldOptions & options)=[](FieldOptions & options){
+    // You can modify the options here
+};
+{% endif %}
+{% endfor %}
 {% endif %}

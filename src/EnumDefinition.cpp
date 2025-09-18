@@ -9,7 +9,7 @@ void EnumDefinition::update(EnumDefinition def)
 {
 	// Merge
 	if (identifier!=def.identifier){
-		throw std::runtime_error("Conflicting identifiers in EnumDefinition::update");
+		throw std::runtime_error("EnumDefinition::update() - Conflicting enum identifiers: current='" + identifier + "', new='" + def.identifier + "'. Cannot merge enums with different identifiers.");
 	}
 
 	// Merge values

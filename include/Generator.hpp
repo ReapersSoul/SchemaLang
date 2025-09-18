@@ -28,18 +28,8 @@ struct Generator
 			printf("Warning: No embedded resources found for generator %s at path %s\n", gen->name.c_str(), base_path.c_str());
 			return false;
 		}
-		inja::Environment env;
-		env.set_trim_blocks(true);
-		env.add_callback("format_include", 1, [gen](inja::Arguments &args) {
-			std::string ident = args.at(0)->get<std::string>();
-			return gen->format_include(ident);
-		});
-		env.add_callback("format_default", 2, [gen, ps](inja::Arguments &args) {
-			TypeDefinition type;
-			type.from_json(*args.at(0));
-			std::string value = args.at(1)->get<std::string>();
-			return gen->format_default(ps, type, value);
-		});
+		inja::Environment env = getEnv(gen,ps);
+		
 		// open file
 		std::string path = base_path + "Functions/";
 		std::vector<std::string> files = listEmbeddedResourcesEmbeddedFiles(path.c_str());
@@ -111,7 +101,7 @@ struct Generator
 		}
 		catch (const std::exception &e)
 		{
-			throw std::runtime_error(std::string("Error fetching additions from includes.list: ") + e.what());
+			throw std::runtime_error("Generator::get_generator_additions() - Error fetching includes.list for generator '" + name + "' at path '" + base_path + "includes.list': " + e.what());
 		}
 
 		while (std::getline(ss, content))
@@ -121,9 +111,11 @@ struct Generator
 		return true;
 	}
 
-	virtual bool generate_additional_files(Generator *gen, ProgramStructure * ps, std::string out_path);
+    inja::Environment getEnv(Generator *gen, ProgramStructure *ps);
 
-	virtual bool add_generator(Generator *gen)
+    virtual bool generate_additional_files(Generator *gen, ProgramStructure *ps, std::string out_path);
+
+    virtual bool add_generator(Generator *gen)
 	{
 		return false;
 	}

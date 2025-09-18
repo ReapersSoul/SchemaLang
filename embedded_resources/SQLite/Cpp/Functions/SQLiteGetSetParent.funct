@@ -1,0 +1,24 @@
+{% if header %}
+{% for inner_struct in structs %}
+{% for mv in inner_struct.member_variables %}
+{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == identifier %}
+    // Auto-generated parent relationship field
+    void set{{inner_struct.identifier}}Id(std::optional<int64_t>);
+    std::optional<int64_t> get{{inner_struct.identifier}}Id() const;
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% else %}
+{% for inner_struct in structs %}
+{% for mv in inner_struct.member_variables %}
+{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == identifier %}
+void {{identifier}}Schema::set{{inner_struct.identifier}}Id(std::optional<int64_t> parent_id) {
+    this->{{inner_struct.identifier}}_id = parent_id;
+}
+std::optional<int64_t> {{identifier}}Schema::get{{inner_struct.identifier}}Id() const {
+    return this->{{inner_struct.identifier}}_id;
+}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% endif %}

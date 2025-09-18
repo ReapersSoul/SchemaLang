@@ -1,5 +1,11 @@
 {% if header %}
-static sqlite3* db;
+{% for inner_struct in structs %}
+{% for mv in inner_struct.member_variables %}
+{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == identifier %}
+    // Auto-generated parent relationship field
+    std::optional<int64_t> {{inner_struct.identifier}}_id;
+{% endif %}
+{% endfor %}
+{% endfor %}
 {% else %}
-sqlite3* {{identifier}}Schema::db = nullptr;
 {% endif %}

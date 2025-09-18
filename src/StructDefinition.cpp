@@ -172,7 +172,7 @@ void StructDefinition::update(StructDefinition def)
 {
 	// Merge
 	if (identifier!=def.identifier){
-		throw std::runtime_error("Conflicting identifiers in StructDefinition::update");
+		throw std::runtime_error("StructDefinition::update() - Conflicting struct identifiers: current='" + identifier + "', new='" + def.identifier + "'. Cannot merge structs with different identifiers.");
 	}
 
 	// Merge includes (set of pairs). Use add_include to maintain uniqueness.

@@ -9,10 +9,15 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /O2 /Ob2 /DNDEBUG")
 endif()
 
+# Get all files from embedded_resources directory
+file(GLOB_RECURSE EMBEDDED_RESOURCE_FILES 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../embedded_resources/*)
+
 add_custom_target(${PROJECT_NAME}_source
 	COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR}/../embedded_resources
 	COMMAND zip -r - . | ${CMAKE_CURRENT_SOURCE_DIR}/EmbeddingCompiler --outputDirectory=${CMAKE_CURRENT_SOURCE_DIR}/src --fileName=${PROJECT_NAME}
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+	DEPENDS ${EMBEDDED_RESOURCE_FILES}
 )
 
 #static lib for the embedded resources

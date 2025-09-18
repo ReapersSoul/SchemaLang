@@ -21,11 +21,11 @@ void MySQLDB::connect(){
         session = std::make_unique<mysqlx::Session>(uri);
         database_name = database_name;
     } catch (const mysqlx::Error &err) {
-        throw std::runtime_error("Connection error: " + std::string(err.what()));
+        throw std::runtime_error("MySQLDB::connect() - Connection failed to '" + uri + "' for database '" + database_name + "': " + std::string(err.what()) + " (MySQL Error Code: " + std::to_string(err.code()) + ")");
     } catch (std::exception &ex) {
-        throw std::runtime_error("STD Exception: " + std::string(ex.what()));
+        throw std::runtime_error("MySQLDB::connect() - Standard exception while connecting to '" + uri + "' for database '" + database_name + "': " + std::string(ex.what()));
     } catch (...) {
-        throw std::runtime_error("Unknown exception during connection");
+        throw std::runtime_error("MySQLDB::connect() - Unknown exception while connecting to '" + uri + "' for database '" + database_name + "'");
     }
 };
 
@@ -42,7 +42,7 @@ bool MySQLDB::isConnected() const{
 
 mysqlx::Session& MySQLDB::getSession(){
     if (!session) {
-        throw std::runtime_error("Database session is not connected.");
+        throw std::runtime_error("MySQLDB::getSession() - Database session is not connected. Call connect() first for URI: '" + uri + "', database: '" + database_name + "'");
     }
     return *session;
 };
@@ -54,7 +54,7 @@ std::string MySQLDB::getDatabaseName() const { return database_name; }
 {% for struct in structs %}
 std::shared_ptr<{{struct.identifier}}Schema> MySQLDB::select{{struct.identifierCamel}}ById(int64_t id){
     if (!isConnected()) {
-        throw std::runtime_error("Database not connected");
+        throw std::runtime_error("MySQLDB::select{{struct.identifierCamel}}ById(" + std::to_string(id) + ") - Database not connected. Call connect() first for URI: '" + uri + "', database: '" + database_name + "'");
     }
     
     // Check if object is already cached
@@ -112,7 +112,7 @@ std::shared_ptr<{{struct.identifier}}Schema> MySQLDB::select{{struct.identifierC
 //updateInsert
 int64_t MySQLDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{struct.identifier}}Schema> obj) {
     if (!isConnected()) {
-        throw std::runtime_error("Database not connected");
+        throw std::runtime_error("MySQLDB::insertOrUpdate{{struct.identifierCamel}}() - Database not connected. Call connect() first for URI: '" + uri + "', database: '" + database_name + "'");
     }
     
     mysqlx::Schema db = getSession().getSchema(database_name);
@@ -167,7 +167,7 @@ int64_t MySQLDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{stru
 
 bool MySQLDB::delete{{struct.identifierCamel}}ById(int64_t id) {
     if (!isConnected()) {
-        throw std::runtime_error("Database not connected");
+        throw std::runtime_error("MySQLDB::delete{{struct.identifierCamel}}ById(" + std::to_string(id) + ") - Database not connected. Call connect() first for URI: '" + uri + "', database: '" + database_name + "'");
     }
     
     mysqlx::Schema db = getSession().getSchema(database_name);

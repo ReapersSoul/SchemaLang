@@ -1169,8 +1169,8 @@ bool SqliteGenerator::generate_files(ProgramStructure ps, std::string out_path)
 	// }
 
 	inja::Environment env;
-	// env.set_trim_blocks(true);
-	// env.set_lstrip_blocks(false);
+	env.set_trim_blocks(true);
+	env.set_lstrip_blocks(false);
 
 	std::map<std::string, std::string> struct_name_content_pairs;
 	// open file

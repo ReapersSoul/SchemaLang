@@ -234,9 +234,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		// }
 	}
 
-	inja::Environment env;
-	env.set_trim_blocks(true);
-	// env.set_lstrip_blocks(true);
+	inja::Environment env = getEnv(this, &ps);
 
 	std::map<std::string, std::string> struct_name_content_pairs;
 	// open file
@@ -259,14 +257,14 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 
 	for (auto &s : ps.getStructs())
 	{
-		inja::json data = s.to_json(&ps, this);
+		inja::json data = ps.to_json(this);
+		inja::json struct_data=s.to_json(&ps, this);
+		for (auto& [key, value] : struct_data.items()) {
+		    data[key] = value;
+		}
+		
 		data["includePrefix"]=include_prefix;
 		data["useAngleBrackets"] = use_angle_brackets;
-		// print the variables for debugging
-		// for (auto &member : s.getMemberVariables())
-		// {
-		// 	std::cout << "Member: " << member.identifier << " data: " << member.to_json(&ps, this) << std::endl;
-		// }
 
 		data["header_include"] = format_include(s.getIdentifier()+"Schema.hpp");
 		try

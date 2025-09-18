@@ -25,7 +25,7 @@ void {{identifier}}Schema::set{{mv.identifierCamel}}({{mv.type.estimated}} value
 void {{identifier}}Schema::addTo{{mv.identifierCamel}}({{mv.type.elem_type.estimated}} value) {
     {% if not mv.required %}
     if (!this->{{mv.identifier}}.has_value()){
-        return; // or throw an error
+        this->{{mv.identifier}} = std::vector<{{mv.type.elem_type.estimated}}>();
     }
     this->{{mv.identifier}}.value().push_back(value);
     {% else %}

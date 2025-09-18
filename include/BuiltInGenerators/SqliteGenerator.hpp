@@ -60,7 +60,42 @@ class SqliteGenerator : public Generator
 
 public:
 	std::string format_include(std::string ident) override{return"";};
-	std::string format_default(ProgramStructure *ps, TypeDefinition type,std::string value="") override{return value;};
+	std::string format_default(ProgramStructure *ps, TypeDefinition type,std::string value="") override{
+		if(type.is_string()){
+			if(value=="")
+				return "\"\"";
+			else
+				return "\"" + escape_string(value) + "\"";
+		}
+		else if(type.is_char()){
+			if(value=="")
+				return "'\\0'";
+			else if(value.length()==1)
+				return "'" + escape_string(value) + "'";
+			else if(value.length()==3 && value[0]=='\'' && value[2]=='\'')
+				return "'" + escape_string(std::string(1,value[1])) + "'";
+			else
+				return "'\\0'";
+		}
+		else if(type.is_bool()){
+			if(value=="true" || value=="1")
+				return "true";
+			else
+				return "false";
+		}
+		else if(type.is_integer() || type.is_real() || type.is_number()){
+			if(value=="")
+				return "0";
+			else
+				return value;
+		}
+		else if(type.is_array()){
+			return "\"\"";
+		}
+		else{
+			return "\"\"";
+		}
+	};
 
 	SqliteGenerator();
 

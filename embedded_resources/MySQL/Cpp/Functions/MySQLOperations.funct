@@ -9,7 +9,7 @@ static std::shared_ptr<{{identifier}}Schema> fromMySQLRow(const mysqlx::abi2::r0
 bool {{identifier}}Schema::MySQLSelect(MySQLDB* db)
 {
     if (db == nullptr) {
-        throw std::runtime_error("MySQLDB instance is null. Cannot select {{identifier}}Schema.");
+        throw std::runtime_error("{{identifier}}Schema::MySQLSelect() - MySQLDB instance is null. Cannot select {{identifier}}Schema with ID: " + std::to_string(this->getId()) + ". Provide a valid MySQLDB connection.");
     }
     db->select{{identifier}}ById(this->getId());
 }
@@ -17,7 +17,7 @@ bool {{identifier}}Schema::MySQLSelect(MySQLDB* db)
 bool {{identifier}}Schema::MySQLInsertUpdate(MySQLDB* db)
 {
     if (db == nullptr) {
-        throw std::runtime_error("MySQLDB instance is null. Cannot insert or update {{identifier}}Schema.");
+        throw std::runtime_error("{{identifier}}Schema::MySQLInsertUpdate() - MySQLDB instance is null. Cannot insert or update {{identifier}}Schema with ID: " + std::to_string(this->getId()) + ". Provide a valid MySQLDB connection.");
     }
     db->insertOrUpdate{{identifier}}(shared_from_this());
 }
@@ -25,7 +25,7 @@ bool {{identifier}}Schema::MySQLInsertUpdate(MySQLDB* db)
 bool {{identifier}}Schema::MySQLDelete(MySQLDB* db)
 {
     if (db == nullptr) {
-        throw std::runtime_error("MySQLDB instance is null. Cannot delete {{identifier}}Schema.");
+        throw std::runtime_error("{{identifier}}Schema::MySQLDelete() - MySQLDB instance is null. Cannot delete {{identifier}}Schema with ID: " + std::to_string(this->getId()) + ". Provide a valid MySQLDB connection.");
     }
     db->delete{{identifier}}ById(this->getId());
 }

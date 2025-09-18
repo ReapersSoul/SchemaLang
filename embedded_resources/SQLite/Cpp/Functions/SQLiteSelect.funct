@@ -8,7 +8,7 @@ void {{identifier}}Schema::SQLiteSelect(SQLiteDB* db) {
 
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db->getDB(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
-        throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db->getDB())));
+        throw std::runtime_error("{{identifier}}Schema::SQLiteSelect() - Failed to prepare SELECT statement: " + std::string(sqlite3_errmsg(db->getDB())) + "\\nSQL: " + std::string(sql));
     }
 
     while (sqlite3_step(stmt) == SQLITE_ROW) {

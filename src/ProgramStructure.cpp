@@ -1079,7 +1079,7 @@ StructDefinition &ProgramStructure::getStruct(std::string identifier)
 			return s;
 		}
 	}
-	throw std::runtime_error("Struct not found: " + identifier);
+	throw std::runtime_error("ProgramStructure::getStruct() - Struct '" + identifier + "' not found in program. Available structs: " + std::to_string(structs.size()) + " total. Check spelling or ensure struct is defined before use.");
 }
 
 EnumDefinition &ProgramStructure::getEnum(std::string identifier)
@@ -1091,7 +1091,7 @@ EnumDefinition &ProgramStructure::getEnum(std::string identifier)
 			return e;
 		}
 	}
-	throw std::runtime_error("Enum not found: " + identifier);
+	throw std::runtime_error("ProgramStructure::getEnum() - Enum '" + identifier + "' not found in program. Available enums: " + std::to_string(enums.size()) + " total. Check spelling or ensure enum is defined before use.");
 }
 
 bool ProgramStructure::parseTypeNames(std::vector<Token> tokens)
