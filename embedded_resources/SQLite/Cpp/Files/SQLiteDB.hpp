@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <sqlite3.h>
 #include <filesystem>
+#include {{format_include("SQLiteQueryBuilder.hpp")}}
 {% for struct in structs %}
 class {{struct.identifier}}Schema;
 {% endfor %}
@@ -14,8 +15,6 @@ class {{struct.identifier}}Schema;
 enum class {{enum.identifier}}Schema;
 {% endfor %} #}
 
-template<typename T>
-class SQLiteQueryBuilder;
 
 class SQLiteDB
 {
@@ -129,6 +128,9 @@ public:
 {% for struct in structs %}
     SQLiteQueryBuilder<{{struct.identifier}}Schema> Query{{struct.identifierCamel}}();
 {% endfor %}
+
+    // Generic query builder for custom queries
+    GenericSQLiteQueryBuilder Query();
 
 private:
     std::filesystem::path db_path;

@@ -98,4 +98,169 @@ int SQLiteQueryBuilder<{{struct.identifier}}Schema>::Count() {
     
     return count;
 }
+
+template<>
+std::vector<SqliteResult> SQLiteQueryBuilder<{{struct.identifier}}Schema>::ExecCustom() {
+    if (!db->isConnected()) {
+        throw std::runtime_error("SQLiteQueryBuilder<{{struct.identifier}}Schema>::ExecCustom() - Database not connected");
+    }
+    
+    std::vector<SqliteResult> results;
+    std::string sql = BuildQuery();
+    
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db->getDB(), sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("SQLiteQueryBuilder<{{struct.identifier}}Schema>::ExecCustom() - Failed to prepare statement: " + std::string(sqlite3_errmsg(db->getDB())) + "\nSQL: " + sql);
+    }
+    
+    BindParameters(stmt);
+    
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        SqliteResult result;
+        int columnCount = sqlite3_column_count(stmt);
+        
+        for (int i = 0; i < columnCount; ++i) {
+            const char* columnName = sqlite3_column_name(stmt, i);
+            if (columnName) {
+                result.addColumn(std::string(columnName));
+            }
+            
+            int columnType = sqlite3_column_type(stmt, i);
+            switch (columnType) {
+                case SQLITE_INTEGER:
+                    result.addValue(static_cast<int64_t>(sqlite3_column_int64(stmt, i)));
+                    break;
+                case SQLITE_FLOAT:
+                    result.addValue(static_cast<double>(sqlite3_column_double(stmt, i)));
+                    break;
+                case SQLITE_TEXT: {
+                    const char* text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, i));
+                    result.addValue(text ? std::string(text) : std::string(""));
+                    break;
+                }
+                case SQLITE_BLOB:
+                    // For now, convert blob to string representation
+                    result.addValue(std::string("[BLOB]"));
+                    break;
+                case SQLITE_NULL:
+                default:
+                    result.addNull();
+                    break;
+            }
+        }
+        results.push_back(result);
+    }
+    
+    sqlite3_finalize(stmt);
+    return results;
+}
+
+template<>
+SqliteResult SQLiteQueryBuilder<{{struct.identifier}}Schema>::FirstCustom() {
+    Limit(1);
+    auto results = ExecCustom();
+    if (results.empty()) {
+        return SqliteResult(); // Return empty result
+    }
+    return results[0];
+}
 {% endfor %}
+
+// Generic query builder implementations
+std::vector<SqliteResult> GenericSQLiteQueryBuilder::Exec() {
+    if (!db->isConnected()) {
+        throw std::runtime_error("GenericSQLiteQueryBuilder::Exec() - Database not connected");
+    }
+    
+    std::vector<SqliteResult> results;
+    std::string sql = BuildQuery();
+    
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db->getDB(), sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("GenericSQLiteQueryBuilder::Exec() - Failed to prepare statement: " + std::string(sqlite3_errmsg(db->getDB())) + "\nSQL: " + sql);
+    }
+    
+    BindParameters(stmt);
+    
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        SqliteResult result;
+        int columnCount = sqlite3_column_count(stmt);
+        
+        for (int i = 0; i < columnCount; ++i) {
+            const char* columnName = sqlite3_column_name(stmt, i);
+            if (columnName) {
+                result.addColumn(std::string(columnName));
+            }
+            
+            int columnType = sqlite3_column_type(stmt, i);
+            switch (columnType) {
+                case SQLITE_INTEGER:
+                    result.addValue(static_cast<int64_t>(sqlite3_column_int64(stmt, i)));
+                    break;
+                case SQLITE_FLOAT:
+                    result.addValue(static_cast<double>(sqlite3_column_double(stmt, i)));
+                    break;
+                case SQLITE_TEXT: {
+                    const char* text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, i));
+                    result.addValue(text ? std::string(text) : std::string(""));
+                    break;
+                }
+                case SQLITE_BLOB:
+                    result.addValue(std::string("[BLOB]"));
+                    break;
+                case SQLITE_NULL:
+                default:
+                    result.addNull();
+                    break;
+            }
+        }
+        results.push_back(result);
+    }
+    
+    sqlite3_finalize(stmt);
+    return results;
+}
+
+SqliteResult GenericSQLiteQueryBuilder::First() {
+    Limit(1);
+    auto results = Exec();
+    if (results.empty()) {
+        return SqliteResult();
+    }
+    return results[0];
+}
+
+bool GenericSQLiteQueryBuilder::Exists() {
+    std::string sql = BuildQuery("1");
+    
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db->getDB(), sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("GenericSQLiteQueryBuilder::Exists() - Failed to prepare statement: " + std::string(sqlite3_errmsg(db->getDB())) + "\nSQL: " + sql);
+    }
+    
+    BindParameters(stmt);
+    
+    bool exists = (sqlite3_step(stmt) == SQLITE_ROW);
+    sqlite3_finalize(stmt);
+    
+    return exists;
+}
+
+int GenericSQLiteQueryBuilder::Count() {
+    std::string sql = BuildQuery("COUNT(*)");
+    
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db->getDB(), sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("GenericSQLiteQueryBuilder::Count() - Failed to prepare statement: " + std::string(sqlite3_errmsg(db->getDB())) + "\nSQL: " + sql);
+    }
+    
+    BindParameters(stmt);
+    
+    int count = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        count = sqlite3_column_int(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+    
+    return count;
+}

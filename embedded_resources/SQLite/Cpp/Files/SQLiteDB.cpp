@@ -1,6 +1,5 @@
 #pragma once
 #include {{format_include("SQLiteDB.hpp")}}
-#include {{format_include("SQLiteQueryBuilder.hpp")}}
 {% for include in includes %}
 #include {{include}}
 {% endfor %}
@@ -400,6 +399,10 @@ SQLiteQueryBuilder<{{struct.identifier}}Schema> SQLiteDB::Select{{struct.identif
     return SQLiteQueryBuilder<{{struct.identifier}}Schema>(this).From("{{struct.identifier}}");
 }
 
+SQLiteQueryBuilder<{{struct.identifier}}Schema> SQLiteDB::Query{{struct.identifierCamel}}(){
+    return SQLiteQueryBuilder<{{struct.identifier}}Schema>(this);
+}
+
 //updateInsert
 int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{struct.identifier}}Schema> obj) {
     if (!isConnected()) {
@@ -612,3 +615,8 @@ bool SQLiteDB::has{{struct.identifierCamel}}By{{mv.identifierCamel}}({{mv.type.e
 {% endfor %}
 
 {% endfor %}
+
+// Generic query builder factory
+GenericSQLiteQueryBuilder SQLiteDB::Query() {
+    return GenericSQLiteQueryBuilder(this);
+}
