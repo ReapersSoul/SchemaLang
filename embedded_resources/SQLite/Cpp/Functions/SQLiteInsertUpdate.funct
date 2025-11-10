@@ -17,6 +17,33 @@ uint64_t {{identifier}}Schema::SQLiteInsertUpdateCascade(SQLiteDB* db)
         std::cerr << "Database not set! Call SQLiteSetDatabase first." << std::endl;
         return 0;
     }
+{% for mv in member_variables %}
+{% if mv.type.is_struct %}
+    // Handle single struct field {{mv.identifier}}
+{% if not mv.required %}
+    if (this->{{mv.identifier}}.has_value() && this->{{mv.identifier}}.value()) {
+        auto& childObj = this->{{mv.identifier}}.value();
+{% else %}
+    if (this->{{mv.identifier}}) {
+        auto& childObj = this->{{mv.identifier}};
+{% endif %}
+        
+        int objectId=-1;
+        // Recursively insert/update child (cascade if it has its own arrays)
+        if constexpr (requires { childObj->SQLiteInsertUpdateCascade(db); }) {
+            objectId=childObj->SQLiteInsertUpdateCascade(db);
+        } else {
+            objectId=childObj->SQLiteInsertUpdate(db);
+        }
+
+        if (objectId == -1) {
+            throw std::runtime_error("Failed to insert/update child object for field {{mv.identifier}}");
+        }
+
+        childObj->setId(objectId);
+    }
+{% endif %}
+{% endfor %}
 
     // First insert/update this object to get a valid ID
     uint64_t thisId = db->insertOrUpdate{{identifierCamel}}(shared_from_this());

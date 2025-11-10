@@ -7,9 +7,9 @@
 // Specializations for each struct type
 {% for struct in structs %}
 template<>
-std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteQueryBuilder<{{struct.identifier}}Schema>::Exec() {
+std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteQueryBuilder::Exec<{{struct.identifier}}Schema>() {
     if (!db->isConnected()) {
-        throw std::runtime_error("SQLiteQueryBuilder<{{struct.identifier}}Schema>::Exec() - Database not connected");
+        throw std::runtime_error("SQLiteQueryBuilder::Exec() - Database not connected");
     }
     
     std::vector<std::shared_ptr<{{struct.identifier}}Schema>> results;
@@ -17,7 +17,7 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteQueryBuilder<{{s
     
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db->getDB(), sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        throw std::runtime_error("SQLiteQueryBuilder<{{struct.identifier}}Schema>::Exec() - Failed to prepare statement: " + std::string(sqlite3_errmsg(db->getDB())) + "\nSQL: " + sql);
+        throw std::runtime_error("SQLiteQueryBuilder::Exec() - Failed to prepare statement: " + std::string(sqlite3_errmsg(db->getDB())) + "\nSQL: " + sql);
     }
     
     BindParameters(stmt);
@@ -56,19 +56,19 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteQueryBuilder<{{s
 }
 
 template<>
-std::shared_ptr<{{struct.identifier}}Schema> SQLiteQueryBuilder<{{struct.identifier}}Schema>::First() {
+std::shared_ptr<{{struct.identifier}}Schema> SQLiteQueryBuilder::First<{{struct.identifier}}Schema>() {
     Limit(1);
-    auto results = Exec();
+    auto results = Exec<{{struct.identifier}}Schema>();
     return results.empty() ? nullptr : results[0];
 }
+{% endfor %}
 
-template<>
-bool SQLiteQueryBuilder<{{struct.identifier}}Schema>::Exists() {
+bool SQLiteQueryBuilder::Exists() {
     std::string sql = BuildQuery("1");
     
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db->getDB(), sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        throw std::runtime_error("SQLiteQueryBuilder<{{struct.identifier}}Schema>::Exists() - Failed to prepare statement: " + std::string(sqlite3_errmsg(db->getDB())) + "\nSQL: " + sql);
+        throw std::runtime_error("SQLiteQueryBuilder::Exists() - Failed to prepare statement: " + std::string(sqlite3_errmsg(db->getDB())) + "\nSQL: " + sql);
     }
     
     BindParameters(stmt);
@@ -79,13 +79,12 @@ bool SQLiteQueryBuilder<{{struct.identifier}}Schema>::Exists() {
     return exists;
 }
 
-template<>
-int SQLiteQueryBuilder<{{struct.identifier}}Schema>::Count() {
+int SQLiteQueryBuilder::Count() {
     std::string sql = BuildQuery("COUNT(*)");
     
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db->getDB(), sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        throw std::runtime_error("SQLiteQueryBuilder<{{struct.identifier}}Schema>::Count() - Failed to prepare statement: " + std::string(sqlite3_errmsg(db->getDB())) + "\nSQL: " + sql);
+        throw std::runtime_error("SQLiteQueryBuilder::Count() - Failed to prepare statement: " + std::string(sqlite3_errmsg(db->getDB())) + "\nSQL: " + sql);
     }
     
     BindParameters(stmt);
@@ -99,10 +98,9 @@ int SQLiteQueryBuilder<{{struct.identifier}}Schema>::Count() {
     return count;
 }
 
-template<>
-std::vector<SqliteResult> SQLiteQueryBuilder<{{struct.identifier}}Schema>::ExecCustom() {
+std::vector<SqliteResult> SQLiteQueryBuilder::ExecCustom() {
     if (!db->isConnected()) {
-        throw std::runtime_error("SQLiteQueryBuilder<{{struct.identifier}}Schema>::ExecCustom() - Database not connected");
+        throw std::runtime_error("SQLiteQueryBuilder::ExecCustom() - Database not connected");
     }
     
     std::vector<SqliteResult> results;
@@ -110,7 +108,7 @@ std::vector<SqliteResult> SQLiteQueryBuilder<{{struct.identifier}}Schema>::ExecC
     
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db->getDB(), sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        throw std::runtime_error("SQLiteQueryBuilder<{{struct.identifier}}Schema>::ExecCustom() - Failed to prepare statement: " + std::string(sqlite3_errmsg(db->getDB())) + "\nSQL: " + sql);
+        throw std::runtime_error("SQLiteQueryBuilder::ExecCustom() - Failed to prepare statement: " + std::string(sqlite3_errmsg(db->getDB())) + "\nSQL: " + sql);
     }
     
     BindParameters(stmt);
@@ -155,8 +153,7 @@ std::vector<SqliteResult> SQLiteQueryBuilder<{{struct.identifier}}Schema>::ExecC
     return results;
 }
 
-template<>
-SqliteResult SQLiteQueryBuilder<{{struct.identifier}}Schema>::FirstCustom() {
+SqliteResult SQLiteQueryBuilder::FirstCustom() {
     Limit(1);
     auto results = ExecCustom();
     if (results.empty()) {
@@ -164,7 +161,6 @@ SqliteResult SQLiteQueryBuilder<{{struct.identifier}}Schema>::FirstCustom() {
     }
     return results[0];
 }
-{% endfor %}
 
 // Generic query builder implementations
 std::vector<SqliteResult> GenericSQLiteQueryBuilder::Exec() {

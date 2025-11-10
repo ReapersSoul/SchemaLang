@@ -139,6 +139,16 @@ bool StructDefinition::has_member_variable(std::string identifier)
 	return false;
 }
 
+MemberVariableDefinition& StructDefinition::get_member_variable(std::string identifier)
+{
+	for (auto& mv : member_variables) {
+		if (mv.identifier == identifier) {
+			return mv;
+		}
+	}
+	throw std::runtime_error("StructDefinition::get_member_variable() - Member variable '" + identifier + "' not found in struct '" + this->identifier + "'");
+}
+
 void StructDefinition::clear(){
 	includes.clear();
 	before_lines.clear();

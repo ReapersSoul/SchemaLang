@@ -21,10 +21,10 @@ class SQLiteDB
 public:
     virtual ~SQLiteDB();
     SQLiteDB(std::filesystem::path db_path);
-    void connect();
-    void disconnect();
-    bool isConnected() const;
-    sqlite3* getDB();
+    virtual void connect();
+    virtual void disconnect();
+    virtual bool isConnected() const;
+    virtual sqlite3* getDB();
 {% for struct in structs %}
     virtual void create{{struct.identifierCamel}}Table();
 
@@ -50,7 +50,7 @@ public:
 {% endfor %}
 
     // Fluent query builder - now returns builder without table preset
-    SQLiteQueryBuilder<{{struct.identifier}}Schema> Select{{struct.identifierCamel}}();
+    SQLiteQueryBuilder Select{{struct.identifierCamel}}();
 
     virtual int64_t insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{struct.identifier}}Schema> obj);
 
@@ -126,27 +126,20 @@ public:
 
     // Generic query builder factory methods
 {% for struct in structs %}
-    SQLiteQueryBuilder<{{struct.identifier}}Schema> Query{{struct.identifierCamel}}();
+    SQLiteQueryBuilder Query{{struct.identifierCamel}}();
 {% endfor %}
 
     // Generic query builder for custom queries
     GenericSQLiteQueryBuilder Query();
 
+    virtual void updateHook(int operation, const char* dbName, const char* tableName, sqlite3_int64 rowid);
 private:
     std::filesystem::path db_path;
     sqlite3* db;
 
     static void updateCallback(void* userData, int operation, const char* dbName, 
                    const char* tableName, sqlite3_int64 rowid) {
-                    SQLiteDB* self = static_cast<SQLiteDB*>(userData);
-    const char* opName;
-    switch(operation) {
-        case SQLITE_INSERT: opName = "INSERT"; break;
-        case SQLITE_UPDATE: opName = "UPDATE"; break;
-        case SQLITE_DELETE: opName = "DELETE"; break;
-        default: opName = "UNKNOWN"; break;
+                   SQLiteDB* self = static_cast<SQLiteDB*>(userData);
+        self->updateHook(operation, dbName, tableName, rowid);
     }
-    
-    printf("%s on %s.%s, rowid: %lld\n", opName, dbName, tableName, rowid);
-}
 };

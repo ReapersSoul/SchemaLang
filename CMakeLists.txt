@@ -1,3 +1,4 @@
+cmake_minimum_required(VERSION 3.3)
 project(SchemaLangTranspiler)
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")
@@ -18,8 +19,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAK
 
 # Copy binary to AnyRPG/tools/ after build
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${PROJECT_NAME}> ${CMAKE_CURRENT_SOURCE_DIR}/../AnyRPG/tools/
-    COMMENT "Copying ${PROJECT_NAME} to AnyRPG/tools/"
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${PROJECT_NAME}> ${CMAKE_CURRENT_SOURCE_DIR}/../tools/
+    COMMENT "Copying ${PROJECT_NAME} to tools/"
 )
 
 find_package(nlohmann_json REQUIRED)

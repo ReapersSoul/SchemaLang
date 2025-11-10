@@ -132,7 +132,6 @@ public:
     }
 };
 
-template<typename T>
 class SQLiteQueryBuilder {
 private:
     SQLiteDB* db;
@@ -152,7 +151,7 @@ public:
     SQLiteQueryBuilder(SQLiteDB* database) 
         : db(database) {}
 
-    SQLiteQueryBuilder<T>& Select(const std::string& columns) {
+    SQLiteQueryBuilder& Select(const std::string& columns) {
         custom_select = true;
         // Split columns by comma and trim whitespace
         std::istringstream ss(columns);
@@ -169,59 +168,59 @@ public:
         return *this;
     }
 
-    SQLiteQueryBuilder<T>& Select(const std::vector<std::string>& columns) {
+    SQLiteQueryBuilder& Select(const std::vector<std::string>& columns) {
         custom_select = true;
         select_columns = columns;
         return *this;
     }
 
-    SQLiteQueryBuilder<T>& From(const std::string& table) {
+    SQLiteQueryBuilder& From(const std::string& table) {
         table_name = table;
         return *this;
     }
 
-    SQLiteQueryBuilder<T>& Where(const std::string& condition) {
+    SQLiteQueryBuilder& Where(const std::string& condition) {
         where_clauses.push_back(condition);
         return *this;
     }
 
-    SQLiteQueryBuilder<T>& WhereEquals(const std::string& field, const std::string& value) {
+    SQLiteQueryBuilder& WhereEquals(const std::string& field, const std::string& value) {
         where_clauses.push_back(field + " = ?");
         string_bindings.push_back({bind_index++, value});
         return *this;
     }
 
-    SQLiteQueryBuilder<T>& WhereEquals(const std::string& field, int64_t value) {
+    SQLiteQueryBuilder& WhereEquals(const std::string& field, int64_t value) {
         where_clauses.push_back(field + " = ?");
         int_bindings.push_back({bind_index++, value});
         return *this;
     }
 
-    SQLiteQueryBuilder<T>& WhereEquals(const std::string& field, double value) {
+    SQLiteQueryBuilder& WhereEquals(const std::string& field, double value) {
         where_clauses.push_back(field + " = ?");
         double_bindings.push_back({bind_index++, value});
         return *this;
     }
 
-    SQLiteQueryBuilder<T>& WhereGreaterThan(const std::string& field, int64_t value) {
+    SQLiteQueryBuilder& WhereGreaterThan(const std::string& field, int64_t value) {
         where_clauses.push_back(field + " > ?");
         int_bindings.push_back({bind_index++, value});
         return *this;
     }
 
-    SQLiteQueryBuilder<T>& WhereLessThan(const std::string& field, int64_t value) {
+    SQLiteQueryBuilder& WhereLessThan(const std::string& field, int64_t value) {
         where_clauses.push_back(field + " < ?");
         int_bindings.push_back({bind_index++, value});
         return *this;
     }
 
-    SQLiteQueryBuilder<T>& WhereLike(const std::string& field, const std::string& pattern) {
+    SQLiteQueryBuilder& WhereLike(const std::string& field, const std::string& pattern) {
         where_clauses.push_back(field + " LIKE ?");
         string_bindings.push_back({bind_index++, pattern});
         return *this;
     }
 
-    SQLiteQueryBuilder<T>& WhereIn(const std::string& field, const std::vector<int64_t>& values) {
+    SQLiteQueryBuilder& WhereIn(const std::string& field, const std::vector<int64_t>& values) {
         if (!values.empty()) {
             std::string placeholders = "?";
             for (size_t i = 1; i < values.size(); ++i) {
@@ -235,22 +234,24 @@ public:
         return *this;
     }
 
-    SQLiteQueryBuilder<T>& OrderBy(const std::string& field, bool ascending = true) {
+    SQLiteQueryBuilder& OrderBy(const std::string& field, bool ascending = true) {
         order_clauses.push_back(field + (ascending ? " ASC" : " DESC"));
         return *this;
     }
 
-    SQLiteQueryBuilder<T>& Limit(int limit) {
+    SQLiteQueryBuilder& Limit(int limit) {
         limit_value = limit;
         return *this;
     }
 
-    SQLiteQueryBuilder<T>& Offset(int offset) {
+    SQLiteQueryBuilder& Offset(int offset) {
         offset_value = offset;
         return *this;
     }
 
+    template<typename T>
     std::vector<std::shared_ptr<T>> Exec();
+    template<typename T>
     std::shared_ptr<T> First();
     bool Exists();
     int Count();
@@ -322,22 +323,10 @@ private:
 // Specializations for each struct type
 {% for struct in structs %}
 template<>
-std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteQueryBuilder<{{struct.identifier}}Schema>::Exec();
+std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteQueryBuilder::Exec<{{struct.identifier}}Schema>();
 
 template<>
-std::shared_ptr<{{struct.identifier}}Schema> SQLiteQueryBuilder<{{struct.identifier}}Schema>::First();
-
-template<>
-bool SQLiteQueryBuilder<{{struct.identifier}}Schema>::Exists();
-
-template<>
-int SQLiteQueryBuilder<{{struct.identifier}}Schema>::Count();
-
-template<>
-std::vector<SqliteResult> SQLiteQueryBuilder<{{struct.identifier}}Schema>::ExecCustom();
-
-template<>
-SqliteResult SQLiteQueryBuilder<{{struct.identifier}}Schema>::FirstCustom();
+std::shared_ptr<{{struct.identifier}}Schema> SQLiteQueryBuilder::First<{{struct.identifier}}Schema>();
 {% endfor %}
 
 // Generic query builder for custom queries without schema types

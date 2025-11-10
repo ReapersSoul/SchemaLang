@@ -38,6 +38,13 @@ struct ProgramStructure
 	std::vector<std::string> already_included_files;
 	std::string current_file;
 	SourcePosition current_position;
+	
+	// Schema version tracking
+	int schema_version_major = -1;  // -1 means unspecified (for backward compatibility)
+	int schema_version_minor = -1;
+	int schema_version_patch = -1;
+	bool version_specified = false;
+	SourcePosition version_position;  // Track where version was declared
 
 	bool isInt(std::string str);
 
@@ -56,6 +63,10 @@ struct ProgramStructure
 	void reportError(const std::string& message, const SourcePosition& position);
 	void reportError(const std::string& message, const Token& token);
 
+	bool parseVersion(std::vector<Token> tokens, int &i);
+	bool validateVersion();
+	std::string getVersionString() const;
+
 	bool readMemberVariable(std::vector<Token> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition);
 
 	bool readStruct(std::vector<Token> tokens, int &i, StructDefinition &current_struct);
@@ -66,7 +77,7 @@ struct ProgramStructure
 
 	bool readConfig(std::vector<Token> tokens, int &i);
 
-	bool validate();
+	bool validate(bool is_root);
 
 	std::vector<StructDefinition> structs;
 	std::vector<EnumDefinition> enums;
@@ -89,7 +100,7 @@ public:
 
     bool parseTypeNames(std::vector<Token> tokens);
 
-    bool readFile(std::string file_path);
+    bool readFile(std::string file_path, bool is_root=true);
 
 	bool generate_files(Generator *gen, std::string out_path);
 

@@ -1,0 +1,4 @@
+#pragma once
+{% for include in includes %}
+#include {{include}}
+{% endfor %}

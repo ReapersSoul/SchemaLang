@@ -47,6 +47,37 @@ void {{identifier}}Schema::clear{{mv.identifierCamel}}() {
 }
 {% endif %}{% endfor %}
 
+// Clone method implementations
+std::shared_ptr<{{identifier}}Schema> {{identifier}}Schema::clone() const {
+    auto cloned = std::make_shared<{{identifier}}Schema>();
+    
+{% for mv in member_variables %}{% if not mv.required %}
+    if (this->{{mv.identifier}}.has_value()) {
+        cloned->{{mv.identifier}} = this->{{mv.identifier}}.value();
+    }
+{% else %}
+    cloned->{{mv.identifier}} = this->{{mv.identifier}};
+{% endif %}{% endfor %}
+    
+    return cloned;
+}
+
+std::shared_ptr<{{identifier}}Schema> {{identifier}}Schema::deepClone() const {
+    auto cloned = std::make_shared<{{identifier}}Schema>();
+    
+{% for mv in member_variables %}{% if not mv.required %}
+    if (this->{{mv.identifier}}.has_value()) {
+        // TODO: Add deep cloning logic for {{mv.identifier}} if it contains schema objects
+        cloned->{{mv.identifier}} = this->{{mv.identifier}}.value();
+    }
+{% else %}
+    // TODO: Add deep cloning logic for {{mv.identifier}} if it contains schema objects
+    cloned->{{mv.identifier}} = this->{{mv.identifier}};
+{% endif %}{% endfor %}
+    
+    return cloned;
+}
+
 // Function implementations
 {% for f in functions %}
 {{f.return_type.estimated}} {{identifier}}Schema::{{f.identifier}}({% for param in f.parameters %}{{param.type.estimated}} {{param.identifier}}{% if not loop.is_last %}, {% endif %}{% endfor %}) {

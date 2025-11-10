@@ -1,5 +1,8 @@
 #include <ProgramStructure.hpp>
 
+// SchemaLang version info
+#include <SchemaLangVersion.hpp>
+
 bool ProgramStructure::isInt(std::string str)
 {
 	std::regex int_regex("^[0-9]+$");
@@ -106,7 +109,8 @@ void ProgramStructure::reportError(const std::string &message, const Token &toke
 		{
 			line_start = pos;
 			// find end of line
-			while (pos < whole_file.size() && whole_file[pos] != '\n') pos++;
+			while (pos < whole_file.size() && whole_file[pos] != '\n')
+				pos++;
 			line_end = pos;
 			break;
 		}
@@ -391,6 +395,133 @@ std::vector<std::string> ProgramStructure::tokenize(std::string str)
 	return tokens;
 }
 
+bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
+{
+	// Expected format: version 1.0.0;
+	// We're at the token after "version"
+
+	if (version_specified)
+	{
+		reportError("Version already specified at " + version_position.file_path + ":" +
+						std::to_string(version_position.line) + ":" +
+						std::to_string(version_position.column),
+					tokens[i]);
+		return false;
+	}
+
+	version_position = tokens[i].position;
+
+	// Parse major version
+	if (!isInt(tokens[i].value))
+	{
+		reportError("Expected integer for major version number", tokens[i]);
+		return false;
+	}
+	schema_version_major = std::stoi(tokens[i].value);
+	i++;
+
+	// Expect '.'
+	if (tokens[i] != ".")
+	{
+		reportError("Expected '.' after major version", tokens[i]);
+		return false;
+	}
+	i++;
+
+	// Parse minor version
+	if (!isInt(tokens[i].value))
+	{
+		reportError("Expected integer for minor version number", tokens[i]);
+		return false;
+	}
+	schema_version_minor = std::stoi(tokens[i].value);
+	i++;
+
+	// Expect '.'
+	if (tokens[i] != ".")
+	{
+		reportError("Expected '.' after minor version", tokens[i]);
+		return false;
+	}
+	i++;
+
+	// Parse patch version
+	if (!isInt(tokens[i].value))
+	{
+		reportError("Expected integer for patch version number", tokens[i]);
+		return false;
+	}
+	schema_version_patch = std::stoi(tokens[i].value);
+	i++;
+
+	// Expect ';'
+	if (tokens[i] != ";")
+	{
+		reportError("Expected ';' after version declaration", tokens[i]);
+		return false;
+	}
+
+	version_specified = true;
+	return true;
+}
+
+bool ProgramStructure::validateVersion()
+{
+	// If no version specified, assume compatibility for backward compatibility
+	if (!version_specified)
+	{
+		// Could make this a warning instead
+		std::cout << "Warning: No schema version specified. Consider adding 'version "
+				  << SCHEMALANG_VERSION_MAJOR << "."
+				  << SCHEMALANG_VERSION_MINOR << "."
+				  << SCHEMALANG_VERSION_PATCH << ";' at the top of your schema file." << std::endl;
+		return true;
+	}
+
+	// Check major version - must match exactly (breaking changes)
+	if (schema_version_major != SCHEMALANG_VERSION_MAJOR)
+	{
+		reportError("Schema major version mismatch. Schema requires v" +
+						std::to_string(schema_version_major) + ".x.x but transpiler is v" +
+						std::to_string(SCHEMALANG_VERSION_MAJOR) + "." +
+						std::to_string(SCHEMALANG_VERSION_MINOR) + "." +
+						std::to_string(SCHEMALANG_VERSION_PATCH) + ".\n" +
+						"Major version differences indicate breaking changes. Please update your schema or use a compatible transpiler version.",
+					version_position);
+		return false;
+	}
+
+	// Check minor version - transpiler minor must be >= schema minor (new features)
+	if (schema_version_minor > SCHEMALANG_VERSION_MINOR)
+	{
+		reportError("Schema requires features from v" +
+						std::to_string(schema_version_major) + "." +
+						std::to_string(schema_version_minor) + ".x but transpiler is v" +
+						std::to_string(SCHEMALANG_VERSION_MAJOR) + "." +
+						std::to_string(SCHEMALANG_VERSION_MINOR) + "." +
+						std::to_string(SCHEMALANG_VERSION_PATCH) + ".\n" +
+						"Please upgrade your transpiler to support this schema.",
+					version_position);
+		return false;
+	}
+
+	// Patch version is flexible - no validation needed
+	// Schemas written for older patch versions should work with newer patches
+
+	return true;
+}
+
+std::string ProgramStructure::getVersionString() const
+{
+	if (!version_specified)
+	{
+		return "unspecified";
+	}
+	return std::to_string(schema_version_major) + "." +
+		   std::to_string(schema_version_minor) + "." +
+		   std::to_string(schema_version_patch);
+}
+
 bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition)
 {
 	std::vector<Token> member_variable_tokens;
@@ -542,7 +673,7 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 			}
 			else if (member_variable_tokens[j] == "reference")
 			{
-				if (tokenIsStruct(current_MemberVariableDefinition.type.identifier())&&member_variable_tokens[j+1] != "(")
+				if (tokenIsStruct(current_MemberVariableDefinition.type.identifier()) && member_variable_tokens[j + 1] != "(")
 				{
 					current_MemberVariableDefinition.reference.struct_name = current_MemberVariableDefinition.type.identifier();
 				}
@@ -731,7 +862,7 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 
 	// check for an 'id' member variable
 	bool has_id = false;
-	for (auto & mv : current_struct.getMemberVariables())
+	for (auto &mv : current_struct.getMemberVariables())
 	{
 		if (mv.identifier == "id")
 		{
@@ -918,12 +1049,13 @@ bool ProgramStructure::readConfig(std::vector<Token> tokens, int &i)
 	return true;
 }
 
-bool ProgramStructure::validate()
+bool ProgramStructure::validate(bool is_root)
 {
 	for (auto &s : structs)
 	{
 		for (auto &mv : s.getMemberVariables())
 		{
+			// Check for direct self-reference
 			if (mv.type.identifier() == s.getIdentifier())
 			{
 				reportError("Member variable " + mv.identifier + " in struct " + s.getIdentifier() + " can not have the same type as the struct itself.\n"
@@ -936,6 +1068,25 @@ bool ProgramStructure::validate()
 							mv.type.identifier() + ": " + mv.identifier + ": reference;\n"
 																		  "\t}");
 				return false;
+			}
+			
+			// Check for self-reference in array element type
+			if (mv.type.is_array() && mv.type.element_type().identifier() == s.getIdentifier())
+			{
+				bool has_ref = !(mv.reference.struct_name.empty() && mv.reference.variable_name.empty());
+				if (!has_ref)
+				{
+					reportError("Member variable " + mv.identifier + " in struct " + s.getIdentifier() + " can not have an array of the same type as the struct itself without a reference.\n"
+																									 "This is a recursive dependency and will cause issues with certain generators.\n"
+																									 "Please use the 'reference' modifier to resolve this issue.\n"
+																									 "Example:\n"
+																									 "\tstruct " +
+								s.getIdentifier() + "{\n"
+													"\t\t" +
+								mv.type.identifier() + "<" + mv.type.element_type().identifier() + ">: " + mv.identifier + ": reference(" + s.getIdentifier() + ".id);\n"
+																		  "\t}");
+					return false;
+				}
 			}
 
 			if (tokenIsStruct(mv.type.identifier()))
@@ -1003,6 +1154,138 @@ bool ProgramStructure::validate()
 					reportError("Struct " + mv.reference.struct_name + " does not have member variable " + mv.reference.variable_name);
 					return false;
 				}
+
+				// Validate that the reference type matches the member variable type
+				StructDefinition &ref_struct = getStruct(mv.reference.struct_name);
+				MemberVariableDefinition &ref_member = ref_struct.get_member_variable(mv.reference.variable_name);
+
+				// Get the type to compare - for arrays, use the element type, otherwise use the type itself
+				std::string mv_type = mv.type.is_array() ? mv.type.element_type().identifier() : mv.type.identifier();
+				std::string ref_type = ref_member.type.identifier();
+
+				if (mv_type != ref_type)
+				{
+					reportError("Reference type mismatch for '" + mv.identifier + "' in struct '" + s.getIdentifier() + "'.\n"
+																														"Member variable has type '" +
+								mv_type + "' but references " +
+								mv.reference.struct_name + "." + mv.reference.variable_name + " which has type '" + ref_type + "'.\n"
+																															   "The types must match. For arrays, the element type must match the referenced field type.");
+					return false;
+				}
+			}
+		}
+	}
+
+	if (is_root)
+	{
+		// Check for unimplemented forward declarations
+		for (auto &s : structs)
+		{
+			// A struct is considered "forward-declared only" if it has exactly 1 member (the auto-generated id)
+			if (s.getMemberVariables().size() == 1 && s.getMemberVariables()[0].identifier == "id")
+			{
+				// Check if any other struct uses this forward-declared struct
+				bool is_used = false;
+				for (auto &other_s : structs)
+				{
+					if (other_s.getIdentifier() == s.getIdentifier())
+						continue;
+
+					for (auto &mv : other_s.getMemberVariables())
+					{
+						// Check if member variable type matches the forward-declared struct
+						if (mv.type.identifier() == s.getIdentifier())
+						{
+							is_used = true;
+							break;
+						}
+						// Check array element types
+						if (mv.type.is_array() && mv.type.element_type().identifier() == s.getIdentifier())
+						{
+							is_used = true;
+							break;
+						}
+					}
+					if (is_used)
+						break;
+				}
+
+				if (is_used)
+				{
+					reportError("Struct '" + s.getIdentifier() + "' was forward-declared but never fully implemented.\n"
+																 "Forward declarations must be followed by a full struct definition.\n"
+																 "Example:\n"
+																 "\tdeclare struct " +
+								s.getIdentifier() + ";\n"
+													"\t// ... other structs that reference " +
+								s.getIdentifier() + " ...\n"
+													"\tstruct " +
+								s.getIdentifier() + " {\n"
+													"\t\tstring: name: required: description(\"Name field\");\n"
+													"\t\t// ... other fields ...\n"
+													"\t}");
+					return false;
+				}
+			}
+		}
+
+		// Check for empty forward-declared enums that are used
+		for (auto &e : enums)
+		{
+			// An enum with only "Unknown" and "Count" was forward-declared but never implemented
+			if (e.values.size() == 2)
+			{
+				bool hasUnknown = false;
+				bool hasCount = false;
+				for (const auto &pair : e.values)
+				{
+					if (pair.first == "Unknown")
+						hasUnknown = true;
+					if (pair.first == "Count")
+						hasCount = true;
+				}
+
+				if (hasUnknown && hasCount)
+				{
+					// Check if this enum is used anywhere
+					bool is_used = false;
+					for (auto &s : structs)
+					{
+						for (auto &mv : s.getMemberVariables())
+						{
+							if (mv.type.identifier() == e.identifier)
+							{
+								is_used = true;
+								break;
+							}
+							if (mv.type.is_array() && mv.type.element_type().identifier() == e.identifier)
+							{
+								is_used = true;
+								break;
+							}
+						}
+						if (is_used)
+							break;
+					}
+
+					if (is_used)
+					{
+						reportError("Enum '" + e.identifier + "' was forward-declared but never fully implemented.\n"
+															  "Forward declarations must be followed by a full enum definition.\n"
+															  "Example:\n"
+															  "\tdeclare enum " +
+									e.identifier + ";\n"
+												   "\t// ... other definitions that reference " +
+									e.identifier + " ...\n"
+												   "\tenum " +
+									e.identifier + " {\n"
+												   "\t\tValue1,\n"
+												   "\t\tValue2,\n"
+												   "\t\tValue3\n"
+												   "\t}");
+						return false;
+					}
+				}
 			}
 		}
 	}
@@ -1017,12 +1300,12 @@ inja::json ProgramStructure::to_json(Generator *generator)
 	j["enums"] = inja::json::array();
 	for (auto &s : structs)
 	{
-		j["includes"].push_back(generator->format_include(s.getIdentifier()+"Schema.hpp"));
+		j["includes"].push_back(generator->format_include(s.getIdentifier() + "Schema.hpp"));
 		j["structs"].push_back(s.to_json(this, generator));
 	}
 	for (auto &e : enums)
 	{
-		j["includes"].push_back(generator->format_include(e.identifier+"Schema.hpp"));
+		j["includes"].push_back(generator->format_include(e.identifier + "Schema.hpp"));
 		j["enums"].push_back(e.to_json(this, generator));
 	}
 	return j;
@@ -1116,7 +1399,7 @@ bool ProgramStructure::parseTypeNames(std::vector<Token> tokens)
 	return true;
 }
 
-bool ProgramStructure::readFile(std::string file_path)
+bool ProgramStructure::readFile(std::string file_path, bool is_root)
 {
 	if (std::find(already_included_files.begin(), already_included_files.end(), file_path) != already_included_files.end())
 	{
@@ -1145,6 +1428,13 @@ bool ProgramStructure::readFile(std::string file_path)
 	file.close();
 
 	std::vector<Token> tokens = tokenizeWithPosition(whole_file, file_path);
+
+	if (tokens.empty())
+	{
+		reportError("Empty schema file: " + file_path);
+		return false;
+	}
+
 	if (!parseTypeNames(tokens))
 	{
 		reportError("Failed to parse type and enum names from file " + file_path);
@@ -1154,12 +1444,38 @@ bool ProgramStructure::readFile(std::string file_path)
 	StructDefinition current_struct;
 	EnumDefinition current_enum;
 	MemberVariableDefinition current_MemberVariableDefinition;
+
+	if (tokens[0].value != "version")
+	{
+		std::cout << "Warning: No schema version declaration found in " << file_path << ". Consider adding 'version "
+				  << SCHEMALANG_VERSION_MAJOR << "."
+				  << SCHEMALANG_VERSION_MINOR << "."
+				  << SCHEMALANG_VERSION_PATCH << ";' at the top of your schema file." << std::endl;
+	}
+
 	for (int i = 0; i < tokens.size(); i++)
 	{
 		// Update current parsing position
 		current_position = tokens[i].position;
 
 		std::string token = tokens[i].value;
+
+		// Handle version declaration - must come before any other declarations
+		if (token == "version")
+		{
+			i++;
+			if (!parseVersion(tokens, i))
+			{
+				return false;
+			}
+			// Validate immediately after parsing
+			if (!validateVersion())
+			{
+				return false;
+			}
+			continue;
+		}
+
 		if (token == "include")
 		{
 			i++;
@@ -1167,7 +1483,7 @@ bool ProgramStructure::readFile(std::string file_path)
 			// check if this is absolute path or relative path
 			if (include_file[0] == '/')
 			{
-				readFile(include_file);
+				readFile(include_file, false);
 			}
 			else
 			{
@@ -1179,20 +1495,28 @@ bool ProgramStructure::readFile(std::string file_path)
 					include_file = include_file.substr(2);
 				}
 				current_file_path += "/" + include_file;
-				if (!readFile(current_file_path))
+				if (!readFile(current_file_path, false))
 				{
 					reportError("Failed to read included file " + current_file_path, tokens[i]);
 					return false;
 				}
 			}
+			continue;
 		}
 
-		if (token == "declare"){
+		if (token == "declare")
+		{
 			i++;
-			//if struct or enum
+			// if struct or enum
 			if (tokens[i] == "struct")
 			{
 				i++;
+				// check if struct already exists
+				if (tokenIsStruct(tokens[i].value))
+				{
+					i++;
+					continue; // Already declared, skip
+				}
 				// Handle forward declaration of struct
 				StructDefinition forward_decl;
 				forward_decl.setIdentifier(tokens[i].value);
@@ -1206,36 +1530,48 @@ bool ProgramStructure::readFile(std::string file_path)
 				id_member.description = "Primary unique identifier for " + current_struct.getIdentifier();
 				forward_decl.add_member_variable(id_member);
 				structs.push_back(forward_decl);
-				i ++; // Skip the struct name token
+				i++; // Skip the struct name token
 			}
 			else if (tokens[i] == "enum")
 			{
 				i++;
+				// check if enum already exists
+				if (tokenIsEnum(tokens[i].value))
+				{
+					i++;
+					continue; // Already declared, skip
+				}
 				// Handle forward declaration of enum
 				EnumDefinition forward_decl;
 				forward_decl.identifier = tokens[i].value;
 				enums.push_back(forward_decl);
-				i ++; // Skip the enum name token
+				i++; // Skip the enum name token
 			}
-			else{
+			else
+			{
 				reportError("Expected 'struct' or 'enum' after 'declare'", tokens[i]);
 				return false;
 			}
-			if(tokens[i] != ";"){
+			if (tokens[i] != ";")
+			{
 				reportError("Expected ';' after forward declaration", tokens[i]);
 				return false;
 			}
+			continue;
 		}
 
 		if (token == "struct")
 		{
 			if (readStruct(tokens, i, current_struct))
 			{
-				auto it = std::find_if(structs.begin(), structs.end(), [&](const StructDefinition& s) { return s.getIdentifier() == current_struct.getIdentifier(); });
+				auto it = std::find_if(structs.begin(), structs.end(), [&](const StructDefinition &s)
+									   { return s.getIdentifier() == current_struct.getIdentifier(); });
 				if (it != structs.end())
 				{
 					it->update(current_struct);
-				}else{
+				}
+				else
+				{
 					structs.push_back(current_struct);
 				}
 				current_struct.clear();
@@ -1245,7 +1581,9 @@ bool ProgramStructure::readFile(std::string file_path)
 				reportError("Failed to read struct", tokens[i]);
 				return false;
 			}
+			continue;
 		}
+
 		if (token == "enum")
 		{
 			if (readEnum(tokens, i, current_enum))
@@ -1253,7 +1591,8 @@ bool ProgramStructure::readFile(std::string file_path)
 				int count = current_enum.values.size();
 				current_enum.add_value("Unknown", -1);
 				current_enum.add_value("Count", count);
-				auto it = std::find_if(enums.begin(),enums.end(),[&](const EnumDefinition& e){return e.identifier==current_enum.identifier;});
+				auto it = std::find_if(enums.begin(), enums.end(), [&](const EnumDefinition &e)
+									   { return e.identifier == current_enum.identifier; });
 				if (it != enums.end())
 				{
 					it->update(current_enum);
@@ -1269,7 +1608,9 @@ bool ProgramStructure::readFile(std::string file_path)
 				reportError("Failed to read enum", tokens[i]);
 				return false;
 			}
+			continue;
 		}
+
 		if (token == "config")
 		{
 			if (!readConfig(tokens, i))
@@ -1277,9 +1618,10 @@ bool ProgramStructure::readFile(std::string file_path)
 				reportError("Failed to read config", tokens[i]);
 				return false;
 			}
+			continue;
 		}
 	}
-	return validate();
+	return validate(is_root);
 }
 
 bool ProgramStructure::generate_files(Generator *gen, std::string out_path)

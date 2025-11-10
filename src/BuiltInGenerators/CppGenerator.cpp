@@ -443,6 +443,31 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		}
 	}
 
+	files = listEmbeddedResourcesEmbeddedFiles("/Cpp/files/");
+	for (auto &file : files)
+	{
+		std::string content(reinterpret_cast<const char *>(loadEmbeddedResourcesEmbeddedFile(("/Cpp/files/" + file).c_str()).data()), loadEmbeddedResourcesEmbeddedFile(("/Cpp/files/" + file).c_str()).size());
+		std::string filename = std::filesystem::path(file).filename().string();
+		inja::json data=ps.to_json(this);
+		std::ofstream of(out_path + "/" + filename);
+		if (!of.is_open())
+		{
+			std::cout << "Failed to open file: " << out_path + "/" + filename << std::endl;
+		}
+		try
+		{
+			std::string rendered_content = env.render(content, data);
+			of << rendered_content;
+			of.close();
+			std::cout << "Generated file: " << out_path + "/" + filename << std::endl;
+		}
+		catch (const std::exception &e)
+		{
+			std::cout << "Error rendering template " << filename << ": " << e.what() << std::endl;
+			return false;
+		}
+	}
+
 	for (auto &gen : generators)
 	{
 		if (gen == this)

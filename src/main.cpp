@@ -13,6 +13,9 @@
 #include <boost/function.hpp>
 #include <EmbeddedResources/EmbeddedResourcesEmbeddedVFS.hpp>
 
+// SchemaLang version info
+#include <SchemaLangVersion.hpp>
+
 int main(int argc, char *argv[])
 {
 	if(!initEmbeddedResourcesEmbeddedVFS(argv[0])){
@@ -46,8 +49,24 @@ int main(int argc, char *argv[])
 	// parse arguments
 	argumentParser ap;
 	Flag helpFlag("help", false, [&]()
-				  { ap.printUsage(); });
+				  { 
+					std::cout << "SchemaLang Transpiler v" 
+							  << SCHEMALANG_VERSION_MAJOR << "."
+							  << SCHEMALANG_VERSION_MINOR << "."
+							  << SCHEMALANG_VERSION_PATCH << std::endl;
+					ap.printUsage(); 
+				  });
 	ap.addFlag(&helpFlag);
+
+	Flag versionFlag("version", false, [&]()
+					{ 
+						std::cout << "SchemaLang Transpiler v" 
+								  << SCHEMALANG_VERSION_MAJOR << "."
+								  << SCHEMALANG_VERSION_MINOR << "."
+								  << SCHEMALANG_VERSION_PATCH << std::endl;
+						exit(0);
+					});
+	ap.addFlag(&versionFlag);
 
 	Parameter additionalGeneratorsParameter("additionalGenerators", false, [&](std::string value)
 		{

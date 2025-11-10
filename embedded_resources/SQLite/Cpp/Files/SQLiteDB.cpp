@@ -178,8 +178,8 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::selectAll{{s
         //get nested arrays if any
 {% for mv in struct.member_variables %}
 {% if mv.type.is_array and mv.type.elem_type.is_struct %}
-        auto nested_items = select{{mv.type.elem_type.identifier}}By{{struct.identifier}}_id(obj->getId());
-        for (const auto& item : nested_items) {
+        auto nested_{{mv.type.elem_type.identifier}}_items = select{{mv.type.elem_type.identifier}}By{{struct.identifier}}_id(obj->getId());
+        for (const auto& item : nested_{{mv.type.elem_type.identifier}}_items) {
             obj->addTo{{mv.identifierCamel}}WithParent(item);
         }
 {% endif %}
@@ -212,6 +212,12 @@ std::shared_ptr<{{struct.identifier}}Schema> SQLiteDB::select{{struct.identifier
     
     sqlite3_bind_int64(stmt, 1, id);
     
+    {% for field in struct.member_variables %}
+    {% if field.type.is_struct %}
+    int64_t {{field.identifier}}_id_value = 0;
+    {% endif %}
+    {% endfor %}
+
     std::shared_ptr<{{struct.identifier}}Schema> result = nullptr;
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         result = std::make_shared<{{struct.identifier}}Schema>();
@@ -237,13 +243,24 @@ std::shared_ptr<{{struct.identifier}}Schema> SQLiteDB::select{{struct.identifier
         result->set{{field.identifierCamel}}(static_cast<int8_t>(sqlite3_column_int(stmt, col++)));
 {% else if field.type.is_enum %}
         result->set{{field.identifierCamel}}(static_cast<{{field.type.identifier}}Schema>(sqlite3_column_int(stmt, col++)));
+{% else if field.type.is_struct %}
+        {{field.identifier}}_id_value = sqlite3_column_int64(stmt, col++);
 {% else %}
         // Handle other types as needed
         col++;
 {% endif %}
 {% endfor %}
     }
-    
+
+    // If we have struct references, fetch and set them
+{% for field in struct.member_variables %}
+{% if field.type.is_struct %}
+    if ({{field.identifier}}_id_value > 0) {
+        result->set{{field.identifierCamel}}(select{{field.type.identifier}}ById({{field.identifier}}_id_value));
+    }
+{% endif %}
+{% endfor %}
+
     sqlite3_finalize(stmt);
     return result;
 }
@@ -395,12 +412,12 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::select{{stru
 {% endfor %}
 
 // Fluent query builder - now creates builder and calls From() automatically
-SQLiteQueryBuilder<{{struct.identifier}}Schema> SQLiteDB::Select{{struct.identifierCamel}}() {
-    return SQLiteQueryBuilder<{{struct.identifier}}Schema>(this).From("{{struct.identifier}}");
+SQLiteQueryBuilder SQLiteDB::Select{{struct.identifierCamel}}() {
+    return SQLiteQueryBuilder(this).From("{{struct.identifier}}");
 }
 
-SQLiteQueryBuilder<{{struct.identifier}}Schema> SQLiteDB::Query{{struct.identifierCamel}}(){
-    return SQLiteQueryBuilder<{{struct.identifier}}Schema>(this);
+SQLiteQueryBuilder SQLiteDB::Query{{struct.identifierCamel}}(){
+    return SQLiteQueryBuilder(this);
 }
 
 //updateInsert
@@ -447,6 +464,12 @@ int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{str
     sqlite3_bind_int(stmt, param++, obj->get{{field.identifierCamel}}() ? 1 : 0);
 {% else if field.type.is_enum %}
     sqlite3_bind_int(stmt, param++, static_cast<int>(obj->get{{field.identifierCamel}}()));
+{% else if field.type.is_struct %}
+    if(obj->get{{field.identifierCamel}}()) {
+        sqlite3_bind_int64(stmt, param++, obj->get{{field.identifierCamel}}()->getId());
+    } else {
+        param++;
+    }
 {% else %}
     // Handle other types as needed
     param++;
@@ -486,6 +509,12 @@ int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{str
 {% else if field.type.is_enum %}
     if (obj->get{{field.identifierCamel}}().has_value()) {
         sqlite3_bind_int(stmt, param++, static_cast<int>(obj->get{{field.identifierCamel}}().value()));
+    } else {
+        sqlite3_bind_null(stmt, param++);
+    }
+{% else if field.type.is_struct %}
+    if (obj->get{{field.identifierCamel}}().has_value() && obj->get{{field.identifierCamel}}().value()) {
+        sqlite3_bind_int64(stmt, param++, obj->get{{field.identifierCamel}}().value()->getId());
     } else {
         sqlite3_bind_null(stmt, param++);
     }
@@ -619,4 +648,16 @@ bool SQLiteDB::has{{struct.identifierCamel}}By{{mv.identifierCamel}}({{mv.type.e
 // Generic query builder factory
 GenericSQLiteQueryBuilder SQLiteDB::Query() {
     return GenericSQLiteQueryBuilder(this);
+}
+
+void SQLiteDB::updateHook(int operation, const char* dbName, const char* tableName, sqlite3_int64 rowid){
+    const char* opName;
+    switch(operation) {
+        case SQLITE_INSERT: opName = "INSERT"; break;
+        case SQLITE_UPDATE: opName = "UPDATE"; break;
+        case SQLITE_DELETE: opName = "DELETE"; break;
+        default: opName = "UNKNOWN"; break;
+    }
+    
+    printf("%s on %s.%s, rowid: %lld\n", opName, dbName, tableName, rowid);
 }

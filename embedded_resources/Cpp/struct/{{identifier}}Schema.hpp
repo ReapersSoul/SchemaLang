@@ -52,6 +52,13 @@ public:
 	virtual void clear{{mv.identifierCamel}}();
 {% endif %}{% endfor %}
 
+	// Clone methods
+	// Creates a shallow copy of this object
+	virtual std::shared_ptr<{{identifier}}Schema> clone() const;
+	
+	// Creates a deep copy of this object, recursively cloning all schema objects
+	virtual std::shared_ptr<{{identifier}}Schema> deepClone() const;
+
 {% for f in functions %}
 	{% if f.static %}static {% else %}virtual {% endif %}{{f.return_type.estimated}} {{f.identifier}}({% for param in f.parameters %}{{param.type.estimated}} {{param.identifier}}{% if param.defaultArg %}={{param.defaultArg}}{% endif %}{% if not loop.is_last %}, {% endif %}{% endfor %});
 {% endfor %}
@@ -65,7 +72,7 @@ public:
 	template<typename T>
 		requires std::derived_from<T, {{identifier}}Schema>
 	T* as() {
-		return dynamic_cast<T*>(this);
+		return (T*)(this);
 	}
 
 protected:

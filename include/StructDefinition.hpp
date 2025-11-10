@@ -100,6 +100,7 @@ struct StructDefinition
 	bool has_function(std::string identifier);
 	bool has_private_variable(std::string identifier);
 	bool has_member_variable(std::string identifier);
+	MemberVariableDefinition& get_member_variable(std::string identifier);
 
 	void clear();
 
