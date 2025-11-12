@@ -52,7 +52,7 @@ public:
     // Fluent query builder - now returns builder without table preset
     SQLiteQueryBuilder Select{{struct.identifierCamel}}();
 
-    virtual int64_t insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{struct.identifier}}Schema> obj);
+    virtual int64_t insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{struct.identifier}}Schema> obj, bool force_id=false);
 
     virtual bool delete{{struct.identifierCamel}}ById(int64_t id);
 
