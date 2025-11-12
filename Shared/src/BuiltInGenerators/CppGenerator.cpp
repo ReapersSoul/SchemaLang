@@ -197,7 +197,7 @@ bool CppGenerator::add_generator_specific_content_to_struct(Generator *gen, Prog
 }
 
 #include <inja/inja.hpp>
-#include <EmbeddedResources/EmbeddedResourcesEmbeddedVFS.hpp>
+#include <SchemaLangShared_Resources/SchemaLangShared_ResourcesEmbeddedVFS.hpp>
 
 bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 {
@@ -238,19 +238,19 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 
 	std::map<std::string, std::string> struct_name_content_pairs;
 	// open file
-	std::vector<std::string> files = listEmbeddedResourcesEmbeddedFiles("/Cpp/struct/");
+	std::vector<std::string> files = listSchemaLangShared_ResourcesEmbeddedFiles("/Cpp/struct/");
 	for (auto &file : files)
 	{
-		std::string content(reinterpret_cast<const char *>(loadEmbeddedResourcesEmbeddedFile(("/Cpp/struct/" + file).c_str()).data()), loadEmbeddedResourcesEmbeddedFile(("/Cpp/struct/" + file).c_str()).size());
+		std::string content(reinterpret_cast<const char *>(loadSchemaLangShared_ResourcesEmbeddedFile(("/Cpp/struct/" + file).c_str()).data()), loadSchemaLangShared_ResourcesEmbeddedFile(("/Cpp/struct/" + file).c_str()).size());
 		std::string filename = std::filesystem::path(file).filename().string();
 		struct_name_content_pairs[filename] = content;
 	}
 
 	std::map<std::string, std::string> enum_name_content_pairs;
-	files = listEmbeddedResourcesEmbeddedFiles("/Cpp/enum/");
+	files = listSchemaLangShared_ResourcesEmbeddedFiles("/Cpp/enum/");
 	for (auto &file : files)
 	{
-		std::string content(reinterpret_cast<const char *>(loadEmbeddedResourcesEmbeddedFile(("/Cpp/enum/" + file).c_str()).data()), loadEmbeddedResourcesEmbeddedFile(("/Cpp/enum/" + file).c_str()).size());
+		std::string content(reinterpret_cast<const char *>(loadSchemaLangShared_ResourcesEmbeddedFile(("/Cpp/enum/" + file).c_str()).data()), loadSchemaLangShared_ResourcesEmbeddedFile(("/Cpp/enum/" + file).c_str()).size());
 		std::string filename = std::filesystem::path(file).filename().string();
 		enum_name_content_pairs[filename] = content;
 	}
@@ -443,10 +443,10 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		}
 	}
 
-	files = listEmbeddedResourcesEmbeddedFiles("/Cpp/files/");
+	files = listSchemaLangShared_ResourcesEmbeddedFiles("/Cpp/files/");
 	for (auto &file : files)
 	{
-		std::string content(reinterpret_cast<const char *>(loadEmbeddedResourcesEmbeddedFile(("/Cpp/files/" + file).c_str()).data()), loadEmbeddedResourcesEmbeddedFile(("/Cpp/files/" + file).c_str()).size());
+		std::string content(reinterpret_cast<const char *>(loadSchemaLangShared_ResourcesEmbeddedFile(("/Cpp/files/" + file).c_str()).data()), loadSchemaLangShared_ResourcesEmbeddedFile(("/Cpp/files/" + file).c_str()).size());
 		std::string filename = std::filesystem::path(file).filename().string();
 		inja::json data=ps.to_json(this);
 		std::ofstream of(out_path + "/" + filename);

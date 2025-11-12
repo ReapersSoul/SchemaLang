@@ -1,37 +1,40 @@
+#set the minimum required version of cmake
 cmake_minimum_required(VERSION 3.10)
-project(SchemaLangTranspiler)
 
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")
+project(SchemaLang)
+#set the C++ standard to use
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-list(FILTER SOURCES EXCLUDE REGEX "build/")
-list(FILTER SOURCES EXCLUDE REGEX "bin/")
+# Set policy CMP0003 to avoid warnings about library search paths
+if(COMMAND cmake_policy)
+    cmake_policy(SET CMP0003 NEW)
+endif(COMMAND cmake_policy)
 
-add_subdirectory(Embedded)
+# Set highest optimization level with different flags for different compilers
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -DNDEBUG")
+    # Disable all warnings
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w")
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /Ob2 /DNDEBUG")
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /O2 /Ob2 /DNDEBUG")
+    # Disable all warnings
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W0")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W0")
+endif()
 
-add_executable(${PROJECT_NAME} ${SOURCES})
+if(UNIX AND NOT APPLE)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic")
+endif()
 
-target_link_libraries(${PROJECT_NAME} PRIVATE EmbeddedResources)
+# Set build type to Release if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/bin)
-set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
-
-# Copy binary to AnyRPG/tools/ after build
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${PROJECT_NAME}> ${CMAKE_CURRENT_SOURCE_DIR}/../tools/
-    COMMENT "Copying ${PROJECT_NAME} to tools/"
-)
-
-find_package(nlohmann_json REQUIRED)
-find_package(Boost REQUIRED COMPONENTS dll)
-target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json Boost::dll)
-
-#physfs
-find_package(PhysFS REQUIRED)
-target_include_directories(${PROJECT_NAME} PRIVATE ${PHYSFS_INCLUDE_DIR})
-target_link_libraries(${PROJECT_NAME} PRIVATE ${PHYSFS_LIBRARY})
-
-#zstd
-find_package(zstd CONFIG REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE zstd::libzstd)
+add_subdirectory(Shared)
+add_subdirectory(Transpiler)
+add_subdirectory(Debugger)

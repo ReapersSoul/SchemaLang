@@ -1,6 +1,14 @@
 {
 	"configurations": [
 		{
+			"name": "Debug SchemaLang File",
+			"type": "schemalang",
+			"request": "launch",
+			"program": "${file}",
+			"stopOnEntry": true,
+			"trace": true
+		},
+		{
 			"name": "(gdb) Launch",
 			"type": "cppdbg",
 			"request": "launch",

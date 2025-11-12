@@ -2,7 +2,7 @@
 #include <ForwardDeclerations.hpp>
 #include <StructDefinition.hpp>
 #include <inja/inja.hpp>
-#include <EmbeddedResources/EmbeddedResourcesEmbeddedVFS.hpp>
+#include <SchemaLangShared_Resources/SchemaLangShared_ResourcesEmbeddedVFS.hpp>
 
 struct Generator
 {
@@ -23,7 +23,7 @@ struct Generator
 	{
 
 		std::string base_path = "/" + name + "/" + gen->name + "/";
-		if (!existsEmbeddedResourcesEmbeddedFile(base_path.c_str()))
+		if (!existsSchemaLangShared_ResourcesEmbeddedFile(base_path.c_str()))
 		{
 			printf("Warning: No embedded resources found for generator %s at path %s\n", gen->name.c_str(), base_path.c_str());
 			return false;
@@ -32,12 +32,12 @@ struct Generator
 		
 		// open file
 		std::string path = base_path + "Functions/";
-		std::vector<std::string> files = listEmbeddedResourcesEmbeddedFiles(path.c_str());
+		std::vector<std::string> files = listSchemaLangShared_ResourcesEmbeddedFiles(path.c_str());
 		for (auto &file : files)
 		{
 			try
 			{
-				std::vector<uint8_t> fileData = loadEmbeddedResourcesEmbeddedFile((path + file).c_str());
+				std::vector<uint8_t> fileData = loadSchemaLangShared_ResourcesEmbeddedFile((path + file).c_str());
 				std::string content(reinterpret_cast<const char *>(fileData.data()), fileData.size());
 				additions.functions.insert(env.render(content, data));
 			}
@@ -47,12 +47,12 @@ struct Generator
 			}
 		}
 		path = base_path + "Getters/";
-		files = listEmbeddedResourcesEmbeddedFiles(path.c_str());
+		files = listSchemaLangShared_ResourcesEmbeddedFiles(path.c_str());
 		for (auto &file : files)
 		{
 			try
 			{
-				std::vector<uint8_t> fileData = loadEmbeddedResourcesEmbeddedFile((path + file).c_str());
+				std::vector<uint8_t> fileData = loadSchemaLangShared_ResourcesEmbeddedFile((path + file).c_str());
 				std::string content(reinterpret_cast<const char *>(fileData.data()), fileData.size());
 				additions.before_getter_lines.push_back(env.render(content, data));
 			}
@@ -62,12 +62,12 @@ struct Generator
 			}
 		}
 		path = base_path + "Setters/";
-		files = listEmbeddedResourcesEmbeddedFiles(path.c_str());
+		files = listSchemaLangShared_ResourcesEmbeddedFiles(path.c_str());
 		for (auto &file : files)
 		{
 			try
 			{
-				std::vector<uint8_t> fileData = loadEmbeddedResourcesEmbeddedFile((path + file).c_str());
+				std::vector<uint8_t> fileData = loadSchemaLangShared_ResourcesEmbeddedFile((path + file).c_str());
 				std::string content(reinterpret_cast<const char *>(fileData.data()), fileData.size());
 				additions.before_setter_lines.push_back(env.render(content, data));
 			}
@@ -77,12 +77,12 @@ struct Generator
 			}
 		}
 		path = base_path + "Variables/";
-		files = listEmbeddedResourcesEmbeddedFiles(path.c_str());
+		files = listSchemaLangShared_ResourcesEmbeddedFiles(path.c_str());
 		for (auto &file : files)
 		{
 			try
 			{
-				std::vector<uint8_t> fileData = loadEmbeddedResourcesEmbeddedFile((path + file).c_str());
+				std::vector<uint8_t> fileData = loadSchemaLangShared_ResourcesEmbeddedFile((path + file).c_str());
 				std::string content(reinterpret_cast<const char *>(fileData.data()), fileData.size());
 				additions.private_variables.push_back(env.render(content, data));
 			}
@@ -93,7 +93,7 @@ struct Generator
 		}
 		path = base_path;
 		std::stringstream ss;
-		std::vector<uint8_t> fileData = loadEmbeddedResourcesEmbeddedFile((path + "includes.list").c_str());
+		std::vector<uint8_t> fileData = loadSchemaLangShared_ResourcesEmbeddedFile((path + "includes.list").c_str());
 		std::string content(reinterpret_cast<const char *>(fileData.data()), fileData.size());
 		try
 		{

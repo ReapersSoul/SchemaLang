@@ -1147,7 +1147,7 @@ bool SqliteGenerator::add_generator_specific_content_to_struct(Generator *gen, P
 }
 
 #include <inja/inja.hpp>
-#include <EmbeddedResources/EmbeddedResourcesEmbeddedVFS.hpp>
+#include <SchemaLangShared_Resources/SchemaLangShared_ResourcesEmbeddedVFS.hpp>
 
 bool SqliteGenerator::generate_files(ProgramStructure ps, std::string out_path)
 {
@@ -1174,19 +1174,19 @@ bool SqliteGenerator::generate_files(ProgramStructure ps, std::string out_path)
 
 	std::map<std::string, std::string> struct_name_content_pairs;
 	// open file
-	std::vector<std::string> files = listEmbeddedResourcesEmbeddedFiles("/SQLite/struct/");
+	std::vector<std::string> files = listSchemaLangShared_ResourcesEmbeddedFiles("/SQLite/struct/");
 	for (auto &file : files)
 	{
-		std::string content(reinterpret_cast<const char *>(loadEmbeddedResourcesEmbeddedFile(("/SQLite/struct/" + file).c_str()).data()), loadEmbeddedResourcesEmbeddedFile(("/SQLite/struct/" + file).c_str()).size());
+		std::string content(reinterpret_cast<const char *>(loadSchemaLangShared_ResourcesEmbeddedFile(("/SQLite/struct/" + file).c_str()).data()), loadSchemaLangShared_ResourcesEmbeddedFile(("/SQLite/struct/" + file).c_str()).size());
 		std::string filename = std::filesystem::path(file).filename().string();
 		struct_name_content_pairs[filename] = content;
 	}
 
 	std::map<std::string, std::string> enum_name_content_pairs;
-	files = listEmbeddedResourcesEmbeddedFiles("/SQLite/enum/");
+	files = listSchemaLangShared_ResourcesEmbeddedFiles("/SQLite/enum/");
 	for (auto &file : files)
 	{
-		std::string content(reinterpret_cast<const char *>(loadEmbeddedResourcesEmbeddedFile(("/SQLite/enum/" + file).c_str()).data()), loadEmbeddedResourcesEmbeddedFile(("/SQLite/enum/" + file).c_str()).size());
+		std::string content(reinterpret_cast<const char *>(loadSchemaLangShared_ResourcesEmbeddedFile(("/SQLite/enum/" + file).c_str()).data()), loadSchemaLangShared_ResourcesEmbeddedFile(("/SQLite/enum/" + file).c_str()).size());
 		std::string filename = std::filesystem::path(file).filename().string();
 		enum_name_content_pairs[filename] = content;
 	}

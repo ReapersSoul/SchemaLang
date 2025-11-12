@@ -11,18 +11,18 @@
 //#include <BuiltInGenerators/LuaGenerator.hpp>
 #include <boost/dll.hpp>
 #include <boost/function.hpp>
-#include <EmbeddedResources/EmbeddedResourcesEmbeddedVFS.hpp>
+#include <SchemaLangShared_Resources/SchemaLangShared_ResourcesEmbeddedVFS.hpp>
 
 // SchemaLang version info
 #include <SchemaLangVersion.hpp>
 
 int main(int argc, char *argv[])
 {
-	if(!initEmbeddedResourcesEmbeddedVFS(argv[0])){
+	if(!initSchemaLangShared_ResourcesEmbeddedVFS(argv[0])){
 		std::cerr << "Failed to initialize embedded resources VFS." << std::endl;
 		return 1;
 	}
-	if(!mountEmbeddedResourcesEmbeddedVFS()){
+	if(!mountSchemaLangShared_ResourcesEmbeddedVFS()){
 		std::cerr << "Failed to mount embedded resources VFS." << std::endl;
 		return 1;
 	}

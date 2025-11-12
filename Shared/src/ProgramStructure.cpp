@@ -3,6 +3,11 @@
 // SchemaLang version info
 #include <SchemaLangVersion.hpp>
 
+// Include debugger for hooks
+#ifdef SCHEMALANG_DEBUG
+#include "SchemaLangDebugger.hpp"
+#endif
+
 bool ProgramStructure::isInt(std::string str)
 {
 	std::regex int_regex("^[0-9]+$");
@@ -400,6 +405,12 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	// Expected format: version 1.0.0;
 	// We're at the token after "version"
 
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) {
+		debugger->onParseOperation("parsing version");
+	}
+	#endif
+
 	if (version_specified)
 	{
 		reportError("Version already specified at " + version_position.file_path + ":" +
@@ -419,6 +430,9 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	}
 	schema_version_major = std::stoi(tokens[i].value);
 	i++;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	#endif
 
 	// Expect '.'
 	if (tokens[i] != ".")
@@ -427,6 +441,9 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		return false;
 	}
 	i++;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	#endif
 
 	// Parse minor version
 	if (!isInt(tokens[i].value))
@@ -436,6 +453,9 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	}
 	schema_version_minor = std::stoi(tokens[i].value);
 	i++;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	#endif
 
 	// Expect '.'
 	if (tokens[i] != ".")
@@ -444,6 +464,9 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		return false;
 	}
 	i++;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	#endif
 
 	// Parse patch version
 	if (!isInt(tokens[i].value))
@@ -453,6 +476,9 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	}
 	schema_version_patch = std::stoi(tokens[i].value);
 	i++;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	#endif
 
 	// Expect ';'
 	if (tokens[i] != ";")
@@ -460,8 +486,14 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		reportError("Expected ';' after version declaration", tokens[i]);
 		return false;
 	}
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) debugger->onParseOperation("version parsed: " + std::to_string(schema_version_major) + "." + std::to_string(schema_version_minor) + "." + std::to_string(schema_version_patch));
+	#endif
 
 	version_specified = true;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) debugger->popParseStack();
+	#endif
 	return true;
 }
 
@@ -524,12 +556,21 @@ std::string ProgramStructure::getVersionString() const
 
 bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition)
 {
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) {
+		debugger->onParseOperation("parsing member variable");
+	}
+	#endif
+
 	std::vector<Token> member_variable_tokens;
 	if (tokenIsValidTypeName(tokens[i].value))
 	{
 		// collect the type
 		current_MemberVariableDefinition.type.identifier() = tokens[i].value;
 		i++;
+		#ifdef SCHEMALANG_DEBUG
+		if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+		#endif
 		// if array
 		if (current_MemberVariableDefinition.type.is_array())
 		{
@@ -572,7 +613,13 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 		i++;
 		// collect the identifier
 		current_MemberVariableDefinition.identifier = tokens[i].value;
+		#ifdef SCHEMALANG_DEBUG
+		if (debugger) debugger->onMemberParsing(&current_MemberVariableDefinition);
+		#endif
 		i++;
+		#ifdef SCHEMALANG_DEBUG
+		if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+		#endif
 		// check for ':'
 		if (tokens[i] != ":")
 		{
@@ -580,6 +627,9 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 			return false;
 		}
 		i++;
+		#ifdef SCHEMALANG_DEBUG
+		if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+		#endif
 		// collect all tokens for member variable up to ';'
 		bool next_token_should_be_colon = false;
 		while (tokens[i] != ";")
@@ -772,19 +822,37 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 		reportError("Expected member variable type After {", tokens[i]);
 		return false;
 	}
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) debugger->popParseStack();
+	#endif
 	return true;
 }
 
 bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefinition &current_struct)
 {
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) {
+		debugger->onParseOperation("reading struct definition");
+	}
+	#endif
+
 	if (tokens[i] != "struct")
 	{
 		reportError("Expected 'struct' keyword", tokens[i]);
 		return false;
 	}
 	i++;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	#endif
 	current_struct.setIdentifier(tokens[i].value);
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) debugger->onStructParsing(&current_struct);
+	#endif
 	i++;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	#endif
 	if (tokens[i] == ":")
 	{
 		i++;
@@ -842,6 +910,9 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 		return false;
 	}
 	i++;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	#endif
 	while (tokens[i] != "}")
 	{
 		if (tokenIsValidTypeName(tokens[i].value))
@@ -893,13 +964,25 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 	{
 		type_names.erase(it);
 	}
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) debugger->popParseStack();
+	#endif
 	return true;
 }
 
 bool ProgramStructure::readEnumValue(std::vector<Token> tokens, int &i, EnumDefinition &current_enum, int &curent_index)
 {
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) {
+		debugger->onParseOperation("parsing enum value");
+	}
+	#endif
+
 	std::string identifier = tokens[i].value;
 	i++;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	#endif
 	if (tokens[i] == "=")
 	{
 		i++;
@@ -939,19 +1022,37 @@ bool ProgramStructure::readEnumValue(std::vector<Token> tokens, int &i, EnumDefi
 
 	current_enum.add_value(identifier, curent_index);
 	curent_index++;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) debugger->popParseStack();
+	#endif
 	return true;
 }
 
 bool ProgramStructure::readEnum(std::vector<Token> tokens, int &i, EnumDefinition &current_enum)
 {
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) {
+		debugger->onParseOperation("reading enum definition");
+	}
+	#endif
+
 	if (tokens[i] != "enum")
 	{
 		reportError("Expected 'enum' keyword", tokens[i]);
 		return false;
 	}
 	i++;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	#endif
 	current_enum.identifier = tokens[i].value;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) debugger->onEnumParsing(&current_enum);
+	#endif
 	i++;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	#endif
 	if (tokens[i] == ":")
 	{
 		i++;
@@ -1022,11 +1123,20 @@ bool ProgramStructure::readEnum(std::vector<Token> tokens, int &i, EnumDefinitio
 			return false;
 		}
 	}
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) debugger->popParseStack();
+	#endif
 	return true;
 }
 
 bool ProgramStructure::readConfig(std::vector<Token> tokens, int &i)
 {
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) {
+		debugger->onParseOperation("reading config");
+	}
+	#endif
+
 	// This function is a placeholder for future configuration parsing
 	// Currently, it does nothing and just returns true
 	if (tokens[i] != "config")
@@ -1041,16 +1151,29 @@ bool ProgramStructure::readConfig(std::vector<Token> tokens, int &i)
 		return false;
 	}
 	i++;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	#endif
 	while (tokens[i] != "}")
 	{
 		i++;
 	}
 	i++;
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) debugger->popParseStack();
+	#endif
 	return true;
 }
 
 bool ProgramStructure::validate(bool is_root)
 {
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) {
+		debugger->onValidation();
+		debugger->onParseOperation("validating schema");
+	}
+	#endif
+
 	for (auto &s : structs)
 	{
 		for (auto &mv : s.getMemberVariables())
@@ -1401,6 +1524,13 @@ bool ProgramStructure::parseTypeNames(std::vector<Token> tokens)
 
 bool ProgramStructure::readFile(std::string file_path, bool is_root)
 {
+	// Notify debugger about file load
+	#ifdef SCHEMALANG_DEBUG
+	if (debugger) {
+		debugger->onFileLoaded(file_path);
+	}
+	#endif
+	
 	if (std::find(already_included_files.begin(), already_included_files.end(), file_path) != already_included_files.end())
 	{
 		return true;
@@ -1457,6 +1587,12 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 	{
 		// Update current parsing position
 		current_position = tokens[i].position;
+
+		#ifdef SCHEMALANG_DEBUG
+		if (debugger) {
+			debugger->onTokenParsed(tokens[i]);
+		}
+		#endif
 
 		std::string token = tokens[i].value;
 
@@ -1562,8 +1698,20 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 
 		if (token == "struct")
 		{
+			#ifdef SCHEMALANG_DEBUG
+			if (debugger) {
+				debugger->onParseOperation("parsing struct");
+			}
+			#endif
+			
 			if (readStruct(tokens, i, current_struct))
 			{
+				#ifdef SCHEMALANG_DEBUG
+				if (debugger) {
+					debugger->onStructParsing(&current_struct);
+				}
+				#endif
+				
 				auto it = std::find_if(structs.begin(), structs.end(), [&](const StructDefinition &s)
 									   { return s.getIdentifier() == current_struct.getIdentifier(); });
 				if (it != structs.end())
@@ -1586,8 +1734,20 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 
 		if (token == "enum")
 		{
+			#ifdef SCHEMALANG_DEBUG
+			if (debugger) {
+				debugger->onParseOperation("parsing enum");
+			}
+			#endif
+			
 			if (readEnum(tokens, i, current_enum))
 			{
+				#ifdef SCHEMALANG_DEBUG
+				if (debugger) {
+					debugger->onEnumParsing(&current_enum);
+				}
+				#endif
+				
 				int count = current_enum.values.size();
 				current_enum.add_value("Unknown", -1);
 				current_enum.add_value("Count", count);

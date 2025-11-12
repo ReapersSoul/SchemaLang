@@ -1,0 +1,70 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "x64-linux",
+            "displayName": "Configure (x64-linux)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "/home/trevor/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "VCPKG_MANIFEST_MODE": "ON",
+                "VCPKG_TARGET_TRIPLET": "x64-linux",
+                "VCPKG_HOST_TRIPLET": "x64-linux",
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++"
+            }
+        },
+        {
+            "name": "x64-linux-debug",
+            "displayName": "Configure Debug (x64-linux)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-debug",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "/home/trevor/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "VCPKG_MANIFEST_MODE": "ON",
+                "VCPKG_TARGET_TRIPLET": "x64-linux",
+                "VCPKG_HOST_TRIPLET": "x64-linux",
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "build-all",
+            "displayName": "Build All Targets",
+            "configurePreset": "x64-linux"
+        },
+        {
+            "name": "build-transpiler",
+            "displayName": "Build SchemaLang Transpiler",
+            "configurePreset": "x64-linux",
+            "targets": ["SchemaLangTranspiler"]
+        },
+        {
+            "name": "build-debugger",
+            "displayName": "Build SchemaLang Debugger",
+            "configurePreset": "x64-linux",
+            "targets": ["SchemaLangDebugger"]
+        },
+        {
+            "name": "build-all-debug",
+            "displayName": "Build All Targets (Debug)",
+            "configurePreset": "x64-linux-debug"
+        },
+        {
+            "name": "build-transpiler-debug",
+            "displayName": "Build SchemaLang Transpiler (Debug)",
+            "configurePreset": "x64-linux-debug",
+            "targets": ["SchemaLangTranspiler"]
+        },
+        {
+            "name": "build-debugger-debug",
+            "displayName": "Build SchemaLang Debugger (Debug)",
+            "configurePreset": "x64-linux-debug",
+            "targets": ["SchemaLangDebugger"]
+        }
+    ]
+}

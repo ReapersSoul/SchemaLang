@@ -58,21 +58,21 @@ inja::Environment Generator::getEnv(Generator *gen, ProgramStructure *ps){
 bool Generator::generate_additional_files(Generator *gen, ProgramStructure *ps, std::string out_path)
 {
 	std::string base_path = "/" + name + "/" + gen->name + "/";
-	if (!existsEmbeddedResourcesEmbeddedFile(base_path.c_str()))
+	if (!existsSchemaLangShared_ResourcesEmbeddedFile(base_path.c_str()))
 	{
 		return false;
 	}
 	inja::Environment env = getEnv(gen, ps);
 	// open file
 	std::string path = base_path + "Files/";
-	std::vector<std::string> files = listEmbeddedResourcesEmbeddedFiles(path.c_str());
+	std::vector<std::string> files = listSchemaLangShared_ResourcesEmbeddedFiles(path.c_str());
 	inja::json data = ps->to_json(gen);
 
 	for (auto &file : files)
 	{
 		try
 		{
-			std::vector<uint8_t> fileData = loadEmbeddedResourcesEmbeddedFile((path + file).c_str());
+			std::vector<uint8_t> fileData = loadSchemaLangShared_ResourcesEmbeddedFile((path + file).c_str());
 			std::string content(reinterpret_cast<const char *>(fileData.data()), fileData.size());
 			content = env.render(content, data);
 			std::ofstream of(out_path + "/" + file);
