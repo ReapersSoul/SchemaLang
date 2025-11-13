@@ -748,6 +748,243 @@ This drop-in system makes SchemaLang particularly powerful for full-stack develo
 
 This comprehensive syntax enables you to define complex data structures with built-in validation, relationships, and documentation, making it ideal for generating database schemas, API specifications, or data validation code across multiple platforms and languages. The advanced generator drop-in system further enhances productivity by creating unified classes that combine database operations, serialization, and validation in a single, type-safe interface.
 
+## Debugging Support
+
+SchemaLang provides comprehensive debugging capabilities through both a command-line debugger and a VS Code extension with full Debug Adapter Protocol (DAP) support.
+
+### CLI Debugger
+
+The SchemaLang CLI debugger (`SchemaLangDebugger`) is an interactive command-line tool that allows you to step through schema parsing, inspect tokens, set breakpoints, and examine the parse state.
+
+#### Running the CLI Debugger
+
+```bash
+# Start debugger with a schema file
+./SchemaLangDebugger schema_file.schema
+
+# Or start the debugger and load a file interactively
+./SchemaLangDebugger
+(sldb) run schema_file.schema
+```
+
+#### Debugger Features
+
+**Breakpoint Support:**
+- **Line breakpoints**: Break at specific lines in schema files
+- **Token breakpoints**: Break when specific tokens are parsed (e.g., `struct`, `enum`)
+- **Struct/Enum breakpoints**: Break when parsing specific struct or enum definitions
+- **File load breakpoints**: Break when a specific file is loaded
+- **Validation breakpoints**: Break during validation phase
+- **Conditional breakpoints**: Set conditions on breakpoints
+- **Hit count**: Track and control breakpoint hit counts
+
+**Stepping Controls:**
+- `step` (s) - Step to next token
+- `next` (n) - Step to next line
+- `parse` (p) - Step to next parse operation
+- `continue` (c) - Continue execution until next breakpoint
+
+**Inspection Commands:**
+- `list [lines]` (l) - Show source code context around current position
+- `tokens [count]` - Display tokens around current token
+- `print <expression>` - Evaluate and print expressions
+- `context` - Show complete current debugging context
+- `where` / `backtrace` (bt) - Display parse stack
+- `info breakpoints` - List all breakpoints
+- `info structs` - Show defined structs
+- `info enums` - Show defined enums
+
+**Watchpoints:**
+- Monitor expressions and break when values change
+- `watch <expression>` - Set a watchpoint on an expression
+- Track changes to parser state, token values, or other debug variables
+
+**Command History:**
+- Arrow key navigation through command history (Up/Down)
+- `history [count]` - Display command history
+- `!<number>` - Recall specific command by history number
+- `!!` - Repeat last command
+
+**Settings:**
+- `set verbose on|off` - Enable verbose output for detailed debugging
+- `set trace on|off` - Enable trace mode to see all parsing operations
+
+#### Example Debugging Session
+
+```bash
+$ ./SchemaLangDebugger example.schema
+SchemaLang Debugger v1.0
+Type 'help' for a list of commands
+Use arrow keys to navigate command history
+
+Loaded file: example.schema
+File loaded. Use 'continue', 'step', or 'next' to begin parsing.
+Use 'break' to set breakpoints before starting.
+
+(sldb) break struct Character
+Breakpoint 1 set.
+
+(sldb) break line 42
+Breakpoint 2 set.
+
+(sldb) continue
+
+Breakpoint 1 hit at example.schema:15
+
+Parsing: parsing struct: Character
+=== Current Context ===
+File: example.schema
+Line: 15, Column: 1
+Token Index: 47 / 200
+Operation: parsing struct: Character
+Parse Stack Depth: 2
+======================
+
+(sldb) list 5
+   10 | 
+   11 | enum CharacterClass {
+   12 |     Warrior, Mage, Rogue
+   13 | }
+   14 | 
+=> 15 | struct Character {
+   16 |     int64: id: primary_key: required: unique: auto_increment: description("Character ID");
+   17 |     string: name: required: description("Character name");
+   18 |     CharacterClass: class: required: description("Character class");
+   19 | }
+   20 | 
+
+(sldb) next
+   15 | struct Character {
+=> 16 |     int64: id: primary_key: required: unique: auto_increment: description("Character ID");
+   17 |     string: name: required: description("Character name");
+
+(sldb) print token
+token = 'id'
+
+(sldb) where
+Parse stack:
+  #1 parsing struct: Character
+  #0 parsing member: id
+```
+
+### VS Code Debugging Extension
+
+The SchemaLang VS Code extension provides a full-featured debugging experience with graphical breakpoints, variable inspection, and integrated debugging controls.
+
+#### Installing the Extension
+
+The SchemaLang extension is located in the `lsp-schema-lang` directory and provides:
+- Syntax highlighting for `.schema` and `.schemalang` files
+- Language server with autocompletion and diagnostics
+- Integrated debugging support
+
+To install the extension for development:
+
+```bash
+cd lsp-schema-lang
+npm install
+npm run compile
+# Press F5 in VS Code to launch Extension Development Host
+```
+
+#### Features
+
+**Debugging Capabilities:**
+- Visual breakpoints (click in gutter to set/remove)
+- Step controls (Step In, Step Over, Step Out, Continue)
+- Variables view showing:
+  - Current file, line, column
+  - Current token and token index
+  - Parse stack with frame navigation
+- Watch expressions for monitoring parser state
+- Hover evaluation of debug expressions
+- Call stack showing parse operation hierarchy
+
+**Language Features:**
+- Semantic token highlighting for structs, enums, types, modifiers
+- Autocomplete for SchemaLang keywords and types
+- Diagnostics and error reporting
+- Code navigation and symbol search
+
+#### Using the VS Code Debugger
+
+1. **Open a schema file** in VS Code (`.schema` or `.schemalang`)
+
+2. **Set breakpoints** by clicking in the left gutter next to line numbers
+
+3. **Start debugging** with F5 or through the Debug view:
+   - Select "Debug SchemaLang File" from the debug configuration dropdown
+   - The debugger will automatically use the currently open file
+
+4. **Use debug controls**:
+   - **Continue** (F5) - Resume execution
+   - **Step Over** (F10) - Step to next line
+   - **Step Into** (F11) - Step to next token
+   - **Step Out** (Shift+F11) - Step to next parse operation
+   - **Pause** - Interrupt execution
+
+5. **Inspect state** in the Debug view:
+   - **Variables** panel shows current context and parse stack
+   - **Watch** panel for monitoring expressions
+   - **Call Stack** shows parse operation hierarchy
+   - Hover over variables in the editor for quick evaluation
+
+#### Debug Configuration
+
+The extension automatically provides a debug configuration. You can customize it in `.vscode/launch.json`:
+
+```json
+{
+    "type": "schemalang",
+    "request": "launch",
+    "name": "Debug SchemaLang File",
+    "program": "${file}",
+    "stopOnEntry": true
+}
+```
+
+**Configuration Options:**
+- `program`: Path to the schema file (use `${file}` for current file)
+- `stopOnEntry`: Whether to pause immediately on start (default: true)
+- `trace`: Enable Debug Adapter Protocol logging (default: false)
+
+#### Requirements
+
+The VS Code extension requires the `SchemaLangDebugger` executable to be built and available in one of these locations:
+- `${workspaceRoot}/bin/SchemaLangDebugger`
+- `${workspaceRoot}/../bin/SchemaLangDebugger`
+- `${workspaceRoot}/SchemaLang/bin/SchemaLangDebugger`
+
+Build the debugger with:
+
+```bash
+cd SchemaLang
+cmake --preset default
+cmake --build --preset default
+```
+
+### Debugging Use Cases
+
+**Schema Development:**
+- Understand how schemas are parsed
+- Identify parsing issues and ambiguities
+- Verify token recognition and structure
+
+**Learning SchemaLang:**
+- Step through parsing to understand language semantics
+- Observe how different constructs are processed
+- Learn the relationship between syntax and internal representation
+
+**Troubleshooting:**
+- Debug parsing errors with full context
+- Examine token streams for unexpected input
+- Track down issues in complex schemas with includes
+
+**Generator Development:**
+- Monitor parse state while developing generators
+- Verify struct and enum definitions are parsed correctly
+- Test generator behavior at different parsing stages
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

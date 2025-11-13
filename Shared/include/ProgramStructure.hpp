@@ -3,45 +3,12 @@
 #include <Generator.hpp>
 #include <StructDefinition.hpp>
 #include <EnumDefinition.hpp>
-
-// Forward declare debugger to avoid circular dependency
-#ifdef SCHEMALANG_DEBUG
-class SchemaLangDebugger;
-#endif
-
-struct SourcePosition
-{
-	std::string file_path;
-	int line;
-	int column;
-	
-	SourcePosition() : line(1), column(1) {}
-	SourcePosition(const std::string& file, int l, int c) : file_path(file), line(l), column(c) {}
-};
-
-struct Token
-{
-	std::string value;
-	SourcePosition position;
-	
-	Token() {}
-	Token(const std::string& val, const SourcePosition& pos) : value(val), position(pos) {}
-	
-	// Comparison operators for convenience
-	bool operator==(const std::string& str) const { return value == str; }
-	bool operator!=(const std::string& str) const { return value != str; }
-	bool operator==(const char* str) const { return value == str; }
-	bool operator!=(const char* str) const { return value != str; }
-	
-	// Implicit conversion to string for compatibility
-	operator const std::string&() const { return value; }
-};
+#include <Debug.hpp>
+#include <DebugServer.hpp>
 
 struct ProgramStructure
-{	
-#ifdef SCHEMALANG_DEBUG
-	SchemaLangDebugger* debugger = nullptr; // Pointer to debugger instance
-#endif
+{
+	std::shared_ptr<DebugServer> debug_server;
 
 	// Current parsing context
 	std::vector<std::string> already_included_files;

@@ -33,8 +33,12 @@ int main(int argc, char *argv[])
 	std::filesystem::path additionalGeneratorsDirectory;
 	bool EnableExponentialOperations = false;
 	bool recursive = false;
+	bool startDebugger = false;
+	unsigned short port = 8902;
 
+	std::shared_ptr<DebugServer> dbServer= std::make_shared<DebugServer>(port);
 	ProgramStructure ps;
+	ps.debug_server = dbServer;
 	std::vector<Generator*> dynamicGenerators;
 	std::vector<std::string> dynamicGeneratorNames;
 
@@ -67,6 +71,28 @@ int main(int argc, char *argv[])
 						exit(0);
 					});
 	ap.addFlag(&versionFlag);
+
+	Parameter portParameter("port", false, [&](std::string value)
+		{
+			try
+			{
+				dbServer.set_port(static_cast<unsigned short>(std::stoul(value)));
+			}
+			catch (const std::exception& e)
+			{
+				std::cout << "Invalid port number: " << value << std::endl;
+				exit(1);
+			}
+		},-3);
+	ap.addParameter(&portParameter);
+
+	Flag debuggerFlag("debugger", false, [&]()
+					  { 
+						startDebugger = true; 
+						dbServer.start();
+						dbServer.accept();
+					  },-2);
+	ap.addFlag(&debuggerFlag);
 
 	Parameter additionalGeneratorsParameter("additionalGenerators", false, [&](std::string value)
 		{
