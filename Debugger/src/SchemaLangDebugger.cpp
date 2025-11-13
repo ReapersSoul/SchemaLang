@@ -10,28 +10,57 @@
 
 // Terminal handling for arrow keys
 static struct termios orig_termios;
+static bool raw_mode_enabled = false;
 
 static void disableRawMode() {
+    if (!raw_mode_enabled) {
+        return;
+    }
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+    raw_mode_enabled = false;
 }
 
-static void enableRawMode() {
-    tcgetattr(STDIN_FILENO, &orig_termios);
+static bool enableRawMode() {
+    if (raw_mode_enabled) {
+        return true;
+    }
+
+    if (!isatty(STDIN_FILENO)) {
+        return false;
+    }
+
+    if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) {
+        return false;
+    }
+
     atexit(disableRawMode);
-    
+
     struct termios raw = orig_termios;
     raw.c_lflag &= ~(ECHO | ICANON);
     raw.c_cc[VMIN] = 1;
     raw.c_cc[VTIME] = 0;
-    
-    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
+        return false;
+    }
+
+    raw_mode_enabled = true;
+    return true;
 }
 
 static std::string readLineWithHistory(const std::string& prompt, std::vector<std::string>& history, int& history_index) {
     std::cout << prompt << std::flush;
-    
-    enableRawMode();
-    
+
+    const bool rawEnabled = enableRawMode();
+    if (!rawEnabled) {
+        std::string line;
+        if (!std::getline(std::cin, line)) {
+            return "";
+        }
+        history_index = -1;
+        return line;
+    }
+
     std::string line;
     std::string temp_line;  // Store current line when browsing history
     int cursor_pos = 0;
@@ -135,12 +164,16 @@ static std::string readLineWithHistory(const std::string& prompt, std::vector<st
             }
         } else if (c == '\n' || c == '\r') {  // Enter
             std::cout << std::endl;
-            disableRawMode();
+            if (rawEnabled) {
+                disableRawMode();
+            }
             history_index = -1;  // Reset history browsing
             return line;
         } else if (c == 4) {  // Ctrl-D (EOF)
             std::cout << std::endl;
-            disableRawMode();
+            if (rawEnabled) {
+                disableRawMode();
+            }
             return "";
         } else if (c >= 32 && c < 127) {  // Printable characters
             line.insert(cursor_pos, 1, c);
@@ -155,7 +188,9 @@ static std::string readLineWithHistory(const std::string& prompt, std::vector<st
         }
     }
     
-    disableRawMode();
+    if (rawEnabled) {
+        disableRawMode();
+    }
     return line;
 }
 
@@ -172,6 +207,7 @@ SchemaLangDebugger::SchemaLangDebugger(ProgramStructure* ps)
     , verbose_mode(false)
     , trace_mode(false)
 {
+    ps->debugger = this;
 }
 
 SchemaLangDebugger::~SchemaLangDebugger() {
@@ -233,6 +269,15 @@ void SchemaLangDebugger::run() {
 
 void SchemaLangDebugger::start(const std::string& schema_file) {
     std::cout << "Loading schema file: " << schema_file << std::endl;
+    
+    // Validate that the file exists
+    std::ifstream file_check(schema_file);
+    if (!file_check.is_open()) {
+        std::cout << "Error: File does not exist or cannot be opened: " << schema_file << std::endl;
+        return;
+    }
+    file_check.close();
+    
     is_running = false;  // Don't run automatically - wait for user command
     step_mode = StepMode::CONTINUE;  // Start in continue mode, not stepping
     parsing_started = false;
@@ -263,6 +308,14 @@ int SchemaLangDebugger::addBreakpoint(BreakpointType type, const std::string& lo
             if (colon != std::string::npos) {
                 bp.file_path = location.substr(0, colon);
                 bp.line_number = std::stoi(location.substr(colon + 1));
+                
+                // Validate file exists
+                std::ifstream file_check(bp.file_path);
+                if (!file_check.is_open()) {
+                    std::cout << "Error: File does not exist: " << bp.file_path << std::endl;
+                    return -1;
+                }
+                file_check.close();
             } else {
                 bp.file_path = context.current_file;
                 bp.line_number = std::stoi(location);
@@ -280,6 +333,15 @@ int SchemaLangDebugger::addBreakpoint(BreakpointType type, const std::string& lo
             break;
         case BreakpointType::FILE_LOAD:
             bp.file_path = location;
+            // Validate file exists
+            {
+                std::ifstream file_check(bp.file_path);
+                if (!file_check.is_open()) {
+                    std::cout << "Error: File does not exist: " << bp.file_path << std::endl;
+                    return -1;
+                }
+                file_check.close();
+            }
             break;
         default:
             break;
@@ -866,6 +928,10 @@ void SchemaLangDebugger::onError(const std::string& message, const SourcePositio
     
     std::cout << "\nEntering debugger..." << std::endl;
     waitForUser();
+}
+
+void SchemaLangDebugger::endParseOperation() {
+    popParseStack();
 }
 
 bool SchemaLangDebugger::processCommand(const std::string& cmd) {

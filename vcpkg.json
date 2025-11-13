@@ -4,6 +4,7 @@
 		"boost-dll",
 		"physfs",
 		"zstd",
-		"inja"
+		"inja",
+		"gtest"
 	]
 }

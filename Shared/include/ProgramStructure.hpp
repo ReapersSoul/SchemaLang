@@ -5,7 +5,9 @@
 #include <EnumDefinition.hpp>
 
 // Forward declare debugger to avoid circular dependency
+#ifdef SCHEMALANG_DEBUG
 class SchemaLangDebugger;
+#endif
 
 struct SourcePosition
 {
@@ -36,10 +38,11 @@ struct Token
 };
 
 struct ProgramStructure
-{
-	// Debugger support
-	SchemaLangDebugger* debugger = nullptr;
-	
+{	
+#ifdef SCHEMALANG_DEBUG
+	SchemaLangDebugger* debugger = nullptr; // Pointer to debugger instance
+#endif
+
 	// Current parsing context
 	std::vector<std::string> already_included_files;
 	std::string current_file;

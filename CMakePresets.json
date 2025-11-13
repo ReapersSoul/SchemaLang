@@ -12,7 +12,8 @@
                 "VCPKG_TARGET_TRIPLET": "x64-linux",
                 "VCPKG_HOST_TRIPLET": "x64-linux",
                 "CMAKE_C_COMPILER": "gcc",
-                "CMAKE_CXX_COMPILER": "g++"
+                "CMAKE_CXX_COMPILER": "g++",
+                "SCHEMALANG_DEBUGGER_BUILD_TESTS": "ON"
             }
         },
         {
@@ -27,7 +28,8 @@
                 "VCPKG_HOST_TRIPLET": "x64-linux",
                 "CMAKE_C_COMPILER": "gcc",
                 "CMAKE_CXX_COMPILER": "g++",
-                "CMAKE_BUILD_TYPE": "Debug"
+                "CMAKE_BUILD_TYPE": "Debug",
+                "SCHEMALANG_DEBUGGER_BUILD_TESTS": "ON"
             }
         }
     ],
@@ -65,6 +67,24 @@
             "displayName": "Build SchemaLang Debugger (Debug)",
             "configurePreset": "x64-linux-debug",
             "targets": ["SchemaLangDebugger"]
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "test-all",
+            "displayName": "Run All Tests",
+            "configurePreset": "x64-linux",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "test-all-debug",
+            "displayName": "Run All Tests (Debug)",
+            "configurePreset": "x64-linux-debug",
+            "output": {
+                "outputOnFailure": true
+            }
         }
     ]
 }

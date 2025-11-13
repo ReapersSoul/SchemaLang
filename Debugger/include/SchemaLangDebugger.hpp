@@ -1,4 +1,5 @@
 #pragma once
+#define SCHEMALANG_DEBUG
 #include <string>
 #include <vector>
 #include <map>
@@ -158,6 +159,7 @@ public:
     void onFileLoaded(const std::string& file_path);
     void onValidation();
     void onError(const std::string& message, const SourcePosition& pos);
+    void endParseOperation();
     
     // Command processing
     bool processCommand(const std::string& cmd);
@@ -185,14 +187,4 @@ private:
 #define DEBUG_HOOK_FILE(debugger, file) if(debugger) debugger->onFileLoaded(file)
 #define DEBUG_HOOK_VALIDATION(debugger) if(debugger) debugger->onValidation()
 #define DEBUG_HOOK_ERROR(debugger, msg, pos) if(debugger) debugger->onError(msg, pos)
-#else
-#define DEBUG_HOOK_TOKEN(debugger, token)
-#define DEBUG_HOOK_LINE(debugger, pos)
-#define DEBUG_HOOK_PARSE(debugger, op)
-#define DEBUG_HOOK_STRUCT(debugger, s)
-#define DEBUG_HOOK_ENUM(debugger, e)
-#define DEBUG_HOOK_MEMBER(debugger, m)
-#define DEBUG_HOOK_FILE(debugger, file)
-#define DEBUG_HOOK_VALIDATION(debugger)
-#define DEBUG_HOOK_ERROR(debugger, msg, pos)
 #endif

@@ -6,6 +6,7 @@ project(SchemaLang)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+
 # Set policy CMP0003 to avoid warnings about library search paths
 if(COMMAND cmake_policy)
     cmake_policy(SET CMP0003 NEW)
@@ -34,6 +35,13 @@ endif()
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
+
+# Enable debugger hooks when necessary (tests require them)
+set(_schemalang_debug_enabled OFF)
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    set(_schemalang_debug_enabled ON)
+endif()
+set(SCHEMALANG_DEBUG_ENABLED ${_schemalang_debug_enabled} CACHE BOOL "Enable SchemaLang debug hooks" FORCE)
 
 add_subdirectory(Shared)
 add_subdirectory(Transpiler)

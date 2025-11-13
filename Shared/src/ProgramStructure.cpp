@@ -5,7 +5,7 @@
 
 // Include debugger for hooks
 #ifdef SCHEMALANG_DEBUG
-#include "SchemaLangDebugger.hpp"
+#include <SchemaLangDebugger.hpp>
 #endif
 
 bool ProgramStructure::isInt(std::string str)
@@ -492,7 +492,7 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 
 	version_specified = true;
 	#ifdef SCHEMALANG_DEBUG
-	if (debugger) debugger->popParseStack();
+	if (debugger) debugger->endParseOperation();
 	#endif
 	return true;
 }
@@ -823,7 +823,7 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 		return false;
 	}
 	#ifdef SCHEMALANG_DEBUG
-	if (debugger) debugger->popParseStack();
+	if (debugger) debugger->endParseOperation();
 	#endif
 	return true;
 }
@@ -965,7 +965,7 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 		type_names.erase(it);
 	}
 	#ifdef SCHEMALANG_DEBUG
-	if (debugger) debugger->popParseStack();
+	if (debugger) debugger->endParseOperation();
 	#endif
 	return true;
 }
@@ -1023,7 +1023,7 @@ bool ProgramStructure::readEnumValue(std::vector<Token> tokens, int &i, EnumDefi
 	current_enum.add_value(identifier, curent_index);
 	curent_index++;
 	#ifdef SCHEMALANG_DEBUG
-	if (debugger) debugger->popParseStack();
+	if (debugger) debugger->endParseOperation();
 	#endif
 	return true;
 }
@@ -1124,7 +1124,7 @@ bool ProgramStructure::readEnum(std::vector<Token> tokens, int &i, EnumDefinitio
 		}
 	}
 	#ifdef SCHEMALANG_DEBUG
-	if (debugger) debugger->popParseStack();
+	if (debugger) debugger->endParseOperation();
 	#endif
 	return true;
 }
@@ -1160,7 +1160,7 @@ bool ProgramStructure::readConfig(std::vector<Token> tokens, int &i)
 	}
 	i++;
 	#ifdef SCHEMALANG_DEBUG
-	if (debugger) debugger->popParseStack();
+	if (debugger) debugger->endParseOperation();
 	#endif
 	return true;
 }
