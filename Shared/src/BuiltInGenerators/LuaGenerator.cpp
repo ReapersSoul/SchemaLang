@@ -11,7 +11,7 @@
 // 	lua_push.identifier = "lua_push";
 // 	lua_push.return_type.identifier() = "void";
 // 	lua_push.parameters.push_back(std::make_pair(TypeDefinition("lua_State*"), "L"));
-// 	lua_push.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+// 	lua_push.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 // 	{
 // 		structFile << "\t// Push this object to Lua stack as a table\n";
 // 		structFile << "\tlua_newtable(L);\n";
@@ -102,7 +102,7 @@
 // 	lua_to.return_type.identifier() = "void";
 // 	lua_to.parameters.push_back(std::make_pair(TypeDefinition("lua_State*"), "L"));
 // 	lua_to.parameters.push_back(std::make_pair(TypeDefinition("int"), "index"));
-// 	lua_to.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+// 	lua_to.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 // 	{
 // 		structFile << "\t// Convert from Lua table at given index to this object\n";
 // 		structFile << "\tif (!lua_istable(L, index)) {\n";
@@ -225,7 +225,7 @@
 // 	lua_create_table.static_function = true;
 // 	lua_create_table.parameters.push_back(std::make_pair(TypeDefinition("lua_State*"), "L"));
 // 	lua_create_table.parameters.push_back(std::make_pair(TypeDefinition("const std::string&"), "schema_name"));
-// 	lua_create_table.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+// 	lua_create_table.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 // 	{
 // 		structFile << "\t// Create a Lua table constructor for this schema\n";
 // 		structFile << "\tstd::string lua_code = \"local \" + schema_name + \" = {}\\n\";\n";
@@ -293,7 +293,7 @@
 // 	return std::string(level * 2, ' ');
 // }
 
-// std::string LuaGenerator::get_lua_default_value(ProgramStructure *ps, TypeDefinition type)
+// std::string LuaGenerator::get_lua_default_value(std::shared_ptr<ProgramStructure>ps, TypeDefinition type)
 // {
 // 	if (type.is_bool())
 // 	{
@@ -345,7 +345,7 @@
 // 	return escaped;
 // }
 
-// std::string LuaGenerator::lua_type_comment(ProgramStructure *ps, TypeDefinition type)
+// std::string LuaGenerator::lua_type_comment(std::shared_ptr<ProgramStructure>ps, TypeDefinition type)
 // {
 // 	if (type.is_bool())
 // 	{
@@ -423,7 +423,7 @@
 // 	return lua_code;
 // }
 
-// void LuaGenerator::generate_lua_field(ProgramStructure *ps, MemberVariableDefinition &mv, std::ofstream &luaFile, int indent)
+// void LuaGenerator::generate_lua_field(std::shared_ptr<ProgramStructure>ps, MemberVariableDefinition &mv, std::ofstream &luaFile, int indent)
 // {
 // 	std::string ind = indent_string(indent);
 // 	luaFile << ind << mv.identifier << " = " << get_lua_default_value(ps, mv.type) << ", -- " << lua_type_comment(ps, mv.type);
@@ -436,7 +436,7 @@
 // 	luaFile << "\n";
 // }
 
-// void LuaGenerator::generate_lua_constructor(ProgramStructure *ps, StructDefinition &s, std::ofstream &luaFile)
+// void LuaGenerator::generate_lua_constructor(std::shared_ptr<ProgramStructure>ps, StructDefinition &s, std::ofstream &luaFile)
 // {
 // 	luaFile << "function " << s.getIdentifier() << ".new(data)\n";
 // 	luaFile << "  local instance = {\n";
@@ -471,7 +471,7 @@
 // 	luaFile << "end\n\n";
 // }
 
-// void LuaGenerator::generate_lua_tostring(ProgramStructure *ps, StructDefinition &s, std::ofstream &luaFile)
+// void LuaGenerator::generate_lua_tostring(std::shared_ptr<ProgramStructure>ps, StructDefinition &s, std::ofstream &luaFile)
 // {
 // 	luaFile << "function " << s.getIdentifier() << ":__tostring()\n";
 // 	luaFile << "  local result = \"" << s.getIdentifier() << " {\\n\"\n";
@@ -498,7 +498,7 @@
 // 	luaFile << "end\n\n";
 // }
 
-// void LuaGenerator::generate_lua_validate(ProgramStructure *ps, StructDefinition &s, std::ofstream &luaFile)
+// void LuaGenerator::generate_lua_validate(std::shared_ptr<ProgramStructure>ps, StructDefinition &s, std::ofstream &luaFile)
 // {
 // 	luaFile << "function " << s.getIdentifier() << ":validate()\n";
 // 	luaFile << "  local errors = {}\n\n";
@@ -551,7 +551,7 @@
 // 	luaFile << "end\n\n";
 // }
 
-// std::string LuaGenerator::generate_lua_table_struct(ProgramStructure *ps, StructDefinition &s)
+// std::string LuaGenerator::generate_lua_table_struct(std::shared_ptr<ProgramStructure>ps, StructDefinition &s)
 // {
 // 	std::string lua_code = "-- Schema: " + s.getIdentifier() + "\n";
 // 	lua_code += "local " + s.getIdentifier() + " = {}\n";
@@ -560,7 +560,7 @@
 // 	return lua_code;
 // }
 
-// bool LuaGenerator::generate_struct_lua_file(ProgramStructure *ps, StructDefinition &s, std::string out_path, std::vector<StructDefinition> base_classes)
+// bool LuaGenerator::generate_struct_lua_file(std::shared_ptr<ProgramStructure>ps, StructDefinition &s, std::string out_path, std::vector<StructDefinition> base_classes)
 // {
 // 	std::ofstream luaFile(out_path + "/" + s.getIdentifier() + ".lua");
 // 	if (!luaFile.is_open())
@@ -700,7 +700,7 @@
 // 	return true;
 // }
 
-// void LuaGenerator::generate_generator_methods(ProgramStructure *ps, StructDefinition &s, std::vector<StructDefinition> &base_classes, std::ofstream &luaFile)
+// void LuaGenerator::generate_generator_methods(std::shared_ptr<ProgramStructure>ps, StructDefinition &s, std::vector<StructDefinition> &base_classes, std::ofstream &luaFile)
 // {
 // 	// Generate methods from other generators
 // 	for (auto &bc : base_classes)
@@ -1010,19 +1010,19 @@
 // 	}
 // }
 
-// bool LuaGenerator::add_generator(Generator *gen)
+// bool LuaGenerator::add_generator(std::shared_ptr<Generator>gen)
 // {
 // 	generators.push_back(gen);
 // 	return true;
 // }
 
-// std::string LuaGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefinition type)
+// std::string LuaGenerator::convert_to_local_type(std::shared_ptr<ProgramStructure>ps, TypeDefinition type)
 // {
 // 	// Lua is dynamically typed, so we return descriptive comments for documentation
 // 	return lua_type_comment(ps, type);
 // }
 
-// bool LuaGenerator::add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
+// bool LuaGenerator::add_generator_specific_content_to_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s)
 // {
 // 	// Lua generator doesn't add content to C++ structs
 // 	return true;

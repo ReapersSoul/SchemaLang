@@ -36,12 +36,12 @@ bool TypeDefinition::is_array()
 	return ident == ARRAY;
 }
 
-bool TypeDefinition::is_struct(ProgramStructure *ps)
+bool TypeDefinition::is_struct(std::shared_ptr<ProgramStructure>ps)
 {
 	return ps->tokenIsStruct(ident);
 }
 
-bool TypeDefinition::is_enum(ProgramStructure *ps)
+bool TypeDefinition::is_enum(std::shared_ptr<ProgramStructure>ps)
 {
 	return ps->tokenIsEnum(ident);
 }
@@ -233,12 +233,12 @@ bool TypeDefinition::is_char()
 	return ident == CHAR;
 }
 
-bool TypeDefinition::is_array_of_struct(ProgramStructure *ps)
+bool TypeDefinition::is_array_of_struct(std::shared_ptr<ProgramStructure>ps)
 {
 	return elem_type != nullptr && elem_type->is_struct(ps);
 }
 
-bool TypeDefinition::is_array_of_enum(ProgramStructure *ps)
+bool TypeDefinition::is_array_of_enum(std::shared_ptr<ProgramStructure>ps)
 {
 	return elem_type != nullptr && elem_type->is_enum(ps);
 }
@@ -292,7 +292,7 @@ TypeDefinition &TypeDefinition::element_type()
 	return *elem_type;
 }
 
-inja::json TypeDefinition::to_json(ProgramStructure*ps, Generator* generator)
+inja::json TypeDefinition::to_json(std::shared_ptr<ProgramStructure>ps, std::shared_ptr<Generator> generator)
 {
     inja::json j;
     j["identifier"] = ident;

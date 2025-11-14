@@ -4,11 +4,13 @@
 #include <StructDefinition.hpp>
 #include <EnumDefinition.hpp>
 #include <Debug.hpp>
-#include <DebugServer.hpp>
+#include <memory>
 
-struct ProgramStructure
+class session;
+
+struct ProgramStructure: std::enable_shared_from_this<ProgramStructure>
 {
-	std::shared_ptr<DebugServer> debug_server;
+	std::shared_ptr<session> debug_server;
 
 	// Current parsing context
 	std::vector<std::string> already_included_files;
@@ -59,7 +61,7 @@ struct ProgramStructure
 	std::vector<EnumDefinition> enums;
 	std::vector<std::string> type_names;
 
-	inja::json to_json(Generator* generator);
+	inja::json to_json(std::shared_ptr<Generator> generator);
 
 public:
 	bool tokenIsType(std::string token);
@@ -78,7 +80,7 @@ public:
 
     bool readFile(std::string file_path, bool is_root=true);
 
-	bool generate_files(Generator *gen, std::string out_path);
+	bool generate_files(std::shared_ptr<Generator>gen, std::string out_path);
 
 	std::vector<StructDefinition> &getStructs();
 

@@ -1,6 +1,6 @@
 #include "FunctionDefinition.hpp"
 
-inja::json FunctionDefinition::to_json(ProgramStructure* ps, Generator* generator)
+inja::json FunctionDefinition::to_json(std::shared_ptr<ProgramStructure> ps, std::shared_ptr<Generator> generator)
 {
     inja::json j;
     j["identifier"] = identifier;

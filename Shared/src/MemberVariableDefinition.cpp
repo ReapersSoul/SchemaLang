@@ -1,6 +1,6 @@
 #include "MemberVariableDefinition.hpp"
 
-inja::json MemberVariableDefinition::to_json(ProgramStructure* ps, Generator* generator)
+inja::json MemberVariableDefinition::to_json(std::shared_ptr<ProgramStructure> ps, std::shared_ptr<Generator> generator)
 {
     inja::json j;
     j["type"] = type.to_json(ps,generator);

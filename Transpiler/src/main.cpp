@@ -16,6 +16,8 @@
 // SchemaLang version info
 #include <SchemaLangVersion.hpp>
 
+#include <Networking/DebugServer.hpp>
+
 int main(int argc, char *argv[])
 {
 	if(!initSchemaLangShared_ResourcesEmbeddedVFS(argv[0])){
@@ -38,17 +40,16 @@ int main(int argc, char *argv[])
 
 	std::shared_ptr<DebugServer> dbServer= std::make_shared<DebugServer>(port);
 	ProgramStructure ps;
-	ps.debug_server = dbServer;
-	std::vector<Generator*> dynamicGenerators;
+	std::vector<std::shared_ptr<Generator>> dynamicGenerators;
 	std::vector<std::string> dynamicGeneratorNames;
 
-	JsonGenerator *jsonGenerator = new JsonGenerator();
-	SqliteGenerator *sqliteGenerator = new SqliteGenerator();
-	MysqlGenerator *mysqlGenerator = new MysqlGenerator();
-	//LuaGenerator *luaGenerator = new LuaGenerator();
-	//JavaGenerator *javaGenerator = new JavaGenerator();
+	std::shared_ptr<JsonGenerator> jsonGenerator = std::shared_ptr<JsonGenerator>();
+	std::shared_ptr<SqliteGenerator> sqliteGenerator = std::shared_ptr<SqliteGenerator>();
+	std::shared_ptr<MysqlGenerator> mysqlGenerator = std::shared_ptr<MysqlGenerator>();
+	//std::shared_ptr<LuaGenerator> luaGenerator = std::shared_ptr<LuaGenerator>();
+	//std::shared_ptr<JavaGenerator> javaGenerator = std::shared_ptr<JavaGenerator>();
 
-	CppGenerator *cppGenerator = new CppGenerator();
+	std::shared_ptr<CppGenerator> cppGenerator = std::shared_ptr<CppGenerator>();
 
 	// parse arguments
 	argumentParser ap;
@@ -76,7 +77,7 @@ int main(int argc, char *argv[])
 		{
 			try
 			{
-				dbServer.set_port(static_cast<unsigned short>(std::stoul(value)));
+				dbServer->setPort(static_cast<unsigned short>(std::stoul(value)));
 			}
 			catch (const std::exception& e)
 			{
@@ -87,10 +88,8 @@ int main(int argc, char *argv[])
 	ap.addParameter(&portParameter);
 
 	Flag debuggerFlag("debugger", false, [&]()
-					  { 
-						startDebugger = true; 
-						dbServer.start();
-						dbServer.accept();
+					  {
+						dbServer->start();
 					  },-2);
 	ap.addFlag(&debuggerFlag);
 
@@ -118,8 +117,8 @@ int main(int argc, char *argv[])
 							
 							if (lib.has("getGeneratorInstance"))
 							{
-								auto getGeneratorInstance = lib.get<Generator*()>("getGeneratorInstance");
-								Generator* generator = getGeneratorInstance();
+								auto getGeneratorInstance = lib.get<std::shared_ptr<Generator>()>("getGeneratorInstance");
+								std::shared_ptr<Generator> generator = getGeneratorInstance();
 								
 								if (generator != nullptr)
 								{
@@ -345,25 +344,25 @@ int main(int argc, char *argv[])
 	}
 
 	// Set up generator interactions
-	std::vector<Generator*> allGenerators = {jsonGenerator,/* luaGenerator,*/ sqliteGenerator, mysqlGenerator,/* javaGenerator,*/ cppGenerator};
+	std::vector<std::shared_ptr<Generator>> allGenerators = {jsonGenerator,/* luaGenerator,*/ sqliteGenerator, mysqlGenerator,/* javaGenerator,*/ cppGenerator};
 	
 	// Add dynamic generators to built-in generators
-	for (Generator* dynamicGen : dynamicGenerators)
+	for (std::shared_ptr<Generator> dynamicGen : dynamicGenerators)
 	{
 		cppGenerator->add_generator(dynamicGen);
 	}
 	
 	// Add all built-in generators and other dynamic generators to each dynamic generator
-	for (Generator* dynamicGen : dynamicGenerators)
+	for (std::shared_ptr<Generator> dynamicGen : dynamicGenerators)
 	{
 		// Add built-in generators
-		for (Generator* builtInGen : allGenerators)
+		for (std::shared_ptr<Generator> builtInGen : allGenerators)
 		{
 			dynamicGen->add_generator(builtInGen);
 		}
 		
 		// Add other dynamic generators
-		for (Generator* otherDynamicGen : dynamicGenerators)
+		for (std::shared_ptr<Generator> otherDynamicGen : dynamicGenerators)
 		{
 			if (otherDynamicGen != dynamicGen)
 			{

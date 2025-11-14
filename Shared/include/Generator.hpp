@@ -4,22 +4,22 @@
 #include <inja/inja.hpp>
 #include <SchemaLangShared_Resources/SchemaLangShared_ResourcesEmbeddedVFS.hpp>
 
-struct Generator
+struct Generator : std::enable_shared_from_this<Generator>
 {
-	std::vector<Generator *> generators;
+	std::vector<std::shared_ptr<Generator>> generators;
 	StructDefinition base_class;
 	std::string name;
 
 	virtual std::string format_include(std::string ident) = 0;
-	virtual std::string format_default(ProgramStructure *ps, TypeDefinition type, std::string value = "") = 0;
+	virtual std::string format_default(std::shared_ptr<ProgramStructure>ps, TypeDefinition type, std::string value = "") = 0;
 
-	virtual std::string convert_to_local_type(ProgramStructure *ps, TypeDefinition type) = 0;
+	virtual std::string convert_to_local_type(std::shared_ptr<ProgramStructure>ps, TypeDefinition type) = 0;
 
-	virtual bool add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s) = 0;
+	virtual bool add_generator_specific_content_to_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s) = 0;
 
-	virtual bool generate_files(ProgramStructure ps, std::string out_path) = 0;
+	virtual bool generate_files(std::shared_ptr<ProgramStructure> ps, std::string out_path) = 0;
 
-	virtual bool fetch_additions(ProgramStructure *ps, Generator *gen, Additions &additions, inja::json data)
+	virtual bool fetch_additions(std::shared_ptr<ProgramStructure>ps, std::shared_ptr<Generator>gen, Additions &additions, inja::json data)
 	{
 
 		std::string base_path = "/" + name + "/" + gen->name + "/";
@@ -111,11 +111,11 @@ struct Generator
 		return true;
 	}
 
-    inja::Environment getEnv(Generator *gen, ProgramStructure *ps);
+    inja::Environment getEnv(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps);
 
-    virtual bool generate_additional_files(Generator *gen, ProgramStructure *ps, std::string out_path);
+    virtual bool generate_additional_files(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, std::string out_path);
 
-    virtual bool add_generator(Generator *gen)
+    virtual bool add_generator(std::shared_ptr<Generator>gen)
 	{
 		return false;
 	}

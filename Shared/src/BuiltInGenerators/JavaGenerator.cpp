@@ -56,7 +56,7 @@
 //     enumFile.close();
 // }
 
-// void JavaGenerator::generate_struct_file(StructDefinition s, ProgramStructure *ps, std::string out_path, std::vector<StructDefinition> base_classes)
+// void JavaGenerator::generate_struct_file(StructDefinition s, std::shared_ptr<ProgramStructure>ps, std::string out_path, std::vector<StructDefinition> base_classes)
 // {
 //     std::ofstream structFile(out_path + "/" + s.getIdentifier() + ".java");
 //     if (!structFile.is_open())
@@ -161,7 +161,7 @@
 //     structFile.close();
 // }
 
-// void JavaGenerator::generate_member_variable_getter(MemberVariableDefinition &mv, ProgramStructure *ps, std::ofstream &structFile)
+// void JavaGenerator::generate_member_variable_getter(MemberVariableDefinition &mv, std::shared_ptr<ProgramStructure>ps, std::ofstream &structFile)
 // {
 //     std::string methodName = "get" + mv.identifier;
 //     methodName[3] = std::toupper(methodName[3]); // Capitalize first letter after "get"
@@ -171,7 +171,7 @@
 //     structFile << "    }\n\n";
 // }
 
-// void JavaGenerator::generate_member_variable_setter(MemberVariableDefinition &mv, ProgramStructure *ps, std::ofstream &structFile)
+// void JavaGenerator::generate_member_variable_setter(MemberVariableDefinition &mv, std::shared_ptr<ProgramStructure>ps, std::ofstream &structFile)
 // {
 //     std::string methodName = "set" + mv.identifier;
 //     methodName[3] = std::toupper(methodName[3]); // Capitalize first letter after "set"
@@ -181,7 +181,7 @@
 //     structFile << "    }\n\n";
 // }
 
-// void JavaGenerator::generate_constructor(StructDefinition &s, ProgramStructure *ps, std::ofstream &structFile)
+// void JavaGenerator::generate_constructor(StructDefinition &s, std::shared_ptr<ProgramStructure>ps, std::ofstream &structFile)
 // {
 //     structFile << "    public " << s.getIdentifier() << "(";
     
@@ -204,7 +204,7 @@
 //     structFile << "    }\n\n";
 // }
 
-// void JavaGenerator::generate_to_string_method(StructDefinition &s, ProgramStructure *ps, std::ofstream &structFile)
+// void JavaGenerator::generate_to_string_method(StructDefinition &s, std::shared_ptr<ProgramStructure>ps, std::ofstream &structFile)
 // {
 //     structFile << "    @Override\n";
 //     structFile << "    public String toString() {\n";
@@ -227,7 +227,7 @@
 //     structFile << "    }\n\n";
 // }
 
-// void JavaGenerator::generate_equals_method(StructDefinition &s, ProgramStructure *ps, std::ofstream &structFile)
+// void JavaGenerator::generate_equals_method(StructDefinition &s, std::shared_ptr<ProgramStructure>ps, std::ofstream &structFile)
 // {
 //     structFile << "    @Override\n";
 //     structFile << "    public boolean equals(Object obj) {\n";
@@ -258,7 +258,7 @@
 //     structFile << "    }\n\n";
 // }
 
-// void JavaGenerator::generate_hash_code_method(StructDefinition &s, ProgramStructure *ps, std::ofstream &structFile)
+// void JavaGenerator::generate_hash_code_method(StructDefinition &s, std::shared_ptr<ProgramStructure>ps, std::ofstream &structFile)
 // {
 //     structFile << "    @Override\n";
 //     structFile << "    public int hashCode() {\n";
@@ -277,7 +277,7 @@
 //     structFile << "    }\n\n";
 // }
 
-// void JavaGenerator::generate_generator_methods(StructDefinition &s, ProgramStructure *ps, std::vector<StructDefinition> &base_classes, std::ofstream &structFile)
+// void JavaGenerator::generate_generator_methods(StructDefinition &s, std::shared_ptr<ProgramStructure>ps, std::vector<StructDefinition> &base_classes, std::ofstream &structFile)
 // {
 //     // Generate methods from other generators
 //     for (auto &bc : base_classes)
@@ -398,13 +398,13 @@
 //     }
 // }
 
-// bool JavaGenerator::add_generator(Generator *gen)
+// bool JavaGenerator::add_generator(std::shared_ptr<Generator>gen)
 // {
 //     generators.push_back(gen);
 //     return true;
 // }
 
-// std::string JavaGenerator::get_java_type(TypeDefinition type, ProgramStructure *ps)
+// std::string JavaGenerator::get_java_type(TypeDefinition type, std::shared_ptr<ProgramStructure>ps)
 // {
 //     if (type.identifier() == INT8 || type.identifier() == INT16 || type.identifier() == INT32)
 //     {
@@ -462,7 +462,7 @@
 //     return type.identifier();
 // }
 
-// std::string JavaGenerator::get_java_default_value(TypeDefinition type, ProgramStructure *ps)
+// std::string JavaGenerator::get_java_default_value(TypeDefinition type, std::shared_ptr<ProgramStructure>ps)
 // {
 //     if (type.identifier() == INT8 || type.identifier() == INT16 || type.identifier() == INT32 ||
 //         type.identifier() == UINT8 || type.identifier() == UINT16 || type.identifier() == UINT32)
@@ -528,7 +528,7 @@
 //     validate.generator = "Java";
 //     validate.identifier = "validate";
 //     validate.return_type.identifier() = "boolean";
-//     validate.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+//     validate.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 //     {
 //         structFile << "        // Validate required fields\n";
 //         for (auto& [generator, mv] : s.getMemberVariables())
@@ -558,7 +558,7 @@
 //     clone.generator = "Java";
 //     clone.identifier = "clone";
 //     clone.return_type.identifier() = "Object";
-//     clone.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+//     clone.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 //     {
 //         structFile << "        " << s.getIdentifier() << " cloned = new " << s.getIdentifier() << "();\n";
 //         for (auto& [generator, mv] : s.getMemberVariables())
@@ -585,7 +585,7 @@
 //     toJson.generator = "Java";
 //     toJson.identifier = "toJson";
 //     toJson.return_type.identifier() = "String";
-//     toJson.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+//     toJson.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 //     {
 //         structFile << "        // Convert to JSON using Jackson ObjectMapper\n";
 //         structFile << "        try {\n";
@@ -603,7 +603,7 @@
 //     fromJson.return_type.identifier() = "Object"; // Will be corrected in generation
 //     fromJson.static_function = true;
 //     fromJson.parameters.push_back(std::make_pair(TypeDefinition("String"), "json"));
-//     fromJson.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+//     fromJson.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 //     {
 //         structFile << "        // Parse from JSON using Jackson ObjectMapper\n";
 //         structFile << "        try {\n";
@@ -621,7 +621,7 @@
 //     saveToDatabase.identifier = "saveToDatabase";
 //     saveToDatabase.return_type.identifier() = "void";
 //     saveToDatabase.parameters.push_back(std::make_pair(TypeDefinition("Connection"), "connection"));
-//     saveToDatabase.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+//     saveToDatabase.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 //     {
 //         structFile << "        // Save to database using JDBC\n";
 //         structFile << "        String sql = \"INSERT INTO " << s.getIdentifier() << " (";
@@ -669,7 +669,7 @@
 //     loadFromDatabase.static_function = true;
 //     loadFromDatabase.parameters.push_back(std::make_pair(TypeDefinition("Connection"), "connection"));
 //     loadFromDatabase.parameters.push_back(std::make_pair(TypeDefinition("Object"), "id"));
-//     loadFromDatabase.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+//     loadFromDatabase.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 //     {
 //         structFile << "        // Load from database using JDBC\n";
 //         structFile << "        String sql = \"SELECT * FROM " << s.getIdentifier() << " WHERE id = ?\";\n";
@@ -719,7 +719,7 @@
 //     toLuaTable.generator = "Java";
 //     toLuaTable.identifier = "toLuaTable";
 //     toLuaTable.return_type.identifier() = "String";
-//     toLuaTable.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+//     toLuaTable.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 //     {
 //         structFile << "        // Convert to Lua table format using LuaJ\n";
 //         structFile << "        StringBuilder lua = new StringBuilder();\n";
@@ -776,7 +776,7 @@
 //     fromLuaTable.return_type.identifier() = "Object"; // Will be corrected in generation
 //     fromLuaTable.static_function = true;
 //     fromLuaTable.parameters.push_back(std::make_pair(TypeDefinition("LuaValue"), "luaTable"));
-//     fromLuaTable.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+//     fromLuaTable.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 //     {
 //         structFile << "        // Parse from Lua table using LuaJ\n";
 //         structFile << "        if (!luaTable.istable()) {\n";
@@ -851,7 +851,7 @@
 //     to_cpp_object.return_type.identifier() = "jobject";
 //     to_cpp_object.parameters.push_back(std::make_pair(TypeDefinition("JNIEnv*"), "env"));
 //     to_cpp_object.parameters.push_back(std::make_pair(TypeDefinition("jclass"), "java_class"));
-//     to_cpp_object.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+//     to_cpp_object.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 //     {
 //         // Check if this is being generated for CppGenerator (C++ code) or JavaGenerator (Java code)
 //         std::string gen_type = gen->convert_to_local_type(ps, TypeDefinition("int"));
@@ -914,7 +914,7 @@
 //     from_cpp_object.return_type.identifier() = "void";
 //     from_cpp_object.parameters.push_back(std::make_pair(TypeDefinition("JNIEnv*"), "env"));
 //     from_cpp_object.parameters.push_back(std::make_pair(TypeDefinition("jobject"), "java_obj"));
-//     from_cpp_object.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+//     from_cpp_object.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 //     {
 //         // Check if this is being generated for CppGenerator (C++ code) or JavaGenerator (Java code)
 //         std::string gen_type = gen->convert_to_local_type(ps, TypeDefinition("int"));
@@ -983,7 +983,7 @@
 //     create_jni_bridge.identifier = "create_jni_bridge";
 //     create_jni_bridge.return_type.identifier() = "std::string";
 //     create_jni_bridge.static_function = true;
-//     create_jni_bridge.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+//     create_jni_bridge.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 //     {
 //         // Check if this is being generated for CppGenerator (C++ code) or JavaGenerator (Java code)
 //         std::string gen_type = gen->convert_to_local_type(ps, TypeDefinition("int"));
@@ -1024,12 +1024,12 @@
 //     base_class.add_function(create_jni_bridge);
 // }
 
-// std::string JavaGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefinition type)
+// std::string JavaGenerator::convert_to_local_type(std::shared_ptr<ProgramStructure>ps, TypeDefinition type)
 // {
 //     return get_java_type(type, ps);
 // }
 
-// bool JavaGenerator::add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
+// bool JavaGenerator::add_generator_specific_content_to_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s)
 // {
 //     return true;
 // }

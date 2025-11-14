@@ -23,7 +23,7 @@ void EnumDefinition::clear()
 	values.clear();
 }
 
-inja::json EnumDefinition::to_json(ProgramStructure* ps, Generator* generator)
+inja::json EnumDefinition::to_json(std::shared_ptr<ProgramStructure> ps, std::shared_ptr<Generator> generator)
 {
 	inja::json j;
 	j["identifier"] = identifier;

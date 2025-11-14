@@ -1,7 +1,7 @@
 #include <BuiltInGenerators/CppGenerator.hpp>
 #include <stdexcept>
 
-bool CppGenerator::generate_base_class_header_file(Generator *gen, ProgramStructure *ps, std::string out_path)
+bool CppGenerator::generate_base_class_header_file(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, std::string out_path)
 {
 	std::ofstream baseClassFile(out_path + "/Has" + gen->base_class.getIdentifier() + "Schema.hpp");
 	if (!baseClassFile.is_open())
@@ -43,13 +43,13 @@ CppGenerator::CppGenerator()
 	name = "Cpp";
 }
 
-bool CppGenerator::add_generator(Generator *gen)
+bool CppGenerator::add_generator(std::shared_ptr<Generator>gen)
 {
 	generators.push_back(gen);
 	return true;
 }
 
-std::string CppGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefinition type)
+std::string CppGenerator::convert_to_local_type(std::shared_ptr<ProgramStructure>ps, TypeDefinition type)
 {
 	// convert int types to "int"
 	if (type.identifier() == INT8)
@@ -129,7 +129,7 @@ std::string CppGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefini
 	return type.identifier();
 }
 
-std::string CppGenerator::get_default_of_type(ProgramStructure *ps, TypeDefinition type)
+std::string CppGenerator::get_default_of_type(std::shared_ptr<ProgramStructure>ps, TypeDefinition type)
 {
 	if (type.is_integer())
 	{
@@ -183,7 +183,7 @@ std::string CppGenerator::format_include(std::string ident)
 	}
 }
 
-std::string CppGenerator::format_default(ProgramStructure *ps, TypeDefinition type, std::string value)
+std::string CppGenerator::format_default(std::shared_ptr<ProgramStructure>ps, TypeDefinition type, std::string value)
 {
 	if(value.empty()){
 		return get_default_of_type(ps, type);
@@ -191,7 +191,7 @@ std::string CppGenerator::format_default(ProgramStructure *ps, TypeDefinition ty
 	return value;
 }
 
-bool CppGenerator::add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
+bool CppGenerator::add_generator_specific_content_to_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s)
 {
 	return true;
 }
@@ -199,7 +199,7 @@ bool CppGenerator::add_generator_specific_content_to_struct(Generator *gen, Prog
 #include <inja/inja.hpp>
 #include <SchemaLangShared_Resources/SchemaLangShared_ResourcesEmbeddedVFS.hpp>
 
-bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
+bool CppGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::string out_path)
 {
 	if (!std::filesystem::exists(out_path))
 	{
@@ -210,13 +210,13 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 
 	for (auto &gen : generators)
 	{
-		if (gen == this)
+		if (gen == shared_from_this())
 		{
 			continue;
 		}
 		if (!gen->base_class.getIdentifier().empty())
 		{
-			if (!generate_base_class_header_file(gen, &ps, out_path))
+			if (!generate_base_class_header_file(gen, ps, out_path))
 			{
 				printf("Error: Failed to generate base class header file for %s\n", gen->base_class.getIdentifier().c_str());
 				return false;
@@ -234,7 +234,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		// }
 	}
 
-	inja::Environment env = getEnv(this, &ps);
+	inja::Environment env = getEnv(shared_from_this(), ps);
 
 	std::map<std::string, std::string> struct_name_content_pairs;
 	// open file
@@ -255,10 +255,10 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		enum_name_content_pairs[filename] = content;
 	}
 
-	for (auto &s : ps.getStructs())
+	for (auto &s : ps->getStructs())
 	{
-		inja::json data = ps.to_json(this);
-		inja::json struct_data=s.to_json(&ps, this);
+		inja::json data = ps->to_json(shared_from_this());
+		inja::json struct_data=s.to_json(ps, shared_from_this());
 		for (auto& [key, value] : struct_data.items()) {
 		    data[key] = value;
 		}
@@ -300,11 +300,11 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 				data["additions"] = inja::json::array();
 				for (auto &gen : generators)
 				{
-					if (gen == this)
+					if (gen == shared_from_this())
 						continue;
 					// Use a fresh Additions object per-generator so fetched additions don't accumulate
 					Additions additions;
-					if (!gen->fetch_additions(&ps, this, additions, data))
+					if (!gen->fetch_additions(ps, shared_from_this(), additions, data))
 					{
 						printf("Warning: Failed to fetch additions from generator %s\n", gen->name.c_str());
 						continue;
@@ -374,7 +374,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 		}
 	}
 
-	for (auto &e : ps.getEnums())
+	for (auto &e : ps->getEnums())
 	{
 		inja::json data;
 		data["enum"] = e.identifier;
@@ -448,7 +448,7 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 	{
 		std::string content(reinterpret_cast<const char *>(loadSchemaLangShared_ResourcesEmbeddedFile(("/Cpp/files/" + file).c_str()).data()), loadSchemaLangShared_ResourcesEmbeddedFile(("/Cpp/files/" + file).c_str()).size());
 		std::string filename = std::filesystem::path(file).filename().string();
-		inja::json data=ps.to_json(this);
+		inja::json data=ps->to_json(shared_from_this());
 		std::ofstream of(out_path + "/" + filename);
 		if (!of.is_open())
 		{
@@ -470,13 +470,13 @@ bool CppGenerator::generate_files(ProgramStructure ps, std::string out_path)
 
 	for (auto &gen : generators)
 	{
-		if (gen == this)
+		if (gen == shared_from_this())
 		{
 			continue;
 		}
 		try
 		{
-			if (!gen->generate_additional_files(this, &ps, out_path))
+			if (!gen->generate_additional_files(shared_from_this(), ps, out_path))
 			{
 				printf("Warning: Failed to generate additional files from generator %s\n", gen->name.c_str());
 				continue;

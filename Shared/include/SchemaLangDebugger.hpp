@@ -79,7 +79,7 @@ struct DebugContext {
 
 class SchemaLangDebugger {
 private:
-    ProgramStructure* program_structure;
+    std::shared_ptr<ProgramStructure> program_structure;
     DebugContext context;
     
     // Breakpoint and watchpoint management
@@ -106,7 +106,7 @@ private:
     bool trace_mode;  // Print all operations
     
 public:
-    SchemaLangDebugger(ProgramStructure* ps);
+    SchemaLangDebugger(std::shared_ptr<ProgramStructure> ps);
     ~SchemaLangDebugger();
     
     // Main control interface

@@ -38,7 +38,7 @@ std::vector<std::vector<int>> MysqlGenerator::comb(int N)
 }
 
 // sql string generation functions
-std::string MysqlGenerator::generate_create_table_statement_string_struct(ProgramStructure *ps, StructDefinition &s)
+std::string MysqlGenerator::generate_create_table_statement_string_struct(std::shared_ptr<ProgramStructure>ps, StructDefinition &s)
 {
 	std::string sql = "CREATE TABLE IF NOT EXISTS " + escape_identifier(s.getIdentifier()) + " (\n";
 	bool first_column = true;
@@ -102,7 +102,7 @@ std::string MysqlGenerator::generate_create_table_statement_string_struct(Progra
 }
 
 // Function to add foreign key columns for array relationships
-void MysqlGenerator::add_foreign_key_columns_for_arrays(ProgramStructure *ps)
+void MysqlGenerator::add_foreign_key_columns_for_arrays(std::shared_ptr<ProgramStructure>ps)
 {
 	// Iterate through all structs
 	for (auto &parent_struct : ps->getStructs())
@@ -306,7 +306,7 @@ std::string MysqlGenerator::generate_delete_statement_string_struct(StructDefini
 }
 
 // functions for c++ code generation
-void MysqlGenerator::generate_select_all_statement_function_member_variable(Generator *gen, ProgramStructure *ps, StructDefinition &s, MemberVariableDefinition &mv)
+void MysqlGenerator::generate_select_all_statement_function_member_variable(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, MemberVariableDefinition &mv)
 {
 	if (mv.type.is_array())
 	{
@@ -324,7 +324,7 @@ void MysqlGenerator::generate_select_all_statement_function_member_variable(Gene
 	select_all_statement.parameters.push_back(std::make_pair(mysql_session, "session"));
 	select_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 
-	select_all_statement.generate_function = [this, &mv](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	select_all_statement.generate_function = [this, &mv](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		std::string sql = generate_select_all_statement_string_member_variable(s, mv);
 		structFile << "\tstd::vector<std::shared_ptr<" << s.getIdentifier() << "Schema>> results;\n";
@@ -353,7 +353,7 @@ void MysqlGenerator::generate_select_all_statement_function_member_variable(Gene
 	s.add_function(select_all_statement);
 }
 
-void MysqlGenerator::generate_select_all_statement_functions_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
+void MysqlGenerator::generate_select_all_statement_functions_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s)
 {
 	for (int i = 0; i < s.getMemberVariables().size(); i++)
 	{
@@ -361,7 +361,7 @@ void MysqlGenerator::generate_select_all_statement_functions_struct(Generator *g
 	}
 }
 
-void MysqlGenerator::generate_select_member_variable_function_statement(Generator *gen, ProgramStructure *ps, StructDefinition &s, MemberVariableDefinition &mv_1, std::vector<int> &criteria)
+void MysqlGenerator::generate_select_member_variable_function_statement(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, MemberVariableDefinition &mv_1, std::vector<int> &criteria)
 {
 	FunctionDefinition select_statement;
 	select_statement.identifier = "MySQLSelect" + s.getIdentifier() + "By";
@@ -373,7 +373,7 @@ void MysqlGenerator::generate_select_member_variable_function_statement(Generato
 		select_statement.identifier += s.getMemberVariables()[criteria[i]].identifier;
 		select_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, s.getMemberVariables()[criteria[i]].type), s.getMemberVariables()[criteria[i]].identifier));
 	}
-	select_statement.generate_function = [this, &mv_1, &criteria](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	select_statement.generate_function = [this, &mv_1, &criteria](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
@@ -406,13 +406,13 @@ void MysqlGenerator::generate_select_member_variable_function_statement(Generato
 	s.add_function(select_statement);
 }
 
-void MysqlGenerator::generate_select_statements_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
+void MysqlGenerator::generate_select_statements_function_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s)
 {
 	generate_select_all_statement_functions_struct(gen, ps, s);
 	// Additional select combinations can be generated here
 }
 
-void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
+void MysqlGenerator::generate_insert_statements_function_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s)
 {
 	FunctionDefinition insert_statement;
 	insert_statement.identifier = "MySQLInsert";
@@ -460,7 +460,7 @@ void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, 
 			insert_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type,true), mv.identifier));
 		}
 	}
-	insert_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	insert_statement.generate_function = [this](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
@@ -540,7 +540,7 @@ void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, 
 	insert_statement_no_args.identifier = "MySQLInsert";
 	insert_statement_no_args.return_type.identifier() = "bool";
 	insert_statement_no_args.static_function = false;
-	insert_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	insert_statement_no_args.generate_function = [this](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session->getSchema(\"" << s.getIdentifier() << "_db\");\n";
@@ -617,7 +617,7 @@ void MysqlGenerator::generate_insert_statements_function_struct(Generator *gen, 
 	s.add_function(insert_statement_no_args);
 }
 
-void MysqlGenerator::generate_update_all_statement_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
+void MysqlGenerator::generate_update_all_statement_function_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s)
 {
 	FunctionDefinition update_all_statement;
 	update_all_statement.identifier = "MySQLUpdate" + s.getIdentifier();
@@ -665,7 +665,7 @@ void MysqlGenerator::generate_update_all_statement_function_struct(Generator *ge
 			update_all_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type,true), mv.identifier));
 		}
 	}
-	update_all_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	update_all_statement.generate_function = [this](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
@@ -748,7 +748,7 @@ void MysqlGenerator::generate_update_all_statement_function_struct(Generator *ge
 	s.add_function(update_all_statement);
 }
 
-void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
+void MysqlGenerator::generate_update_statements_function_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s)
 {
 	FunctionDefinition update_statement;
 	update_statement.identifier = "MySQLUpdate";
@@ -794,7 +794,7 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 			update_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type,true), mv.identifier));
 		}
 	}
-	update_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	update_statement.generate_function = [this](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
@@ -875,7 +875,7 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 	update_statement_no_args.identifier = "MySQLUpdate";
 	update_statement_no_args.return_type.identifier() = "bool";
 	update_statement_no_args.static_function = false;
-	update_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	update_statement_no_args.generate_function = [this](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session->getSchema(\"" << s.getIdentifier() << "_db\");\n";
@@ -951,7 +951,7 @@ void MysqlGenerator::generate_update_statements_function_struct(Generator *gen, 
 	s.add_function(update_statement_no_args);
 }
 
-void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
+void MysqlGenerator::generate_delete_statement_function_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s)
 {
 	FunctionDefinition delete_statement;
 	delete_statement.identifier = "MySQLDelete";
@@ -974,7 +974,7 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 		delete_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, s.getMemberVariables()[0].type), s.getMemberVariables()[0].identifier));
 	}
 	
-	delete_statement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	delete_statement.generate_function = [this](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session.getSchema(\"" << s.getIdentifier() << "_db\");\n";
@@ -1028,7 +1028,7 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 	delete_statement_no_args.identifier = "MySQLDelete";
 	delete_statement_no_args.return_type.identifier() = "bool";
 	delete_statement_no_args.static_function = false;
-	delete_statement_no_args.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	delete_statement_no_args.generate_function = [this](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\ttry {\n";
 		structFile << "\t\tmysqlx::Schema db = session->getSchema(\"" << s.getIdentifier() << "_db\");\n";
@@ -1079,7 +1079,7 @@ void MysqlGenerator::generate_delete_statement_function_struct(Generator *gen, P
 }
 
 // file generation functions
-bool MysqlGenerator::generate_create_table_file(ProgramStructure *ps, StructDefinition &s, std::string out_path)
+bool MysqlGenerator::generate_create_table_file(std::shared_ptr<ProgramStructure>ps, StructDefinition &s, std::string out_path)
 {
 	std::ofstream structFile(out_path + "/" + s.getIdentifier() + "_create_table.sql");
 	if (!structFile.is_open())
@@ -1092,7 +1092,7 @@ bool MysqlGenerator::generate_create_table_file(ProgramStructure *ps, StructDefi
 	return true;
 }
 
-bool MysqlGenerator::generate_select_all_files(ProgramStructure *ps, StructDefinition &s, std::string out_path)
+bool MysqlGenerator::generate_select_all_files(std::shared_ptr<ProgramStructure>ps, StructDefinition &s, std::string out_path)
 {
 	std::vector<std::string> sqls = generate_select_all_statements_string_struct(s);
 	for (int i = 0; i < sqls.size(); i++)
@@ -1109,7 +1109,7 @@ bool MysqlGenerator::generate_select_all_files(ProgramStructure *ps, StructDefin
 	return true;
 }
 
-bool MysqlGenerator::generate_select_files(ProgramStructure *ps, StructDefinition &s, std::string out_path)
+bool MysqlGenerator::generate_select_files(std::shared_ptr<ProgramStructure>ps, StructDefinition &s, std::string out_path)
 {
 	std::vector<std::vector<int>> combinations = comb(s.getMemberVariables().size());
 	for (int i = 0; i < s.getMemberVariables().size(); i++)
@@ -1140,7 +1140,7 @@ bool MysqlGenerator::generate_select_files(ProgramStructure *ps, StructDefinitio
 	return true;
 }
 
-bool MysqlGenerator::generate_struct_files(ProgramStructure *ps, StructDefinition &s, std::string out_path)
+bool MysqlGenerator::generate_struct_files(std::shared_ptr<ProgramStructure>ps, StructDefinition &s, std::string out_path)
 {
 
 	if(s.whitelist()||s.blacklist()){
@@ -1291,7 +1291,7 @@ MysqlGenerator::MysqlGenerator()
 	// base_class.add_before_line("using namespace mysqlx;");
 }
 
-std::string MysqlGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefinition type)
+std::string MysqlGenerator::convert_to_local_type(std::shared_ptr<ProgramStructure>ps, TypeDefinition type)
 {
 	// MySQL-specific type conversions
 	if (type.identifier() == INT8)
@@ -1368,7 +1368,7 @@ std::string MysqlGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefi
 	return type.identifier();
 }
 
-bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
+bool MysqlGenerator::add_generator_specific_content_to_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s)
 {
 	// if(gen->name=="Cpp"){
 	// 	// Add necessary includes for MySQL X DevAPI
@@ -1391,7 +1391,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 	// 			primary_key_index.in_class_init = true;
 	// 			primary_key_index.static_member = true;
 	// 			primary_key_index.const_member = true;
-	// 			primary_key_index.generate_initializer = [i](ProgramStructure *ps, PrivateVariableDefinition &mv, std::ostream &structFile)
+	// 			primary_key_index.generate_initializer = [i](std::shared_ptr<ProgramStructure>ps, PrivateVariableDefinition &mv, std::ostream &structFile)
 	// 			{
 	// 				structFile << std::to_string(i);
 	// 				return true;
@@ -1405,7 +1405,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 	// 		index.in_class_init = true;
 	// 		index.static_member = true;
 	// 		index.const_member = true;
-	// 		index.generate_initializer = [i](ProgramStructure *ps, PrivateVariableDefinition &mv, std::ostream &structFile)
+	// 		index.generate_initializer = [i](std::shared_ptr<ProgramStructure>ps, PrivateVariableDefinition &mv, std::ostream &structFile)
 	// 		{
 	// 			structFile << std::to_string(i);
 	// 			return true;
@@ -1425,7 +1425,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 	// 	getSession.identifier = "getSession";
 	// 	getSession.return_type = TypeDefinition("std::shared_ptr<mysqlx::Session>");
 	// 	getSession.static_function = true;
-	// 	getSession.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	// 	getSession.generate_function = [this](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	// 	{
 	// 		structFile << "\treturn session;\n";
 	// 		return true;
@@ -1438,7 +1438,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 	// 	setSession.return_type.identifier() = "void";
 	// 	setSession.static_function = true;
 	// 	setSession.parameters.push_back(std::make_pair(TypeDefinition("std::shared_ptr<mysqlx::Session>"), "newSession"));
-	// 	setSession.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	// 	setSession.generate_function = [this](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	// 	{
 	// 		structFile << "\tsession = newSession;\n";
 	// 		return true;
@@ -1459,7 +1459,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 	// 	getMySQLCreateTableStatement.identifier = "getMySQLCreateTableStatement";
 	// 	getMySQLCreateTableStatement.static_function = true;
 	// 	getMySQLCreateTableStatement.return_type.identifier() = STRING;
-	// 	getMySQLCreateTableStatement.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	// 	getMySQLCreateTableStatement.generate_function = [this](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	// 	{
 	// 		structFile << "\treturn \"" << escape_string(generate_create_table_statement_string_struct(ps, s)) << "\";\n";
 	// 		return true;
@@ -1471,7 +1471,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 	// 	createMySQLTable.static_function = true;
 	// 	createMySQLTable.return_type.identifier() = BOOL;
 	// 	createMySQLTable.parameters.push_back(std::make_pair(mysql_session, "session"));
-	// 	createMySQLTable.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	// 	createMySQLTable.generate_function = [this](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	// 	{
 	// 		structFile << "\ttry {\n";
 	// 		structFile << "\t\tsession.sql(getMySQLCreateTableStatement()).execute();\n";
@@ -1490,7 +1490,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 	// 	registerUpdateListener.static_function = true;
 	// 	registerUpdateListener.return_type.identifier() = "bool";
 	// 	registerUpdateListener.parameters.push_back(std::make_pair(mysql_session, "session"));
-	// 	registerUpdateListener.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	// 	registerUpdateListener.generate_function = [this](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	// 	{
 	// 		structFile << "\t// Register update listener for MySQL database\n";
 	// 		structFile << "\t// This is a placeholder for actual implementation\n";
@@ -1510,7 +1510,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(Generator *gen, Pr
 	return true;
 }
 
-bool MysqlGenerator::generate_files(ProgramStructure ps, std::string out_path)
+bool MysqlGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::string out_path)
 {
 	if (!std::filesystem::exists(out_path))
 	{
@@ -1518,11 +1518,11 @@ bool MysqlGenerator::generate_files(ProgramStructure ps, std::string out_path)
 	}
 
 	// Add foreign key columns for array relationships before generating files
-	add_foreign_key_columns_for_arrays(&ps);
+	add_foreign_key_columns_for_arrays(ps);
 
-	for (auto &s : ps.getStructs())
+	for (auto &s : ps->getStructs())
 	{
-		if (!generate_struct_files(&ps, s, out_path))
+		if (!generate_struct_files(ps, s, out_path))
 		{
 			return false;
 		}

@@ -35,7 +35,7 @@ The most critical pattern - generators enhance each other's output:
 
 ```cpp
 // CppGenerator receives SQLite methods:
-bool SqliteGenerator::add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s) {
+bool SqliteGenerator::add_generator_specific_content_to_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s) {
     if (gen->name == "Cpp") {
         // Inject SQLite methods into C++ classes
         return fetch_additions(ps, gen, additions, data);

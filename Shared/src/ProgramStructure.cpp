@@ -3,8 +3,8 @@
 // SchemaLang version info
 #include <SchemaLangVersion.hpp>
 
-// Include debugger for hooks
-#include <SchemaLangDebugger.hpp>
+// Include debug_server for hooks
+#include <Networking/DebugServer.hpp>
 
 bool ProgramStructure::isInt(std::string str)
 {
@@ -404,8 +404,8 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	// We're at the token after "version"
 
 	
-	if (debugger) {
-		debugger->onParseOperation("parsing version");
+	if (debug_server) {
+		debug_server->beginParseOperation("parsing version");
 	}
 	
 
@@ -429,7 +429,7 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	schema_version_major = std::stoi(tokens[i].value);
 	i++;
 	
-	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 	
 
 	// Expect '.'
@@ -440,7 +440,7 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	}
 	i++;
 	
-	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 	
 
 	// Parse minor version
@@ -452,7 +452,7 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	schema_version_minor = std::stoi(tokens[i].value);
 	i++;
 	
-	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 	
 
 	// Expect '.'
@@ -463,7 +463,7 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	}
 	i++;
 	
-	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 	
 
 	// Parse patch version
@@ -475,7 +475,7 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	schema_version_patch = std::stoi(tokens[i].value);
 	i++;
 	
-	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 	
 
 	// Expect ';'
@@ -484,11 +484,11 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		reportError("Expected ';' after version declaration", tokens[i]);
 		return false;
 	}
-	if (debugger) debugger->onParseOperation("version parsed: " + std::to_string(schema_version_major) + "." + std::to_string(schema_version_minor) + "." + std::to_string(schema_version_patch));
+	if (debug_server) debug_server->beginParseOperation("version parsed: " + std::to_string(schema_version_major) + "." + std::to_string(schema_version_minor) + "." + std::to_string(schema_version_patch));
 
 
 	version_specified = true;
-	if (debugger) debugger->endParseOperation();
+	if (debug_server) debug_server->endParseOperation();
 	return true;
 }
 
@@ -552,8 +552,8 @@ std::string ProgramStructure::getVersionString() const
 bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition)
 {
 	
-	if (debugger) {
-		debugger->onParseOperation("parsing member variable");
+	if (debug_server) {
+		debug_server->beginParseOperation("parsing member variable");
 	}
 	
 
@@ -564,7 +564,7 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 		current_MemberVariableDefinition.type.identifier() = tokens[i].value;
 		i++;
 		
-		if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+		if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 		
 		// if array
 		if (current_MemberVariableDefinition.type.is_array())
@@ -576,7 +576,7 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 				if (tokenIsValidTypeName(tokens[i].value))
 				{
 					current_MemberVariableDefinition.type.element_type().identifier() = tokens[i].value;
-					current_MemberVariableDefinition.generate_initializer = [](ProgramStructure *ps, MemberVariableDefinition &mv, std::ofstream &structFile) -> bool
+					current_MemberVariableDefinition.generate_initializer = [](std::shared_ptr<ProgramStructure>ps, MemberVariableDefinition &mv, std::ofstream &structFile) -> bool
 					{
 						structFile << "{}";
 						return true;
@@ -609,11 +609,11 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 		// collect the identifier
 		current_MemberVariableDefinition.identifier = tokens[i].value;
 		
-		if (debugger) debugger->onMemberParsing(&current_MemberVariableDefinition);
+		//if (debug_server) debug_server->onMemberParsing(&current_MemberVariableDefinition);
 		
 		i++;
 		
-		if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+		if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 		
 		// check for ':'
 		if (tokens[i] != ":")
@@ -623,7 +623,7 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 		}
 		i++;
 		
-		if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+		if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 		
 		// collect all tokens for member variable up to ';'
 		bool next_token_should_be_colon = false;
@@ -817,15 +817,15 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 		reportError("Expected member variable type After {", tokens[i]);
 		return false;
 	}
-	if (debugger) debugger->endParseOperation();
+	if (debug_server) debug_server->endParseOperation();
 	return true;
 }
 
 bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefinition &current_struct)
 {
 	
-	if (debugger) {
-		debugger->onParseOperation("reading struct definition");
+	if (debug_server) {
+		debug_server->beginParseOperation("reading struct definition");
 	}
 	
 
@@ -836,15 +836,15 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 	}
 	i++;
 	
-	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 	
 	current_struct.setIdentifier(tokens[i].value);
 	
-	if (debugger) debugger->onStructParsing(&current_struct);
+	//if (debug_server) debug_server->onStructParsing(&current_struct);
 	
 	i++;
 	
-	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 	
 	if (tokens[i] == ":")
 	{
@@ -904,7 +904,7 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 	}
 	i++;
 	
-	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 	
 	while (tokens[i] != "}")
 	{
@@ -957,22 +957,22 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 	{
 		type_names.erase(it);
 	}
-	if (debugger) debugger->endParseOperation();
+	if (debug_server) debug_server->endParseOperation();
 	return true;
 }
 
 bool ProgramStructure::readEnumValue(std::vector<Token> tokens, int &i, EnumDefinition &current_enum, int &curent_index)
 {
 	
-	if (debugger) {
-		debugger->onParseOperation("parsing enum value");
+	if (debug_server) {
+		debug_server->beginParseOperation("parsing enum value");
 	}
 	
 
 	std::string identifier = tokens[i].value;
 	i++;
 	
-	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 	
 	if (tokens[i] == "=")
 	{
@@ -1013,15 +1013,15 @@ bool ProgramStructure::readEnumValue(std::vector<Token> tokens, int &i, EnumDefi
 
 	current_enum.add_value(identifier, curent_index);
 	curent_index++;
-	if (debugger) debugger->endParseOperation();
+	if (debug_server) debug_server->endParseOperation();
 	return true;
 }
 
 bool ProgramStructure::readEnum(std::vector<Token> tokens, int &i, EnumDefinition &current_enum)
 {
 	
-	if (debugger) {
-		debugger->onParseOperation("reading enum definition");
+	if (debug_server) {
+		debug_server->beginParseOperation("reading enum definition");
 	}
 	
 
@@ -1032,15 +1032,15 @@ bool ProgramStructure::readEnum(std::vector<Token> tokens, int &i, EnumDefinitio
 	}
 	i++;
 	
-	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 	
 	current_enum.identifier = tokens[i].value;
 	
-	if (debugger) debugger->onEnumParsing(&current_enum);
+	//if (debug_server) debug_server->onEnumParsing(&current_enum);
 	
 	i++;
 	
-	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 	
 	if (tokens[i] == ":")
 	{
@@ -1112,14 +1112,14 @@ bool ProgramStructure::readEnum(std::vector<Token> tokens, int &i, EnumDefinitio
 			return false;
 		}
 	}
-	if (debugger) debugger->endParseOperation();
+	if (debug_server) debug_server->endParseOperation();
 	return true;
 }
 
 bool ProgramStructure::readConfig(std::vector<Token> tokens, int &i)
 {
-	if (debugger) {
-		debugger->onParseOperation("reading config");
+	if (debug_server) {
+		debug_server->beginParseOperation("reading config");
 	}
 
 	// This function is a placeholder for future configuration parsing
@@ -1136,22 +1136,22 @@ bool ProgramStructure::readConfig(std::vector<Token> tokens, int &i)
 		return false;
 	}
 	i++;
-	if (debugger && i < tokens.size()) debugger->onTokenParsed(tokens[i]);
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 	while (tokens[i] != "}")
 	{
 		i++;
 	}
 	i++;
-	if (debugger) debugger->endParseOperation();
+	if (debug_server) debug_server->endParseOperation();
 	return true;
 }
 
 bool ProgramStructure::validate(bool is_root)
 {
 	
-	if (debugger) {
-		debugger->onValidation();
-		debugger->onParseOperation("validating schema");
+	if (debug_server) {
+		//debug_server->onValidation();
+		debug_server->beginParseOperation("validating schema");
 	}
 	
 
@@ -1396,7 +1396,7 @@ bool ProgramStructure::validate(bool is_root)
 	return true;
 }
 
-inja::json ProgramStructure::to_json(Generator *generator)
+inja::json ProgramStructure::to_json(std::shared_ptr<Generator>generator)
 {
 	inja::json j;
 	j["includes"] = inja::json::array();
@@ -1405,12 +1405,12 @@ inja::json ProgramStructure::to_json(Generator *generator)
 	for (auto &s : structs)
 	{
 		j["includes"].push_back(generator->format_include(s.getIdentifier() + "Schema.hpp"));
-		j["structs"].push_back(s.to_json(this, generator));
+		j["structs"].push_back(s.to_json(shared_from_this(), generator));
 	}
 	for (auto &e : enums)
 	{
 		j["includes"].push_back(generator->format_include(e.identifier + "Schema.hpp"));
-		j["enums"].push_back(e.to_json(this, generator));
+		j["enums"].push_back(e.to_json(shared_from_this(), generator));
 	}
 	return j;
 }
@@ -1505,10 +1505,10 @@ bool ProgramStructure::parseTypeNames(std::vector<Token> tokens)
 
 bool ProgramStructure::readFile(std::string file_path, bool is_root)
 {
-	// Notify debugger about file load
+	// Notify debug_server about file load
 	
-	if (debugger) {
-		debugger->onFileLoaded(file_path);
+	if (debug_server) {
+		//debug_server->onFileLoaded(file_path);
 	}
 	
 	
@@ -1569,8 +1569,8 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 		// Update current parsing position
 		current_position = tokens[i].position;
 		
-		if (debugger) {
-			debugger->onTokenParsed(tokens[i]);
+		if (debug_server) {
+			debug_server->onTokenParsed(tokens[i]);
 		}
 
 		std::string token = tokens[i].value;
@@ -1678,17 +1678,17 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 		if (token == "struct")
 		{
 			
-			if (debugger) {
-				debugger->onParseOperation("parsing struct");
+			if (debug_server) {
+				debug_server->beginParseOperation("parsing struct");
 			}
 			
 			
 			if (readStruct(tokens, i, current_struct))
 			{
 				
-				if (debugger) {
-					debugger->onStructParsing(&current_struct);
-				}
+				// if (debug_server) {
+				// 	debug_server->onStructParsing(&current_struct);
+				// }
 				
 				
 				auto it = std::find_if(structs.begin(), structs.end(), [&](const StructDefinition &s)
@@ -1714,17 +1714,17 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 		if (token == "enum")
 		{
 			
-			if (debugger) {
-				debugger->onParseOperation("parsing enum");
+			if (debug_server) {
+				debug_server->beginParseOperation("parsing enum");
 			}
 			
 			
 			if (readEnum(tokens, i, current_enum))
 			{
 				
-				if (debugger) {
-					debugger->onEnumParsing(&current_enum);
-				}
+				// if (debug_server) {
+				// 	debug_server->onEnumParsing(&current_enum);
+				// }
 				
 				
 				int count = current_enum.values.size();
@@ -1763,9 +1763,9 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 	return validate(is_root);
 }
 
-bool ProgramStructure::generate_files(Generator *gen, std::string out_path)
+bool ProgramStructure::generate_files(std::shared_ptr<Generator>gen, std::string out_path)
 {
-	return gen->generate_files(*this, out_path);
+	return gen->generate_files(shared_from_this(), out_path);
 }
 
 std::vector<StructDefinition> &ProgramStructure::getStructs()

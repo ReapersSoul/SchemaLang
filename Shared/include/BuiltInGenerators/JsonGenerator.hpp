@@ -12,17 +12,17 @@ class JsonGenerator : public Generator
 
 	json enumToSchema(EnumDefinition e);
 
-	json structToSchema(StructDefinition s, ProgramStructure *ps);
+	json structToSchema(StructDefinition s, std::shared_ptr<ProgramStructure>ps);
 
 public:
 	std::string format_include(std::string ident) override{return"";};
-	std::string format_default(ProgramStructure *ps, TypeDefinition type,std::string value="") override{return value;};
+	std::string format_default(std::shared_ptr<ProgramStructure>ps, TypeDefinition type,std::string value="") override{return value;};
 
 	JsonGenerator();
 
-	std::string convert_to_local_type(ProgramStructure *ps, TypeDefinition type);
+	std::string convert_to_local_type(std::shared_ptr<ProgramStructure>ps, TypeDefinition type);
 
-	bool add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s);
+	bool add_generator_specific_content_to_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s);
 
-	bool generate_files(ProgramStructure ps, std::string out_path);
+	bool generate_files(std::shared_ptr<ProgramStructure> ps, std::string out_path);
 };

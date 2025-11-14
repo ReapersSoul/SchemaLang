@@ -25,7 +25,7 @@ json JsonGenerator::enumToSchema(EnumDefinition e)
 	return j;
 }
 
-json JsonGenerator::structToSchema(StructDefinition s, ProgramStructure *ps)
+json JsonGenerator::structToSchema(StructDefinition s, std::shared_ptr<ProgramStructure>ps)
 {
 	json j;
 	j["title"] = s.getIdentifier();
@@ -122,7 +122,7 @@ JsonGenerator::JsonGenerator()
 	FunctionDefinition toJSON;
 	toJSON.identifier = "toJSON";
 	toJSON.return_type.identifier() = "nlohmann::json";
-	toJSON.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	toJSON.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\tnlohmann::json j;\n";
 		for (auto& mv : s.getMemberVariables())
@@ -217,7 +217,7 @@ JsonGenerator::JsonGenerator()
 	fromJSON.identifier = "fromJSON";
 	fromJSON.return_type.identifier() = "void";
 	fromJSON.parameters.push_back(std::make_pair(TypeDefinition("nlohmann::json"), "j"));
-	fromJSON.generate_function = [](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	fromJSON.generate_function = [](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		for (auto& mv : s.getMemberVariables())
 		{
@@ -325,7 +325,7 @@ JsonGenerator::JsonGenerator()
 	FunctionDefinition getSchema;
 	getSchema.identifier = "getSchema";
 	getSchema.return_type.identifier() = "nlohmann::json";
-	getSchema.generate_function = [this](Generator *gen, ProgramStructure *ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
+	getSchema.generate_function = [this](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
 		structFile << "\treturn nlohmann::json::parse(\n";
 		json j = structToSchema(s, ps);
@@ -343,7 +343,7 @@ JsonGenerator::JsonGenerator()
 	base_class.add_include("<string>");
 }
 
-std::string JsonGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefinition type)
+std::string JsonGenerator::convert_to_local_type(std::shared_ptr<ProgramStructure>ps, TypeDefinition type)
 {
 	// convert number types to "number"
 	if (type.is_number())
@@ -373,21 +373,21 @@ std::string JsonGenerator::convert_to_local_type(ProgramStructure *ps, TypeDefin
 	return type.identifier();
 }
 
-bool JsonGenerator::add_generator_specific_content_to_struct(Generator *gen, ProgramStructure *ps, StructDefinition &s)
+bool JsonGenerator::add_generator_specific_content_to_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s)
 {
 	return true;
 }
 
-bool JsonGenerator::generate_files(ProgramStructure ps, std::string out_path)
+bool JsonGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::string out_path)
 {
 	if (!std::filesystem::exists(out_path))
 	{
 		std::filesystem::create_directories(out_path);
 	}
 
-	for (auto &s : ps.getStructs())
+	for (auto &s : ps->getStructs())
 	{
-		json j = structToSchema(s, &ps);
+		json j = structToSchema(s, ps);
 
 		std::ofstream schemaFile(out_path + "/" + s.getIdentifier() + ".schema.json");
 		if (!schemaFile.is_open())

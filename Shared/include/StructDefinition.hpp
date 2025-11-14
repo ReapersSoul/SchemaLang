@@ -111,7 +111,7 @@ struct StructDefinition
 
 	void update(StructDefinition def);
 
-	inja::json to_json(ProgramStructure* ps, Generator* generator);
+	inja::json to_json(std::shared_ptr<ProgramStructure> ps, std::shared_ptr<Generator> generator);
 private:
 	std::set<std::string> includes;
 	std::vector<std::string> before_lines;

@@ -26,7 +26,7 @@ struct ParameterInfo {
 extern "C" {
     // This function should be exported by dynamic generator libraries
     // It should return a pointer to a Generator instance
-    Generator* getGeneratorInstance();
+    std::shared_ptr<Generator> getGeneratorInstance();
     
     // Required: to identify the generator and determine output directory name
     const char* getGeneratorName();
@@ -46,7 +46,7 @@ static bool g_customFlag = false;
 static std::string g_customParam = "";
 
 extern "C" {
-    Generator* getGeneratorInstance() {
+    std::shared_ptr<Generator> getGeneratorInstance() {
         if (!g_generator) {
             g_generator = new YourCustomGenerator();
         }

@@ -194,7 +194,7 @@ static std::string readLineWithHistory(const std::string& prompt, std::vector<st
     return line;
 }
 
-SchemaLangDebugger::SchemaLangDebugger(ProgramStructure* ps)
+SchemaLangDebugger::SchemaLangDebugger(std::shared_ptr<ProgramStructure> ps)
     : program_structure(ps)
     , next_breakpoint_id(1)
     , next_watchpoint_id(1)
@@ -207,7 +207,6 @@ SchemaLangDebugger::SchemaLangDebugger(ProgramStructure* ps)
     , verbose_mode(false)
     , trace_mode(false)
 {
-    ps->debugger = this;
 }
 
 SchemaLangDebugger::~SchemaLangDebugger() {
@@ -285,7 +284,6 @@ void SchemaLangDebugger::start(const std::string& schema_file) {
     
     // Set up debugger connection
     if (program_structure) {
-        program_structure->debugger = this;
         context.current_file = schema_file;
         
         // Don't parse yet - parsing will happen when user issues 'continue' or 'step' command

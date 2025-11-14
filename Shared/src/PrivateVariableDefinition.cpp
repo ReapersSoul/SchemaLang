@@ -1,6 +1,6 @@
 #include "PrivateVariableDefinition.hpp"
 
-inja::json PrivateVariableDefinition::to_json(ProgramStructure* ps, Generator* generator)
+inja::json PrivateVariableDefinition::to_json(std::shared_ptr<ProgramStructure> ps, std::shared_ptr<Generator> generator)
 {
     inja::json j;
     j["type"] = type.to_json(ps,generator);

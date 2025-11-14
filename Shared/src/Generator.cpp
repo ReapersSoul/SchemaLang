@@ -1,7 +1,7 @@
 #include <Generator.hpp>
 #include <ProgramStructure.hpp>
 
-inja::Environment Generator::getEnv(Generator *gen, ProgramStructure *ps){
+inja::Environment Generator::getEnv(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps){
 	inja::Environment env;
 	env.set_trim_blocks(true);
 	env.set_lstrip_blocks(false);
@@ -55,7 +55,7 @@ inja::Environment Generator::getEnv(Generator *gen, ProgramStructure *ps){
 	return env;
 }
 
-bool Generator::generate_additional_files(Generator *gen, ProgramStructure *ps, std::string out_path)
+bool Generator::generate_additional_files(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, std::string out_path)
 {
 	std::string base_path = "/" + name + "/" + gen->name + "/";
 	if (!existsSchemaLangShared_ResourcesEmbeddedFile(base_path.c_str()))
