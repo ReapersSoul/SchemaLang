@@ -1087,6 +1087,7 @@ std::string SqliteGenerator::escape_string(std::string str)
 SqliteGenerator::SqliteGenerator()
 {
 	name = "SQLite";
+	enabled = false;
 	// base_class.getIdentifier() = "Sqlite";
 	// base_class.add_include("<sqlite3.h>");
 	// base_class.add_include("<iostream>");

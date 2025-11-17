@@ -118,6 +118,8 @@ json JsonGenerator::structToSchema(StructDefinition s, std::shared_ptr<ProgramSt
 JsonGenerator::JsonGenerator()
 {
 	name = "Json";
+	enabled=false;
+	type= GeneratorType::validation;
 	base_class.setIdentifier("Json");
 	FunctionDefinition toJSON;
 	toJSON.identifier = "toJSON";
@@ -397,6 +399,7 @@ bool JsonGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::st
 		}
 		schemaFile << j.dump(4);
 		schemaFile.close();
+		std::cout << "Generated File: " << out_path + "/" + s.getIdentifier() + ".schema.json" << std::endl;
 	}
 	return true;
 }

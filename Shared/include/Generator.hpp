@@ -4,8 +4,19 @@
 #include <inja/inja.hpp>
 #include <SchemaLangShared_Resources/SchemaLangShared_ResourcesEmbeddedVFS.hpp>
 
+
+
 struct Generator : std::enable_shared_from_this<Generator>
 {
+	enum class GeneratorType{
+		Language,
+		Database,
+		Scripting,
+		validation
+	} type;
+
+	bool enabled = false;
+
 	std::vector<std::shared_ptr<Generator>> generators;
 	StructDefinition base_class;
 	std::string name;

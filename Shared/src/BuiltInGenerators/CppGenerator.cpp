@@ -41,6 +41,7 @@ bool CppGenerator::generate_base_class_header_file(std::shared_ptr<Generator>gen
 CppGenerator::CppGenerator()
 {
 	name = "Cpp";
+	type= GeneratorType::Language;
 }
 
 bool CppGenerator::add_generator(std::shared_ptr<Generator>gen)

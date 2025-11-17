@@ -8,6 +8,7 @@
 #include <thread>
 #include <nlohmann/json.hpp>
 #include <ProgramStructure.hpp>
+#include <Builder.hpp>
 
 namespace beast = boost::beast;         // from <boost/beast.hpp>
 namespace http = beast::http;           // from <boost/beast/http.hpp>
@@ -27,6 +28,10 @@ public:
     void stop();
     bool isRunning();
     void listenerLoop();
+    void setOnNewSessionCallback(std::function<void(std::shared_ptr<session>)> callback)
+    {
+        onNewSession_ = callback;
+    }
 
     friend class session;
 private:
@@ -34,6 +39,7 @@ private:
     std::thread listener_thread_;
     std::atomic<bool> running_;
     std::vector<std::shared_ptr<session>> sessions_;
+    std::function<void(std::shared_ptr<session>)> onNewSession_;
 };
 
 class session: public std::enable_shared_from_this<session>
@@ -45,23 +51,20 @@ public:
     bool isRunning() const;
     bool sendMessage(nlohmann::json message);
     bool receiveMessage(nlohmann::json& message);
-    void reveiveLoop();
+    void receiveLoop();
     void onMessage(nlohmann::json message);
     bool isPaused() const { return paused_; }
     void onTokenParsed(Token token);
     void beginParseOperation(const std::string& operation);
     void endParseOperation();
+    void begin();
+    void setBuilder(std::shared_ptr<Builder> b) { builder = b; }
+    bool isConfigured() const { return configured_; }
 private:
-    bool paused_=false;
-    std::filesystem::path schemaDirectory;
-	std::filesystem::path schemaFile;
-	std::filesystem::path outputDirectory;
-	std::filesystem::path additionalGeneratorsDirectory;
-	bool EnableExponentialOperations = false;
-	bool recursive = false;
-    std::vector<std::shared_ptr<Generator>> dynamicGenerators;
-	std::vector<std::string> dynamicGeneratorNames;
-    ProgramStructure program_structure_;
+    std::atomic<bool> configured_{false};
+    std::shared_ptr<Builder> builder;
+    std::vector<Breakpoint> breakpoints_;
+    std::atomic<bool> paused_=false;
     std::thread receive_thread_;
     websocket::stream<tcp::socket> ws_;
     std::shared_ptr<DebugServer> server_;

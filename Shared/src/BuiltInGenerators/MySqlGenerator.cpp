@@ -1279,6 +1279,7 @@ std::string MysqlGenerator::escape_identifier(const std::string& identifier)
 MysqlGenerator::MysqlGenerator()
 {
 	name= "MySQL";
+	enabled = false;
 	// base_class.getIdentifier() = "MySQL";
 	// base_class.add_include("<mysqlx/xdevapi.h>");
 	// base_class.add_include("<string>");

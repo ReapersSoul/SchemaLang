@@ -48,6 +48,7 @@ void DebugServer::listenerLoop()
             acceptor.accept(socket);
 
             auto new_session = std::make_shared<session>(std::move(socket), shared_from_this());
+            onNewSession_(new_session);
             sessions_.push_back(new_session);
             new_session->start();
         }
@@ -61,13 +62,12 @@ void DebugServer::listenerLoop()
 session::session(tcp::socket socket, std::shared_ptr<DebugServer> server)
     : ws_(std::move(socket)), server_(server)
 {
-    program_structure_.debug_server = shared_from_this();
 }
 
 void session::start()
 {
     ws_.accept();
-    receive_thread_ = std::thread(&session::reveiveLoop, this);
+    receive_thread_ = std::thread(&session::receiveLoop, this);
 }
 
 void session::stop()
@@ -117,7 +117,7 @@ bool session::receiveMessage(nlohmann::json &message)
     }
 }
 
-void session::reveiveLoop()
+void session::receiveLoop()
 {
     while (isRunning())
     {
@@ -187,8 +187,8 @@ void session::onMessage(nlohmann::json message)
         sendMessage(initialized_event);
     }
 
-    //handle configuration
-    //set breakpoints
+    // handle configuration
+    // set breakpoints
     if (message.contains("command") && message["command"] == "setBreakpoints")
     {
         nlohmann::json response;
@@ -205,13 +205,35 @@ void session::onMessage(nlohmann::json message)
 
 void session::onTokenParsed(Token token)
 {
+    for (Breakpoint bp : breakpoints_)
+    {
+        if (bp.enabled && bp.file_path == token.position.file_path && bp.line_number == token.position.line)
+        {
+            paused_.store(true, std::memory_order_release);
+            paused_.notify_one(); // wakes whoever is waiting
+            nlohmann::json event;
+            event["seq"] = 4;
+            event["type"] = "event";
+            event["event"] = "stopped";
+            event["body"] = {
+                {"reason", "breakpoint"},
+                {"threadId", 1},
+                {"allThreadsStopped", true}};
+            sendMessage(event);
+            break;
+        }
+    }
+    paused_.wait(true);
 }
 
 void session::beginParseOperation(const std::string &operation)
 {
-
 }
 
 void session::endParseOperation()
+{
+}
+
+void session::begin()
 {
 }
