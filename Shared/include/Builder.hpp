@@ -19,27 +19,37 @@ public:
     void addGenerator(std::shared_ptr<Generator> generator)
     {
         generators[generator->name] = generator;
-        if (generator->type == Generator::GeneratorType::Language)
+
+        for (auto& [name, gen] : generators)
         {
-            auto non_language_generators = generators | std::views::values | std::views::filter([](std::shared_ptr<Generator> gen)
-                                                                                                { return gen->type != Generator::GeneratorType::Language; });
-            for (auto &nl_gen : non_language_generators)
+            if (gen != generator)
             {
-                generator->add_generator(nl_gen);
+                generator->add_generator(gen);
+                gen->add_generator(generator);
             }
         }
-        else
-        {
-            auto language_generators = generators | std::views::values | std::views::filter([](std::shared_ptr<Generator> gen)
-                                                                                            { return gen->type == Generator::GeneratorType::Language; });
-            for (auto &lang_gen : language_generators)
-            {
-                if (lang_gen != generator)
-                {
-                    lang_gen->add_generator(generator);
-                }
-            }
-        }
+
+        // if (generator->type == Generator::GeneratorType::Language)
+        // {
+        //     auto non_language_generators = generators | std::views::values | std::views::filter([](std::shared_ptr<Generator> gen)
+        //                                                                                         { return gen->type != Generator::GeneratorType::Language; });
+        //     for (auto &nl_gen : non_language_generators)
+        //     {
+        //         generator->add_generator(nl_gen);
+        //     }
+        // }
+        // else
+        // {
+        //     auto language_generators = generators | std::views::values | std::views::filter([](std::shared_ptr<Generator> gen)
+        //                                                                                     { return gen->type == Generator::GeneratorType::Language; });
+        //     for (auto &lang_gen : language_generators)
+        //     {
+        //         if (lang_gen != generator)
+        //         {
+        //             lang_gen->add_generator(generator);
+        //         }
+        //     }
+        // }
     }
 
     void removeGenerator(std::string name)

@@ -8,12 +8,15 @@
 
 struct Generator : std::enable_shared_from_this<Generator>
 {
-	enum class GeneratorType{
-		Language,
-		Database,
-		Scripting,
-		validation
-	} type;
+	enum GeneratorType{
+		Language=0x01,
+		Database=0x02,
+		Scripting=0x03,
+		validation=0x04,
+		seialization=0x05
+	};
+
+	short type = GeneratorType::Language;
 
 	bool enabled = false;
 

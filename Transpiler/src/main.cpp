@@ -69,6 +69,7 @@ int main(int argc, char *argv[])
 
 	Flag debuggerFlag("debugger", false, [&]()
 					  { 
+						startDebugger=true;
 					dbServer->start();
 					dbServer->setOnNewSessionCallback([&builder](std::shared_ptr<session> new_session){
 						builder.setSession(new_session);
@@ -197,7 +198,14 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	builder.run();
+	if (!startDebugger)
+	{
+		builder.run();
+	}
+	else
+	{
+		dbServer->join();
+	}
 
 	return 0;
 }

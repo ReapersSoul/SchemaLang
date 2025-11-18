@@ -1,75 +1,112 @@
-# SchemaLang Syntax Guide
+# SchemaLang
 
 ## Overview
-SchemaLang is a schema definition language that allows you to define structured data types with detailed metadata including constraints, relationships, and documentation. It supports generating code for multiple targets including C++, JSON schemas, MySQL, and SQLite.
+
+SchemaLang is an abstract data-model stack generator. Start from a single schema and compose the stack you need—databases (MySQL, SQLite, others), object-oriented runtimes (C++, Java, others), validators/serializers (JSON Schema definitions plus JSON serialization today, more to come), and scripting languages (Lua, Python, etc.). Each generator plugs into the same schema to emit interoperable code, so teams can mix and match stacks without rewriting their models.
+
+### Key Capabilities
+
+- **Stack Selection:** Pick any combination of database, OO language, validator/serializer, and scripting bindings; SchemaLang orchestrates the glue code automatically.
+- **Unified Models:** Generated classes carry drop-in methods for CRUD, validation, JSON serialization, and runtime bindings, keeping every layer in sync.
+- **Cross-Language Bridges:** C++↔Lua tables, C++↔Java via JNI, and planned Python bindings let runtimes share objects through the same schema-defined contracts.
+- **Dynamic Generators:** Load `.so`/`.dll` generators at runtime to add new targets or extend existing ones without recompiling the core tool.
+- **Deep Tooling:** Versioned language spec, linting, a command-line debugger, and a VS Code DAP integration provide production-grade ergonomics.
+
+### Primary Use Cases
+
+- **Full-Stack Domain Modeling:** Drive services, persistence layers, and client contracts from one schema across multiple languages.
+- **Hybrid Runtime Applications:** Keep compiled code, scripting engines, and databases in lockstep for game engines, simulations, and plugin-heavy systems.
+- **Enterprise Platforms:** Enforce documentation, constraints, and governance while letting teams ship custom generators for internal workflows.
+- **Integration & Migration Pipelines:** Bridge legacy stacks with new runtimes (e.g., C++ to Java via JNI) or generate bindings for multiple scripting languages in parallel.
 
 ## CLI Usage
 
 ### Basic Command Structure
+
 ```bash
-SchemaLangTranspiler -schemaDirectory=<path> -outputDirectory=<path> [flags]
+SchemaLangTranspiler -schema=<path> -outputDirectory=<path> [options]
 ```
 
-### Required Parameters
-- `-schemaDirectory=<path>` - Path to directory containing `.schema` or `.schemaLang` files
-- `-schema=<file>` - Path to a single `.schema` or `.schemaLang` file (alternative to `-schemaDirectory`)
-- `-outputDirectory=<path>` - Path where generated files will be created
+### Required Inputs
 
-### Generator Flags
-- `-cpp` - Generate C++ classes with getters/setters
-- `-java` - Generate Java classes (currently in development)
-- `-lua` - Generate Lua modules and classes (currently in development)
-- `-json` - Generate JSON schema files
-- `-sqlite` - Generate SQLite database operations
-- `-mysql` - Generate MySQL database operations
+- `-schema=<path>` – Source to process. Accepts either a directory (processed recursively when combined with `-R`) or a single `.schema` / `.schemaLang` file.
+- `-outputDirectory=<path>` – Base output directory. Generated stacks are written beneath `<path>/Schemas/<GeneratorName>/`.
 
-### Optional Flags
-- `-help` - Display usage information
-- `-R` - Recursively process subdirectories for schema files
-- `-additionalGenerators=<path>` - Path to directory containing dynamic generator libraries (.dll/.so files)
+### Generator Selection
 
-### Advanced Options
-**Warning: The following flags generate exponential numbers of files and should be used with caution**
+- `-cpp` – Enable the C++ generator.
+- `-json` – Enable JSON schema + JSON serialization output.
+- `-sqlite` – Enable SQLite database bindings.
+- `-mysql` – Enable MySQL database bindings (MySQL X DevAPI).
+- `-java` – Registers the in-progress Java generator (currently stubbed; enable when ready).
 
-- `-enableExponentialOperations` - Required flag to enable exponential file generation
-- `-selectAllFiles` - Generate SELECT ALL operation files for all field combinations
-- `-selectFiles` - Generate SELECT operation files for all field combinations  
-- `-insertFiles` - Generate INSERT operation files for all field combinations
-- `-updateFiles` - Generate UPDATE operation files for all field combinations
-- `-deleteFiles` - Generate DELETE operation files for all field combinations
+### General Options
+
+- `-help` – Print usage information.
+- `-version` – Print the SchemaLang Transpiler version and exit.
+- `-additionalGenerators=<path>` – Load dynamic generator plug-ins from a directory of `.dll` / `.so` files.
+- `-R` – Recursively walk subdirectories when the `-schema` path is a directory.
+
+### Debugger Options
+
+- `-debugger` – Start the SchemaLang debugger server and wait for IDE connections.
+- `-port=<number>` – Override debugger port (default `8902`).
+
+### C++-Specific Options
+
+- `-cppIncludePrefix=<prefix>` – Prepend a prefix to generated `#include` directives.
+- `-cppUseAngleBrackets` – Use angle brackets instead of quotes in generated includes.
+
+### Exponential Operation Options (MySQL)
+
+> **Warning:** These flags can explode the number of generated files. Use only with `-mysql` and after explicitly enabling exponential operations.
+
+- `-enableExponentialOperations` – Allow the exponential-file-generation flags below.
+- `-selectAllFiles` – Generate every SELECT-all-fields combination.
+- `-selectFiles` – Generate SELECT operations for all field subsets.
+- `-insertFiles` – Generate INSERT operations for all field subsets.
+- `-updateFiles` – Generate UPDATE operations for all field subsets.
+- `-deleteFiles` – Generate DELETE operations for all field subsets.
+
+If any of the last five flags are provided without `-enableExponentialOperations`, the transpiler exits after printing a safety warning.
 
 ### Examples
 
 **Basic C++ generation:**
+
 ```bash
-SchemaLangTranspiler -schemaDirectory=./schemas -outputDirectory=./output -cpp
+SchemaLangTranspiler -schema=./schemas -outputDirectory=./output -cpp
 ```
 
 **Multi-target generation with drop-in system:**
+
 ```bash
-SchemaLangTranspiler -schemaDirectory=./schemas -outputDirectory=./output -cpp -json -sqlite
+SchemaLangTranspiler -schema=./schemas -outputDirectory=./output -cpp -json -sqlite
 ```
 
 **Recursive directory processing:**
+
 ```bash
-SchemaLangTranspiler -schemaDirectory=./schemas -outputDirectory=./output -cpp -json -R
+SchemaLangTranspiler -schema=./schemas -outputDirectory=./output -cpp -json -R
 ```
 
 **Generate with exponential operations (use with caution):**
+
 ```bash
-SchemaLangTranspiler -schemaDirectory=./schemas -outputDirectory=./output -mysql -enableExponentialOperations -selectFiles
+SchemaLangTranspiler -schema=./schemas -outputDirectory=./output -mysql -enableExponentialOperations -selectFiles
 ```
 
 **Using dynamic generators:**
+
 ```bash
-SchemaLangTranspiler -schemaDirectory=./schemas -outputDirectory=./output -additionalGenerators=./generators -cpp -json
+SchemaLangTranspiler -schema=./schemas -outputDirectory=./output -additionalGenerators=./generators -cpp -json
 ```
 
 ### Including other schemas
 
 SchemaLang supports including other schema files from within a schema using an include directive. This lets you split definitions across files and reference types defined elsewhere. Example:
 
-```
+```schemalang
 include "./other.schema"
 
 struct LocalStruct {
@@ -81,7 +118,9 @@ When a schema file includes another file, the included file's definitions are me
 
 
 ### Output Structure
+
 Generated files are organized in subdirectories based on the target:
+
 - `<outputDirectory>/Schemas/Cpp/` - C++ header and source files
 - `<outputDirectory>/Schemas/Java/` - Java class files  
 - `<outputDirectory>/Schemas/Lua/` - Lua module files
@@ -89,6 +128,7 @@ Generated files are organized in subdirectories based on the target:
 - `<outputDirectory>/Schemas/Sqlite/` - SQLite operation files
 - `<outputDirectory>/Schemas/Mysql/` - MySQL operation files
 - `<outputDirectory>/Schemas/[GeneratorName]/` - Dynamic generator output files (named by generator)
+
 
 ## Dynamic Generator System
 
@@ -259,6 +299,7 @@ bool MyCustomGenerator::add_generator_specific_content_to_struct(std::shared_ptr
 #### Custom Output Directories
 
 Dynamic generators get their own named output directories based on the generator name:
+
 - `<outputDirectory>/Schemas/[GeneratorName]/` - Named after the generator (e.g., "MyCustomGenerator")
 
 The generator name is obtained from the required `getGeneratorName()` function and is used to create a clean, identifiable output directory structure.
@@ -266,6 +307,7 @@ The generator name is obtained from the required `getGeneratorName()` function a
 #### Error Handling
 
 The system provides comprehensive error handling:
+
 - **Library Loading Errors**: Reported with specific error messages
 - **Missing Functions**: Warnings for libraries without required functions
 - **Argument Conflicts**: Automatic handling of argument name conflicts
@@ -286,7 +328,8 @@ The dynamic generator system makes SchemaLang highly extensible while maintainin
 ## Basic Structure
 
 ### 1. **Struct Definition**
-```
+
+```schemalang
 struct StructName {
     field_definition;
     field_definition;
@@ -300,11 +343,13 @@ struct StructName: gen_modifier(Cpp,SQLite,...){
 ```
 
 ### 2. **Field Definition Syntax**
-```
+
+```schemalang
 type: field_name: modifiers: description("text");
 ```
 
 **Components:**
+
 - **type**: The data type (primitive, array, enum, or custom struct)
 - **field_name**: The name of the field (identifier)
 - **modifiers**: Optional attributes that define constraints and behaviors
@@ -313,6 +358,7 @@ type: field_name: modifiers: description("text");
 ## Data Types
 
 ### Primitive Types
+
 - **Integer Types:**
   - `int8` - 8-bit signed integer
   - `int16` - 16-bit signed integer  
@@ -403,7 +449,8 @@ enum Status {
 ## Examples
 
 ### Simple Struct
-```
+
+```schemalang
 struct Organization {
     int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the organization");
     string: name: required: description("The name of the organization");
@@ -412,7 +459,8 @@ struct Organization {
 ```
 
 ### Struct with Array Field
-```
+
+```schemalang
 struct SCP {
     int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the SCP");
     string: name: required: description("The common name of the SCP");
@@ -422,7 +470,8 @@ struct SCP {
 ```
 
 ### Struct with Foreign Key
-```
+
+```schemalang
 struct DClass {
     int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the D-Class"): reference(Personel.id);
     string: designation: required: description("The designation of the D-Class");
@@ -430,13 +479,14 @@ struct DClass {
 }
 ```
 
+
 ### Equivalent representations
 
 The two snippets below are equivalent: they both model a one-to-many or many-to-one relationship where a Character can have multiple aliases. The first form represents aliases as a separate struct with a foreign key to `Character.id`. The second form places an array of alias objects directly on `Character`. Depending on the target generator, these can produce the same underlying schema (for example, a separate SQL table for aliases with a foreign key to the character, or an embedded array in a JSON schema). 
 
 Equivalent (separate alias struct with foreign key):
 
-```
+```schemalang
 struct CharacterAlias {
     string: alias: required: description("An alternative name or nickname for a character");
     int64: character_id: required: reference(Character.id): description("The ID of the character this alias belongs to");
@@ -445,11 +495,11 @@ struct CharacterAlias {
 struct Character {
     string: name: required: description("The name for a character");
 }
-```
+```schemalang
 
 Equivalent (array field on Character):
 
-```
+```schemalang
 struct CharacterAlias {
     string: alias: required: description("An alternative name or nickname for a character");
 }
@@ -468,7 +518,7 @@ Both forms express the same logical relationship (one Character -> many Aliases)
 
 
 ### Enum with Mixed Value Assignment
-```
+```schemalang
 enum Classification {
     None,
     Safe,
@@ -483,7 +533,7 @@ enum Classification {
 ```
 
 ### Complex Struct with Multiple Field Types
-```
+```schemalang
 struct Personel {
     int64: id: primary_key: required: unique: auto_increment: description("The unique identifier of the personel");
     Title: title: required: description("The title of the personel");

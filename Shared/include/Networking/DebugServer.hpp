@@ -33,6 +33,8 @@ public:
         onNewSession_ = callback;
     }
 
+    void join();
+
     friend class session;
 private:
     unsigned short port_;

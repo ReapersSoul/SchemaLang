@@ -59,6 +59,13 @@ void DebugServer::listenerLoop()
     }
 }
 
+void DebugServer::join()
+{
+    if (listener_thread_.joinable()){
+        listener_thread_.join();
+    }
+}
+
 session::session(tcp::socket socket, std::shared_ptr<DebugServer> server)
     : ws_(std::move(socket)), server_(server)
 {
