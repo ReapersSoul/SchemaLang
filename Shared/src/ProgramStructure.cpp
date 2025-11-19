@@ -426,7 +426,7 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		reportError("Expected integer for major version number", tokens[i]);
 		return false;
 	}
-	schema_version_major = std::stoi(tokens[i].value);
+	schemaLang_transpiler_version_major = std::stoi(tokens[i].value);
 	i++;
 	
 	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
@@ -449,7 +449,7 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		reportError("Expected integer for minor version number", tokens[i]);
 		return false;
 	}
-	schema_version_minor = std::stoi(tokens[i].value);
+	schemaLang_transpiler_version_minor = std::stoi(tokens[i].value);
 	i++;
 	
 	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
@@ -472,7 +472,7 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		reportError("Expected integer for patch version number", tokens[i]);
 		return false;
 	}
-	schema_version_patch = std::stoi(tokens[i].value);
+	schemaLang_transpiler_version_patch = std::stoi(tokens[i].value);
 	i++;
 	
 	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
@@ -484,7 +484,7 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		reportError("Expected ';' after version declaration", tokens[i]);
 		return false;
 	}
-	if (debug_server) debug_server->beginParseOperation("version parsed: " + std::to_string(schema_version_major) + "." + std::to_string(schema_version_minor) + "." + std::to_string(schema_version_patch));
+	if (debug_server) debug_server->beginParseOperation("version parsed: " + std::to_string(schemaLang_transpiler_version_major) + "." + std::to_string(schemaLang_transpiler_version_minor) + "." + std::to_string(schemaLang_transpiler_version_patch));
 
 
 	version_specified = true;
@@ -506,10 +506,10 @@ bool ProgramStructure::validateVersion()
 	}
 
 	// Check major version - must match exactly (breaking changes)
-	if (schema_version_major != SCHEMALANG_VERSION_MAJOR)
+	if (schemaLang_transpiler_version_major != SCHEMALANG_VERSION_MAJOR)
 	{
 		reportError("Schema major version mismatch. Schema requires v" +
-						std::to_string(schema_version_major) + ".x.x but transpiler is v" +
+						std::to_string(schemaLang_transpiler_version_major) + ".x.x but transpiler is v" +
 						std::to_string(SCHEMALANG_VERSION_MAJOR) + "." +
 						std::to_string(SCHEMALANG_VERSION_MINOR) + "." +
 						std::to_string(SCHEMALANG_VERSION_PATCH) + ".\n" +
@@ -519,11 +519,11 @@ bool ProgramStructure::validateVersion()
 	}
 
 	// Check minor version - transpiler minor must be >= schema minor (new features)
-	if (schema_version_minor > SCHEMALANG_VERSION_MINOR)
+	if (schemaLang_transpiler_version_minor > SCHEMALANG_VERSION_MINOR)
 	{
 		reportError("Schema requires features from v" +
-						std::to_string(schema_version_major) + "." +
-						std::to_string(schema_version_minor) + ".x but transpiler is v" +
+						std::to_string(schemaLang_transpiler_version_major) + "." +
+						std::to_string(schemaLang_transpiler_version_minor) + ".x but transpiler is v" +
 						std::to_string(SCHEMALANG_VERSION_MAJOR) + "." +
 						std::to_string(SCHEMALANG_VERSION_MINOR) + "." +
 						std::to_string(SCHEMALANG_VERSION_PATCH) + ".\n" +
@@ -538,15 +538,15 @@ bool ProgramStructure::validateVersion()
 	return true;
 }
 
-std::string ProgramStructure::getVersionString() const
+std::string ProgramStructure::getTranspilerVersionString() const
 {
 	if (!version_specified)
 	{
 		return "unspecified";
 	}
-	return std::to_string(schema_version_major) + "." +
-		   std::to_string(schema_version_minor) + "." +
-		   std::to_string(schema_version_patch);
+	return std::to_string(schemaLang_transpiler_version_major) + "." +
+		   std::to_string(schemaLang_transpiler_version_minor) + "." +
+		   std::to_string(schemaLang_transpiler_version_patch);
 }
 
 bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition)
@@ -1576,7 +1576,7 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 		std::string token = tokens[i].value;
 
 		// Handle version declaration - must come before any other declarations
-		if (token == "version")
+		if (token == "SchemaLangVersion")
 		{
 			i++;
 			if (!parseVersion(tokens, i))

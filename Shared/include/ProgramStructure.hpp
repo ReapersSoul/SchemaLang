@@ -18,9 +18,9 @@ struct ProgramStructure: std::enable_shared_from_this<ProgramStructure>
 	SourcePosition current_position;
 	
 	// Schema version tracking
-	int schema_version_major = -1;  // -1 means unspecified (for backward compatibility)
-	int schema_version_minor = -1;
-	int schema_version_patch = -1;
+	int schemaLang_transpiler_version_major = -1;  // -1 means unspecified (for backward compatibility)
+	int schemaLang_transpiler_version_minor = -1;
+	int schemaLang_transpiler_version_patch = -1;
 	bool version_specified = false;
 	SourcePosition version_position;  // Track where version was declared
 
@@ -43,7 +43,7 @@ struct ProgramStructure: std::enable_shared_from_this<ProgramStructure>
 
 	bool parseVersion(std::vector<Token> tokens, int &i);
 	bool validateVersion();
-	std::string getVersionString() const;
+	std::string getTranspilerVersionString() const;
 
 	bool readMemberVariable(std::vector<Token> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition);
 
