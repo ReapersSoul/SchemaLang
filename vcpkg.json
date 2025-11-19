@@ -5,6 +5,7 @@
 		"physfs",
 		"zstd",
 		"inja",
-		"gtest"
+		"gtest",
+		"plog"
 	]
 }

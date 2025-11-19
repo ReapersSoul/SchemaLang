@@ -17,3 +17,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC ${PROJECT_NAME}_Resources)
 find_package(nlohmann_json REQUIRED)
 find_package(Boost CONFIG REQUIRED COMPONENTS dll system beast)
 target_link_libraries(${PROJECT_NAME} PUBLIC nlohmann_json::nlohmann_json Boost::dll Boost::system Boost::beast)
+
+#plog
+find_package(plog CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PUBLIC plog::plog)

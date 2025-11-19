@@ -1100,12 +1100,12 @@ std::string SqliteGenerator::convert_to_local_type(std::shared_ptr<ProgramStruct
 	// convert int types to "INTEGER"
 	if (type.is_struct(ps))
 	{
-		return "INTEGER";
+		return "INVALID_TYPE_FOR_COLUMN";
 	}
 
 	if (type.is_enum(ps))
 	{
-		return "TEXT";
+		return "INVALID_TYPE_FOR_COLUMN";
 	}
 
 	if (type.is_integer())
@@ -1169,9 +1169,9 @@ bool SqliteGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::
 	// 	}
 	// }
 
-	inja::Environment env;
+	inja::Environment env= getEnv(shared_from_this(), ps);
 	env.set_trim_blocks(true);
-	env.set_lstrip_blocks(false);
+	env.set_lstrip_blocks(true);
 
 	std::map<std::string, std::string> struct_name_content_pairs;
 	// open file
@@ -1194,7 +1194,11 @@ bool SqliteGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::
 
 	for (auto &s : ps->getStructs())
 	{
-		inja::json data=s.to_json(ps,shared_from_this());
+		inja::json data = ps->to_json(shared_from_this());
+		inja::json struct_data=s.to_json(ps, shared_from_this());
+		for (auto& [key, value] : struct_data.items()) {
+		    data[key] = value;
+		}
 
 		try
 		{

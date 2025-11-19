@@ -52,6 +52,14 @@ inja::Environment Generator::getEnv(std::shared_ptr<Generator>gen, std::shared_p
 			return generator->convert_to_local_type(ps, type);
 		});
 	}
+
+	//util/debugging
+	env.add_callback("print_json", 1, [](inja::Arguments &args) {
+		inja::json j = *args.at(0);
+		std::cout << j.dump(4) << std::endl;
+		return "";
+	});
+
 	return env;
 }
 
@@ -82,6 +90,7 @@ bool Generator::generate_additional_files(std::shared_ptr<Generator>gen, std::sh
 				continue;
 			}
 			of << content;
+			std::cout << "Generated file: "<< out_path + "/" + file << std::endl;
 		}
 		catch (const std::exception &e)
 		{

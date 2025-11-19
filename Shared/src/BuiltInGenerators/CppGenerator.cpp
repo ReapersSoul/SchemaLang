@@ -211,6 +211,9 @@ bool CppGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::str
 
 	for (auto &gen : generators)
 	{
+		if(gen->enabled==false){
+			continue;
+		}
 		if (gen == shared_from_this())
 		{
 			continue;
@@ -471,6 +474,10 @@ bool CppGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::str
 
 	for (auto &gen : generators)
 	{
+		if (!gen->enabled)
+		{
+			continue;
+		}
 		if (gen == shared_from_this())
 		{
 			continue;
