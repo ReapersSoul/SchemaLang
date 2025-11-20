@@ -4,6 +4,8 @@
 #include <StructDefinition.hpp>
 #include <EnumDefinition.hpp>
 #include <Debug.hpp>
+#include <unordered_map>
+#include <optional>
 #include <memory>
 
 class session;
@@ -17,12 +19,22 @@ struct ProgramStructure: std::enable_shared_from_this<ProgramStructure>
 	std::string current_file;
 	SourcePosition current_position;
 	
-	// Schema version tracking
-	int schemaLang_transpiler_version_major = -1;  // -1 means unspecified (for backward compatibility)
-	int schemaLang_transpiler_version_minor = -1;
-	int schemaLang_transpiler_version_patch = -1;
-	bool version_specified = false;
-	SourcePosition version_position;  // Track where version was declared
+	// Per-file version tracking (keyed by filename)
+	struct FileVersion
+	{
+		int major = -1;
+		int minor = -1;
+		int patch = -1;
+		SourcePosition position;
+	};
+
+	// Versions keyed by filename (basename only). Collisions are errors.
+	std::unordered_map<std::string, FileVersion> file_versions;          // SchemaFileVersion per file
+	std::unordered_map<std::string, FileVersion> transpiler_versions;   // SchemaLangVersion per file
+	std::string root_filename; // store basename of root file for default accessors
+
+	// Internal state to avoid spamming repeated warnings
+	bool warned_no_transpiler_version_for_root = false;
 
 	bool isInt(std::string str);
 
@@ -42,8 +54,13 @@ struct ProgramStructure: std::enable_shared_from_this<ProgramStructure>
 	void reportError(const std::string& message, const Token& token);
 
 	bool parseVersion(std::vector<Token> tokens, int &i);
-	bool validateVersion();
-	std::string getTranspilerVersionString() const;
+	bool parseFileVersion(std::vector<Token> tokens, int &i);
+	bool validateTranspilerVersion();
+	bool validateFileVersion(bool is_root);
+	std::string getTranspilerVersionString(const std::string &filename = "") const;
+	std::string getSchemaFileVersionString(const std::string &filename = "") const;
+	std::optional<FileVersion> getTranspilerVersion(const std::string &filename) const;
+	std::optional<FileVersion> getFileVersion(const std::string &filename) const;
 
 	bool readMemberVariable(std::vector<Token> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition);
 

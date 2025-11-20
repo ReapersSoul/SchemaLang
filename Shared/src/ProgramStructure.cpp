@@ -409,16 +409,18 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	}
 	
 
-	if (version_specified)
+	// store by filename (basename). Duplicate filenames are errors.
+	std::string filename = std::filesystem::path(current_file).filename().string();
+	if (transpiler_versions.find(filename) != transpiler_versions.end())
 	{
-		reportError("Version already specified at " + version_position.file_path + ":" +
-						std::to_string(version_position.line) + ":" +
-						std::to_string(version_position.column),
+		auto &existing = transpiler_versions[filename];
+		reportError("SchemaLangVersion already specified for filename '" + filename + "' in " + existing.position.file_path + ":" +
+					std::to_string(existing.position.line) + ":" + std::to_string(existing.position.column),
 					tokens[i]);
 		return false;
 	}
-
-	version_position = tokens[i].position;
+	FileVersion fv;
+	fv.position = tokens[i].position;
 
 	// Parse major version
 	if (!isInt(tokens[i].value))
@@ -426,7 +428,7 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		reportError("Expected integer for major version number", tokens[i]);
 		return false;
 	}
-	schemaLang_transpiler_version_major = std::stoi(tokens[i].value);
+	fv.major = std::stoi(tokens[i].value);
 	i++;
 	
 	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
@@ -449,7 +451,7 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		reportError("Expected integer for minor version number", tokens[i]);
 		return false;
 	}
-	schemaLang_transpiler_version_minor = std::stoi(tokens[i].value);
+	fv.minor = std::stoi(tokens[i].value);
 	i++;
 	
 	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
@@ -472,7 +474,7 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		reportError("Expected integer for patch version number", tokens[i]);
 		return false;
 	}
-	schemaLang_transpiler_version_patch = std::stoi(tokens[i].value);
+	fv.patch = std::stoi(tokens[i].value);
 	i++;
 	
 	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
@@ -484,69 +486,199 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		reportError("Expected ';' after version declaration", tokens[i]);
 		return false;
 	}
-	if (debug_server) debug_server->beginParseOperation("version parsed: " + std::to_string(schemaLang_transpiler_version_major) + "." + std::to_string(schemaLang_transpiler_version_minor) + "." + std::to_string(schemaLang_transpiler_version_patch));
+	if (debug_server) debug_server->beginParseOperation("version parsed: " + std::to_string(fv.major) + "." + std::to_string(fv.minor) + "." + std::to_string(fv.patch));
 
-
-	version_specified = true;
+	// store it
+	transpiler_versions[filename] = fv;
 	if (debug_server) debug_server->endParseOperation();
 	return true;
 }
 
-bool ProgramStructure::validateVersion()
+bool ProgramStructure::parseFileVersion(std::vector<Token> tokens, int &i)
 {
-	// If no version specified, assume compatibility for backward compatibility
-	if (!version_specified)
-	{
-		// Could make this a warning instead
-		std::cout << "Warning: No schema version specified. Consider adding 'version "
-				  << SCHEMALANG_VERSION_MAJOR << "."
-				  << SCHEMALANG_VERSION_MINOR << "."
-				  << SCHEMALANG_VERSION_PATCH << ";' at the top of your schema file." << std::endl;
-		return true;
+	if (debug_server) {
+		debug_server->beginParseOperation("parsing schema file version");
 	}
 
-	// Check major version - must match exactly (breaking changes)
-	if (schemaLang_transpiler_version_major != SCHEMALANG_VERSION_MAJOR)
+	// store by filename (basename). Duplicate filenames are errors.
+	std::string filename = std::filesystem::path(current_file).filename().string();
+	if (file_versions.find(filename) != file_versions.end())
 	{
-		reportError("Schema major version mismatch. Schema requires v" +
-						std::to_string(schemaLang_transpiler_version_major) + ".x.x but transpiler is v" +
-						std::to_string(SCHEMALANG_VERSION_MAJOR) + "." +
-						std::to_string(SCHEMALANG_VERSION_MINOR) + "." +
-						std::to_string(SCHEMALANG_VERSION_PATCH) + ".\n" +
-						"Major version differences indicate breaking changes. Please update your schema or use a compatible transpiler version.",
-					version_position);
+		auto &existing = file_versions[filename];
+		reportError("SchemaFileVersion already specified for filename '" + filename + "' in " + existing.position.file_path + ":" +
+					std::to_string(existing.position.line) + ":" + std::to_string(existing.position.column),
+					tokens[i]);
 		return false;
 	}
 
-	// Check minor version - transpiler minor must be >= schema minor (new features)
-	if (schemaLang_transpiler_version_minor > SCHEMALANG_VERSION_MINOR)
+	FileVersion fv;
+	fv.position = tokens[i].position;
+
+	// Parse major version
+	if (!isInt(tokens[i].value))
 	{
-		reportError("Schema requires features from v" +
-						std::to_string(schemaLang_transpiler_version_major) + "." +
-						std::to_string(schemaLang_transpiler_version_minor) + ".x but transpiler is v" +
-						std::to_string(SCHEMALANG_VERSION_MAJOR) + "." +
-						std::to_string(SCHEMALANG_VERSION_MINOR) + "." +
-						std::to_string(SCHEMALANG_VERSION_PATCH) + ".\n" +
-						"Please upgrade your transpiler to support this schema.",
-					version_position);
+		reportError("Expected integer for major version number", tokens[i]);
 		return false;
 	}
+	fv.major = std::stoi(tokens[i].value);
+	i++;
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 
-	// Patch version is flexible - no validation needed
-	// Schemas written for older patch versions should work with newer patches
+	// Expect '.'
+	if (tokens[i] != ".")
+	{
+		reportError("Expected '.' after major file version", tokens[i]);
+		return false;
+	}
+	i++;
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
 
+	// Parse minor version
+	if (!isInt(tokens[i].value))
+	{
+		reportError("Expected integer for minor version number", tokens[i]);
+		return false;
+	}
+	fv.minor = std::stoi(tokens[i].value);
+	i++;
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
+
+	// Expect '.'
+	if (tokens[i] != ".")
+	{
+		reportError("Expected '.' after minor file version", tokens[i]);
+		return false;
+	}
+	i++;
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
+
+	// Parse patch version
+	if (!isInt(tokens[i].value))
+	{
+		reportError("Expected integer for patch version number", tokens[i]);
+		return false;
+	}
+	fv.patch = std::stoi(tokens[i].value);
+	i++;
+	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
+
+	// Expect ';'
+	if (tokens[i] != ";")
+	{
+		reportError("Expected ';' after SchemaFileVersion declaration", tokens[i]);
+		return false;
+	}
+	if (debug_server) debug_server->beginParseOperation("schema file version parsed: " + std::to_string(fv.major) + "." + std::to_string(fv.minor) + "." + std::to_string(fv.patch));
+
+	file_versions[filename] = fv;
+	if (debug_server) debug_server->endParseOperation();
 	return true;
 }
 
-std::string ProgramStructure::getTranspilerVersionString() const
+bool ProgramStructure::validateTranspilerVersion()
 {
-	if (!version_specified)
+    bool ok = true;
+    // Validate each file's transpiler version if present
+    for (auto &pair : transpiler_versions)
+    {
+        const std::string &filename = pair.first;
+        const FileVersion &fv = pair.second;
+        if (fv.major != SCHEMALANG_VERSION_MAJOR)
+        {
+            reportError("Schema major version mismatch for file '" + filename + "'. Schema requires v" + std::to_string(fv.major) + ".x.x but transpiler is v" +
+                        std::to_string(SCHEMALANG_VERSION_MAJOR) + "." + std::to_string(SCHEMALANG_VERSION_MINOR) + "." + std::to_string(SCHEMALANG_VERSION_PATCH) + ".",
+                        fv.position);
+            ok = false;
+        }
+        if (fv.minor > SCHEMALANG_VERSION_MINOR)
+        {
+            reportError("Schema requires features from v" + std::to_string(fv.major) + "." + std::to_string(fv.minor) + ".x but transpiler is v" +
+                        std::to_string(SCHEMALANG_VERSION_MAJOR) + "." + std::to_string(SCHEMALANG_VERSION_MINOR) + "." + std::to_string(SCHEMALANG_VERSION_PATCH) + ".",
+                        fv.position);
+            ok = false;
+        }
+    }
+
+    // If root file didn't specify a transpiler version, warn (never error).
+    // Print this warning only once per root to avoid duplication.
+	if (!warned_no_transpiler_version_for_root)
 	{
-		return "unspecified";
+		if (root_filename.empty() || transpiler_versions.find(root_filename) == transpiler_versions.end())
+		{
+			std::cerr << "Warning: No SchemaLangVersion specified for root file '" << (root_filename.empty() ? current_file : root_filename) << "'." << std::endl;
+			warned_no_transpiler_version_for_root = true;
+		}
 	}
-	return std::to_string(schemaLang_transpiler_version_major) + "." +
-		   std::to_string(schemaLang_transpiler_version_minor) + "." +
-		   std::to_string(schemaLang_transpiler_version_patch);
+    return ok;
+}
+
+bool ProgramStructure::validateFileVersion(bool is_root)
+{
+	// If no file versions were specified at all, loudly warn for root file since migrations need it
+	if (file_versions.empty())
+	{
+		if (is_root)
+		{
+			std::cout << "WARNING: No SchemaFileVersion specified in " << current_file
+					  << ". Without a schema file version it is impossible to generate migrations.\n"
+					  << "Please add 'SchemaFileVersion X.Y.Z;' to your schema file." << std::endl;
+		}
+		return true;
+	}
+
+	// Basic validation: components must be non-negative for each entry
+	for (auto &pair : file_versions)
+	{
+		const FileVersion &fv = pair.second;
+		if (fv.major < 0 || fv.minor < 0 || fv.patch < 0)
+		{
+			reportError("Invalid SchemaFileVersion numbers for file '" + pair.first + "'", fv.position);
+			return false;
+		}
+	}
+
+	// If root file didn't specify a file version, warn loudly
+	if (is_root && !root_filename.empty() && file_versions.find(root_filename) == file_versions.end())
+	{
+		std::cout << "WARNING: No SchemaFileVersion specified in " << current_file
+				  << ". Without a schema file version it is impossible to generate migrations.\n"
+				  << "Please add 'SchemaFileVersion X.Y.Z;' to your schema file." << std::endl;
+	}
+	return true;
+}
+
+std::string ProgramStructure::getTranspilerVersionString(const std::string &filename) const
+{
+	std::string key = filename.empty() ? root_filename : filename;
+	auto v = getTranspilerVersion(key);
+	if (!v.has_value())
+		return "unspecified";
+	return std::to_string(v->major) + "." + std::to_string(v->minor) + "." + std::to_string(v->patch);
+}
+
+std::string ProgramStructure::getSchemaFileVersionString(const std::string &filename) const
+{
+	std::string key = filename.empty() ? root_filename : filename;
+	auto v = getFileVersion(key);
+	if (!v.has_value())
+		return "unspecified";
+	return std::to_string(v->major) + "." + std::to_string(v->minor) + "." + std::to_string(v->patch);
+}
+
+std::optional<ProgramStructure::FileVersion> ProgramStructure::getTranspilerVersion(const std::string &filename) const
+{
+	auto it = transpiler_versions.find(filename);
+	if (it == transpiler_versions.end())
+		return std::nullopt;
+	return it->second;
+}
+
+std::optional<ProgramStructure::FileVersion> ProgramStructure::getFileVersion(const std::string &filename) const
+{
+	auto it = file_versions.find(filename);
+	if (it == file_versions.end())
+		return std::nullopt;
+	return it->second;
 }
 
 bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition)
@@ -1155,6 +1287,16 @@ bool ProgramStructure::validate(bool is_root)
 	}
 	
 
+	// Validate file and transpiler versions (warn if missing) before deeper validation
+	if (!validateFileVersion(is_root))
+	{
+		return false;
+	}
+	if (!validateTranspilerVersion())
+	{
+		return false;
+	}
+
 	for (auto &s : structs)
 	{
 		for (auto &mv : s.getMemberVariables())
@@ -1402,6 +1544,8 @@ inja::json ProgramStructure::to_json(std::shared_ptr<Generator>generator)
 	j["includes"] = inja::json::array();
 	j["structs"] = inja::json::array();
 	j["enums"] = inja::json::array();
+	j["file_versions"] = inja::json::object();
+	j["transpiler_versions"] = inja::json::object();
 	for (auto &s : structs)
 	{
 		j["includes"].push_back(generator->format_include(s.getIdentifier() + "Schema.hpp"));
@@ -1411,6 +1555,16 @@ inja::json ProgramStructure::to_json(std::shared_ptr<Generator>generator)
 	{
 		j["includes"].push_back(generator->format_include(e.identifier + "Schema.hpp"));
 		j["enums"].push_back(e.to_json(shared_from_this(), generator));
+	}
+
+	// add file_versions and transpiler_versions keyed by filename
+	for (auto &pair : file_versions)
+	{
+		j["file_versions"][pair.first] = std::to_string(pair.second.major) + "." + std::to_string(pair.second.minor) + "." + std::to_string(pair.second.patch);
+	}
+	for (auto &pair : transpiler_versions)
+	{
+		j["transpiler_versions"][pair.first] = std::to_string(pair.second.major) + "." + std::to_string(pair.second.minor) + "." + std::to_string(pair.second.patch);
 	}
 	return j;
 }
@@ -1529,6 +1683,12 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 
 	// Set current file context
 	current_file = file_path;
+	// store root filename for defaults (basename)
+	std::string current_filename = std::filesystem::path(file_path).filename().string();
+	if (is_root)
+	{
+		root_filename = current_filename;
+	}
 	current_position = SourcePosition(file_path, 1, 1);
 
 	std::string whole_file;
@@ -1556,9 +1716,9 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 	EnumDefinition current_enum;
 	MemberVariableDefinition current_MemberVariableDefinition;
 
-	if (tokens[0].value != "version")
+	if (tokens[0].value != "SchemaLangVersion")
 	{
-		std::cout << "Warning: No schema version declaration found in " << file_path << ". Consider adding 'version "
+		std::cout << "Warning: No SchemaLangVersion version declaration found in " << file_path << ". Consider adding 'version "
 				  << SCHEMALANG_VERSION_MAJOR << "."
 				  << SCHEMALANG_VERSION_MINOR << "."
 				  << SCHEMALANG_VERSION_PATCH << ";' at the top of your schema file." << std::endl;
@@ -1583,8 +1743,14 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 			{
 				return false;
 			}
-			// Validate immediately after parsing
-			if (!validateVersion())
+			// do not validate here to avoid repeated warnings; global validate() will be called once per file
+            continue;
+		}
+
+		if (token == "SchemaFileVersion")
+		{
+			i++;
+			if (!parseFileVersion(tokens, i))
 			{
 				return false;
 			}
