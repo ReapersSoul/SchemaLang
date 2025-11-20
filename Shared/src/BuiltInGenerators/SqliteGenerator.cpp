@@ -989,7 +989,7 @@ bool SqliteGenerator::generate_create_table_file(std::shared_ptr<ProgramStructur
 	std::ofstream structFile(out_path + "/" + s.getIdentifier() + "_create_table.sql");
 	if (!structFile.is_open())
 	{
-		std::cout << "Failed to open file: " << out_path + "/" + s.getIdentifier() + "_create_table.sql" << std::endl;
+		PLOGE << "Failed to open file: " << out_path + "/" + s.getIdentifier() + "_create_table.sql" << std::endl;
 		return false;
 	}
 	structFile << generate_create_table_statement_string_struct(ps, s) << std::endl;
@@ -1005,7 +1005,7 @@ bool SqliteGenerator::generate_select_all_files(std::shared_ptr<ProgramStructure
 		std::ofstream structFile(out_path + "/" + s.getIdentifier() + "_select_all_" + s.getMemberVariables()[i].identifier + ".sql");
 		if (!structFile.is_open())
 		{
-			std::cout << "Failed to open file: " << out_path + "/" + s.getIdentifier() + "_select_all_" + s.getMemberVariables()[i].identifier + ".sql" << std::endl;
+			PLOGE << "Failed to open file: " << out_path + "/" + s.getIdentifier() + "_select_all_" + s.getMemberVariables()[i].identifier + ".sql" << std::endl;
 			return false;
 		}
 		structFile << sqls[i] << std::endl;
@@ -1037,7 +1037,7 @@ bool SqliteGenerator::generate_select_files(std::shared_ptr<ProgramStructure>ps,
 			structFile << ".sql";
 			if (!structFile.is_open())
 			{
-				std::cout << "Failed to open file: " << out_path + "/" + s.getIdentifier() + "_select_" + s.getMemberVariables()[i].identifier + "_by_";
+				PLOGE << "Failed to open file: " << out_path + "/" + s.getIdentifier() + "_select_" + s.getMemberVariables()[i].identifier + "_by_";
 				for (int k = 0; k < combinations[j].size(); k++)
 				{
 					structFile << s.getMemberVariables()[combinations[j][k]].identifier;
@@ -1065,7 +1065,7 @@ bool SqliteGenerator::generate_struct_files(std::shared_ptr<ProgramStructure>ps,
 
 	if (!generate_create_table_file(ps, s, out_path))
 	{
-		std::cout << "Failed to generate create table file for struct: " << s.getIdentifier() << std::endl;
+		PLOGE << "Failed to generate create table file for struct: " << s.getIdentifier() << std::endl;
 		return false;
 	}
 
@@ -1164,7 +1164,7 @@ bool SqliteGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::
 	// {
 	// 	if (!generate_struct_files(&ps, s, out_path))
 	// 	{
-	// 		std::cout << "Failed to generate sqlite file for struct: " << s.getIdentifier() << std::endl;
+	// 		PLOGE << "Failed to generate sqlite file for struct: " << s.getIdentifier() << std::endl;
 	// 		return false;
 	// 	}
 	// }
@@ -1207,16 +1207,16 @@ bool SqliteGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::
 				std::ofstream of(env.render(out_path + "/" + file.first, data));
 				if (!of.is_open())
 				{
-					std::cout << "Failed to open file: " << env.render(out_path + "/" + file.first, data);
+					PLOGE << "Failed to open file: " << env.render(out_path + "/" + file.first, data);
 				}
 				of << env.render(file.second, data);
 				of.close();
-				std::cout << "Generated file: " << env.render(out_path + "/" + file.first, data) << std::endl;
+				PLOGI << "Generated file: " << env.render(out_path + "/" + file.first, data) << std::endl;
 			}
 		}
 		catch (const std::exception &e)
 		{
-			std::cout << "Error generating file for struct " << s.getIdentifier() << ": " << e.what() << std::endl;
+			PLOGE << "Error generating file for struct " << s.getIdentifier() << ": " << e.what() << std::endl;
 			return false;
 		}
 	}
@@ -1232,16 +1232,16 @@ bool SqliteGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::
 				std::ofstream of(env.render(out_path + "/" + file.first, data));
 				if (!of.is_open())
 				{
-					std::cout << "Failed to open file: " << env.render(out_path + "/" + file.first, data);
+					PLOGE << "Failed to open file: " << env.render(out_path + "/" + file.first, data);
 				}
 				of << env.render(file.second, data);
 				of.close();
-				std::cout << "Generated file: " << env.render(out_path + "/" + file.first, data) << std::endl;
+				PLOGI << "Generated file: " << env.render(out_path + "/" + file.first, data) << std::endl;
 			}
 		}
 		catch (const std::exception &ex)
 		{
-			std::cout << "Error generating file for enum " << e.identifier << ": " << ex.what() << std::endl;
+			PLOGE << "Error generating file for enum " << e.identifier << ": " << ex.what() << std::endl;
 			return false;
 		}
 	}

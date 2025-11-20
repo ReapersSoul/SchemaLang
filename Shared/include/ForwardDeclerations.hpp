@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <BaseTypes.hpp>
 #include <inja/inja.hpp>
+#include <plog/Log.h>
 
 class ProgramStructure;
 class Generator;

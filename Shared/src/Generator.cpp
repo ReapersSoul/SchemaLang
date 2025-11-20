@@ -56,7 +56,7 @@ inja::Environment Generator::getEnv(std::shared_ptr<Generator>gen, std::shared_p
 	//util/debugging
 	env.add_callback("print_json", 1, [](inja::Arguments &args) {
 		inja::json j = *args.at(0);
-		std::cout << j.dump(4) << std::endl;
+		PLOGI << j.dump(4) << std::endl;
 		return "";
 	});
 
@@ -86,11 +86,11 @@ bool Generator::generate_additional_files(std::shared_ptr<Generator>gen, std::sh
 			std::ofstream of(out_path + "/" + file);
 			if (!of.is_open())
 			{
-				std::cout << "Failed to open file: " << out_path + "/" + file << std::endl;
+				PLOGE << "Failed to open file: " << out_path + "/" + file << std::endl;
 				continue;
 			}
 			of << content;
-			std::cout << "Generated file: "<< out_path + "/" + file << std::endl;
+			PLOGI << "Generated file: "<< out_path + "/" + file << std::endl;
 		}
 		catch (const std::exception &e)
 		{

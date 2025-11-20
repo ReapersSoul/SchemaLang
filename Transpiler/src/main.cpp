@@ -16,6 +16,12 @@
 
 #include <Networking/DebugServer.hpp>
 
+#include <plog/Log.h>
+#include <plog/Init.h>
+#include <plog/Formatters/TxtFormatter.h>
+#include <plog/Appenders/ColorConsoleAppender.h>
+#include <plog/Appenders/RollingFileAppender.h>
+
 int main(int argc, char *argv[])
 {
 	if (!initSchemaLangShared_ResourcesEmbeddedVFS(argv[0]))
@@ -29,6 +35,12 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	//init plog
+	plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
+	plog::RollingFileAppender<plog::TxtFormatter> fileAppender("schemalang_transpiler.log", 1000000, 3);
+	plog::init(plog::debug, &consoleAppender);
+	plog::get()->addAppender(&fileAppender);
+
 	bool startDebugger = false;
 	unsigned short port = 8902;
 	std::shared_ptr<DebugServer> dbServer = std::make_shared<DebugServer>(port);
@@ -38,7 +50,7 @@ int main(int argc, char *argv[])
 	argumentParser ap;
 	Flag helpFlag("help", false, [&]()
 				  { 
-					std::cout << "SchemaLang Transpiler v" 
+					PLOGI << "SchemaLang Transpiler v" 
 							  << SCHEMALANG_VERSION_MAJOR << "."
 							  << SCHEMALANG_VERSION_MINOR << "."
 							  << SCHEMALANG_VERSION_PATCH << std::endl;
@@ -47,7 +59,7 @@ int main(int argc, char *argv[])
 
 	Flag versionFlag("version", false, [&]()
 					 { 
-						std::cout << "SchemaLang Transpiler v" 
+						PLOGI << "SchemaLang Transpiler v" 
 								  << SCHEMALANG_VERSION_MAJOR << "."
 								  << SCHEMALANG_VERSION_MINOR << "."
 								  << SCHEMALANG_VERSION_PATCH << std::endl;
@@ -62,7 +74,7 @@ int main(int argc, char *argv[])
 			}
 			catch (const std::exception& e)
 			{
-				std::cout << "Invalid port number: " << value << std::endl;
+				PLOGE << "Invalid port number: " << value << std::endl;
 				exit(1);
 			} }, -3);
 	ap.addParameter(&portParameter);
@@ -138,7 +150,7 @@ int main(int argc, char *argv[])
 	{
 		if (!builder.isExponentialOperationsEnabled())
 		{
-			std::cout << "Are you sure you want to enable " << flagName << "? This will generate an " << builder.getUniqueSubsetCount() << " files (all unique combinations of fields for each struct including subsets). This is not recommended for large schema files. If you are sure, please use the --enableExponentialOperations flag to enable this feature." << std::endl;
+			PLOGW << "Are you sure you want to enable " << flagName << "? This will generate an " << builder.getUniqueSubsetCount() << " files (all unique combinations of fields for each struct including subsets). This is not recommended for large schema files. If you are sure, please use the --enableExponentialOperations flag to enable this feature." << std::endl;
 			exit(1);
 		}
 	};

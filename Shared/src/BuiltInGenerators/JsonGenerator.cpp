@@ -394,12 +394,12 @@ bool JsonGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::st
 		std::ofstream schemaFile(out_path + "/" + s.getIdentifier() + ".schema.json");
 		if (!schemaFile.is_open())
 		{
-			std::cout << "Failed to open file: " << out_path + "/" + s.getIdentifier() + ".schema.json" << std::endl;
+			PLOGE << "Failed to open file: " << out_path + "/" + s.getIdentifier() + ".schema.json" << std::endl;
 			return false;
 		}
 		schemaFile << j.dump(4);
 		schemaFile.close();
-		std::cout << "Generated File: " << out_path + "/" + s.getIdentifier() + ".schema.json" << std::endl;
+		PLOGI << "Generated File: " << out_path + "/" + s.getIdentifier() + ".schema.json" << std::endl;
 	}
 	return true;
 }

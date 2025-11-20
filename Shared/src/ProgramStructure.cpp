@@ -599,14 +599,18 @@ bool ProgramStructure::validateTranspilerVersion()
         }
     }
 
-    // If root file didn't specify a transpiler version, warn (never error).
-    // Print this warning only once per root to avoid duplication.
-	if (!warned_no_transpiler_version_for_root)
+	// Warn for each included file missing a SchemaLangVersion (never an error)
+	for (const auto &file_path : already_included_files)
 	{
-		if (root_filename.empty() || transpiler_versions.find(root_filename) == transpiler_versions.end())
+		// Already warned for this file?
+		if (transpiler_version_warnings_emitted.find(file_path) != transpiler_version_warnings_emitted.end())
+			continue;
+
+		std::string filename = std::filesystem::path(file_path).filename().string();
+		if (transpiler_versions.find(filename) == transpiler_versions.end())
 		{
-			std::cerr << "Warning: No SchemaLangVersion specified for root file '" << (root_filename.empty() ? current_file : root_filename) << "'." << std::endl;
-			warned_no_transpiler_version_for_root = true;
+			PLOGW << "WARNING: No SchemaLangVersion specified for file '" << file_path << "'. Please add 'SchemaLangVersion X.Y.Z;' to the schema file." << std::endl;
+			transpiler_version_warnings_emitted.insert(file_path);
 		}
 	}
     return ok;
@@ -614,17 +618,7 @@ bool ProgramStructure::validateTranspilerVersion()
 
 bool ProgramStructure::validateFileVersion(bool is_root)
 {
-	// If no file versions were specified at all, loudly warn for root file since migrations need it
-	if (file_versions.empty())
-	{
-		if (is_root)
-		{
-			std::cout << "WARNING: No SchemaFileVersion specified in " << current_file
-					  << ". Without a schema file version it is impossible to generate migrations.\n"
-					  << "Please add 'SchemaFileVersion X.Y.Z;' to your schema file." << std::endl;
-		}
-		return true;
-	}
+	// If no file versions were specified at all, still proceed and warn per-file below
 
 	// Basic validation: components must be non-negative for each entry
 	for (auto &pair : file_versions)
@@ -637,12 +631,21 @@ bool ProgramStructure::validateFileVersion(bool is_root)
 		}
 	}
 
-	// If root file didn't specify a file version, warn loudly
-	if (is_root && !root_filename.empty() && file_versions.find(root_filename) == file_versions.end())
+	// Warn per included file if it lacks a SchemaFileVersion (never an error)
+	for (const auto &file_path : already_included_files)
 	{
-		std::cout << "WARNING: No SchemaFileVersion specified in " << current_file
-				  << ". Without a schema file version it is impossible to generate migrations.\n"
-				  << "Please add 'SchemaFileVersion X.Y.Z;' to your schema file." << std::endl;
+		// Skip if we've already warned for this file
+		if (file_version_warnings_emitted.find(file_path) != file_version_warnings_emitted.end())
+			continue;
+
+		std::string filename = std::filesystem::path(file_path).filename().string();
+		if (file_versions.find(filename) == file_versions.end())
+		{
+			PLOGW << "WARNING: No SchemaFileVersion specified in " << file_path
+					  << ". Without a schema file version it is impossible to generate migrations.\n"
+					  << "Please add 'SchemaFileVersion X.Y.Z;' to your schema file." << std::endl;
+			file_version_warnings_emitted.insert(file_path);
+		}
 	}
 	return true;
 }
@@ -1716,13 +1719,7 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 	EnumDefinition current_enum;
 	MemberVariableDefinition current_MemberVariableDefinition;
 
-	if (tokens[0].value != "SchemaLangVersion")
-	{
-		std::cout << "Warning: No SchemaLangVersion version declaration found in " << file_path << ". Consider adding 'version "
-				  << SCHEMALANG_VERSION_MAJOR << "."
-				  << SCHEMALANG_VERSION_MINOR << "."
-				  << SCHEMALANG_VERSION_PATCH << ";' at the top of your schema file." << std::endl;
-	}
+	// Per-file SchemaLangVersion warnings are handled globally in validateTranspilerVersion().
 
 	for (int i = 0; i < tokens.size(); i++)
 	{

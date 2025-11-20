@@ -6,7 +6,7 @@ bool CppGenerator::generate_base_class_header_file(std::shared_ptr<Generator>gen
 	std::ofstream baseClassFile(out_path + "/Has" + gen->base_class.getIdentifier() + "Schema.hpp");
 	if (!baseClassFile.is_open())
 	{
-		std::cout << "Failed to open file: " << out_path + "/Has" + gen->base_class.getIdentifier() + "Schema.hpp" << std::endl;
+		PLOGE << "Failed to open file: " << out_path + "/Has" + gen->base_class.getIdentifier() + "Schema.hpp" << std::endl;
 		return false;
 	}
 	baseClassFile << "#pragma once\n";
@@ -289,7 +289,7 @@ bool CppGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::str
 				std::ofstream of(rendered_path);
 				if (!of.is_open())
 				{
-					std::cout << "Failed to open file: " << rendered_path << std::endl;
+					PLOGE << "Failed to open file: " << rendered_path << std::endl;
 				}
 				if (file.first.find(".hpp") != std::string::npos)
 				{
@@ -368,12 +368,12 @@ bool CppGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::str
 
 				of << rendered_content;
 				of.close();
-				std::cout << "Generated file: " << rendered_path << std::endl;
+				PLOGI << "Generated file: " << rendered_path << std::endl;
 			}
 		}
 		catch (const std::exception &e)
 		{
-			std::cout << "Error generating file for struct " << s.getIdentifier() << ": " << e.what() << std::endl;
+			PLOGE << "Error generating file for struct " << s.getIdentifier() << ": " << e.what() << std::endl;
 			return false;
 		}
 	}
@@ -421,7 +421,7 @@ bool CppGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::str
 				std::ofstream of(rendered_path);
 				if (!of.is_open())
 				{
-					std::cout << "Failed to open file: " << rendered_path << std::endl;
+					PLOGE << "Failed to open file: " << rendered_path << std::endl;
 				}
 
 				// render template content separately
@@ -437,12 +437,12 @@ bool CppGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::str
 
 				of << rendered_content;
 				of.close();
-				std::cout << "Generated file: " << rendered_path << std::endl;
+				PLOGI << "Generated file: " << rendered_path << std::endl;
 			}
 		}
 		catch (const std::exception &ex)
 		{
-			std::cout << "Error generating file for enum " << e.identifier << ": " << ex.what() << std::endl;
+			PLOGE << "Error generating file for enum " << e.identifier << ": " << ex.what() << std::endl;
 			return false;
 		}
 	}
@@ -456,18 +456,18 @@ bool CppGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::str
 		std::ofstream of(out_path + "/" + filename);
 		if (!of.is_open())
 		{
-			std::cout << "Failed to open file: " << out_path + "/" + filename << std::endl;
+			PLOGE << "Failed to open file: " << out_path + "/" + filename << std::endl;
 		}
 		try
 		{
 			std::string rendered_content = env.render(content, data);
 			of << rendered_content;
 			of.close();
-			std::cout << "Generated file: " << out_path + "/" + filename << std::endl;
+			PLOGI << "Generated file: " << out_path + "/" + filename << std::endl;
 		}
 		catch (const std::exception &e)
 		{
-			std::cout << "Error rendering template " << filename << ": " << e.what() << std::endl;
+			PLOGE << "Error rendering template " << filename << ": " << e.what() << std::endl;
 			return false;
 		}
 	}

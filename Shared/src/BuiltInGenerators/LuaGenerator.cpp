@@ -565,7 +565,7 @@
 // 	std::ofstream luaFile(out_path + "/" + s.getIdentifier() + ".lua");
 // 	if (!luaFile.is_open())
 // 	{
-// 		std::cout << "Failed to open file: " << out_path + "/" + s.getIdentifier() + ".lua" << std::endl;
+// 		PLOGE << "Failed to open file: " << out_path + "/" + s.getIdentifier() + ".lua" << std::endl;
 // 		return false;
 // 	}
 	
@@ -624,7 +624,7 @@
 // 	std::ofstream luaFile(out_path + "/" + e.identifier + ".lua");
 // 	if (!luaFile.is_open())
 // 	{
-// 		std::cout << "Failed to open file: " << out_path + "/" + e.identifier + ".lua" << std::endl;
+// 		PLOGE << "Failed to open file: " << out_path + "/" + e.identifier + ".lua" << std::endl;
 // 		return false;
 // 	}
 	
@@ -647,7 +647,7 @@
 // 	std::ofstream luaFile(out_path + "/schema.lua");
 // 	if (!luaFile.is_open())
 // 	{
-// 		std::cout << "Failed to open file: " << out_path + "/schema.lua" << std::endl;
+// 		PLOGE << "Failed to open file: " << out_path + "/schema.lua" << std::endl;
 // 		return false;
 // 	}
 	
@@ -1057,7 +1057,7 @@
 // 	{
 // 		if (!generate_enum_lua_file(e, out_path))
 // 		{
-// 			std::cout << "Failed to generate Lua file for enum: " << e.identifier << std::endl;
+// 			PLOGE << "Failed to generate Lua file for enum: " << e.identifier << std::endl;
 // 			return false;
 // 		}
 // 	}
@@ -1067,7 +1067,7 @@
 // 	{
 // 		if (!generate_struct_lua_file(&ps, s, out_path, base_classes))
 // 		{
-// 			std::cout << "Failed to generate Lua file for struct: " << s.getIdentifier() << std::endl;
+// 			PLOGE << "Failed to generate Lua file for struct: " << s.getIdentifier() << std::endl;
 // 			return false;
 // 		}
 // 	}
@@ -1075,7 +1075,7 @@
 // 	// Generate main aggregator file
 // 	if (!generate_main_lua_file(ps, out_path))
 // 	{
-// 		std::cout << "Failed to generate main Lua schema file" << std::endl;
+// 		E << "Failed to generate main Lua schema file" << std::endl;
 // 		return false;
 // 	}
 	

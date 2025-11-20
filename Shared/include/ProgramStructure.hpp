@@ -5,6 +5,7 @@
 #include <EnumDefinition.hpp>
 #include <Debug.hpp>
 #include <unordered_map>
+#include <unordered_set>
 #include <optional>
 #include <memory>
 
@@ -31,10 +32,11 @@ struct ProgramStructure: std::enable_shared_from_this<ProgramStructure>
 	// Versions keyed by filename (basename only). Collisions are errors.
 	std::unordered_map<std::string, FileVersion> file_versions;          // SchemaFileVersion per file
 	std::unordered_map<std::string, FileVersion> transpiler_versions;   // SchemaLangVersion per file
+	std::unordered_set<std::string> file_version_warnings_emitted; // set of files we've warned about missing SchemaFileVersion
+	std::unordered_set<std::string> transpiler_version_warnings_emitted; // set of files we've warned about missing SchemaLangVersion
 	std::string root_filename; // store basename of root file for default accessors
 
-	// Internal state to avoid spamming repeated warnings
-	bool warned_no_transpiler_version_for_root = false;
+	// Internal state: removed single-root warning suppression; per-file warnings are used instead
 
 	bool isInt(std::string str);
 

@@ -5,7 +5,7 @@
 //     std::ofstream enumFile(out_path + "/" + e.identifier + ".java");
 //     if (!enumFile.is_open())
 //     {
-//         std::cout << "Failed to open file: " << out_path + "/" + e.identifier + ".java" << std::endl;
+//         PLOGE << "Failed to open file: " << out_path + "/" + e.identifier + ".java" << std::endl;
 //         return;
 //     }
     
@@ -61,7 +61,7 @@
 //     std::ofstream structFile(out_path + "/" + s.getIdentifier() + ".java");
 //     if (!structFile.is_open())
 //     {
-//         std::cout << "Failed to open file: " << out_path + "/" + s.getIdentifier() + ".java" << std::endl;
+//         PLOGE << "Failed to open file: " << out_path + "/" + s.getIdentifier() + ".java" << std::endl;
 //         return;
 //     }
     

@@ -1084,7 +1084,7 @@ bool MysqlGenerator::generate_create_table_file(std::shared_ptr<ProgramStructure
 	std::ofstream structFile(out_path + "/" + s.getIdentifier() + "_create_table.sql");
 	if (!structFile.is_open())
 	{
-		std::cout << "Failed to open file: " << out_path + "/" + s.getIdentifier() + "_create_table.sql" << std::endl;
+		PLOGE << "Failed to open file: " << out_path + "/" + s.getIdentifier() + "_create_table.sql" << std::endl;
 		return false;
 	}
 	structFile << generate_create_table_statement_string_struct(ps, s) << std::endl;
@@ -1100,7 +1100,7 @@ bool MysqlGenerator::generate_select_all_files(std::shared_ptr<ProgramStructure>
 		std::ofstream structFile(out_path + "/" + s.getIdentifier() + "_select_by_" + s.getMemberVariables()[i].identifier + ".sql");
 		if (!structFile.is_open())
 		{
-			std::cout << "Failed to open file: " << out_path + "/" + s.getIdentifier() + "_select_by_" + s.getMemberVariables()[i].identifier + ".sql" << std::endl;
+			PLOGE << "Failed to open file: " << out_path + "/" + s.getIdentifier() + "_select_by_" + s.getMemberVariables()[i].identifier + ".sql" << std::endl;
 			return false;
 		}
 		structFile << sqls[i] << std::endl;
@@ -1130,7 +1130,7 @@ bool MysqlGenerator::generate_select_files(std::shared_ptr<ProgramStructure>ps, 
 			std::ofstream structFile(filename);
 			if (!structFile.is_open())
 			{
-				std::cout << "Failed to open file: " << filename << std::endl;
+				PLOGE << "Failed to open file: " << filename << std::endl;
 				return false;
 			}
 			structFile << sql << std::endl;
@@ -1478,7 +1478,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(std::shared_ptr<Ge
 	// 		structFile << "\t\tsession.sql(getMySQLCreateTableStatement()).execute();\n";
 	// 		structFile << "\t\treturn true;\n";
 	// 		structFile << "\t} catch (const mysqlx::Error &err) {\n";
-	// 		structFile << "\t\tstd::cout << \"MySQL error: \" << err.what() << std::endl;\n";
+	// 		structFile << "\t\tPLOGE << \"MySQL error: \" << err.what() << std::endl;\n";
 	// 		structFile << "\t\treturn false;\n";
 	// 		structFile << "\t}\n";
 	// 		return true;
@@ -1505,7 +1505,7 @@ bool MysqlGenerator::add_generator_specific_content_to_struct(std::shared_ptr<Ge
 	// 		"\t\treturn;\n"
 	// 		"\t}\n");
 	// }else{
-	// 	std::cout << "Warning: MysqlGenerator only supports C++ code generation. cant add generator specific content to struct for generator: " << gen->name << std::endl;
+	// 	PLOGW << "Warning: MysqlGenerator only supports C++ code generation. cant add generator specific content to struct for generator: " << gen->name << std::endl;
 	// }
 
 	return true;

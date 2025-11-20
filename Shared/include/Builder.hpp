@@ -109,7 +109,7 @@ public:
 			// Load dynamic generators from the specified directory
 			if (!std::filesystem::exists(directory))
 			{
-				std::cout << "Additional generators directory does not exist: " << directory << std::endl;
+				PLOGE << "Additional generators directory does not exist: " << directory << std::endl;
 				return;
 			}
 
@@ -133,25 +133,25 @@ public:
 								{
                                     
                                     addGenerator(generator);
-                                    std::cout << "Loaded generator '" << generator->name << "' from: " << entry.path().string() << std::endl;
+                                    PLOGI << "Loaded generator '" << generator->name << "' from: " << entry.path().string() << std::endl;
                                     
                                     // Check if the generator has a registerArguments function
                                     if (lib.has("registerArguments"))
                                     {
                                         auto registerArguments = lib.get<void(argumentParser*)>("registerArguments");
                                         registerArguments(&ap);
-                                        std::cout << "Registered arguments for generator '" << generator->name << "' from: " << entry.path().string() << std::endl;
+                                        PLOGI << "Registered arguments for generator '" << generator->name << "' from: " << entry.path().string() << std::endl;
                                     }
 								}
 							}
 							else
 							{
-								std::cout << "Warning: " << entry.path().string() << " does not have getGeneratorInstance function" << std::endl;
+								PLOGW << "Warning: " << entry.path().string() << " does not have getGeneratorInstance function" << std::endl;
 							}
 						}
 						catch (const std::exception& e)
 						{
-							std::cout << "Error loading generator from " << entry.path().string() << ": " << e.what() << std::endl;
+							PLOGE << "Error loading generator from " << entry.path().string() << ": " << e.what() << std::endl;
 						}
 					}
 				}
@@ -191,7 +191,7 @@ public:
 
 
         if(!std::filesystem::exists(schema)){
-            std::cout << "Schema path does not exist: " << schema.string() << std::endl;
+            PLOGE << "Schema path does not exist: " << schema.string() << std::endl;
             return false;
         }
 
@@ -211,12 +211,12 @@ public:
             }
             if (!program_structure_->readFile(schema.string()))
             {
-                std::cout << "Failed to read file: " << schema.string() << std::endl;
+                PLOGE << "Failed to read file: " << schema.string() << std::endl;
                 exit(1);
             }
             else
             {
-                std::cout << "Read file: " << schema.string() << std::endl;
+                PLOGI << "Read file: " << schema.string() << std::endl;
             }
         }
         else
@@ -242,12 +242,12 @@ public:
                     }
                     if (!program_structure_->readFile(entry.path().string()))
                     {
-                        std::cout << "Failed to read file: " << entry.path().string() << std::endl;
+                        PLOGE << "Failed to read file: " << entry.path().string() << std::endl;
                         exit(1);
                     }
                     else
                     {
-                        std::cout << "Read file: " << entry.path().string() << std::endl;
+                        PLOGI << "Read file: " << entry.path().string() << std::endl;
                     }
                 }
             }
@@ -272,12 +272,12 @@ public:
                     }
                     if (!program_structure_->readFile(entry.path().string()))
                     {
-                        std::cout << "Failed to read file: " << entry.path().string() << std::endl;
+                        PLOGE << "Failed to read file: " << entry.path().string() << std::endl;
                         exit(1);
                     }
                     else
                     {
-                        std::cout << "Read file: " << entry.path().string() << std::endl;
+                        PLOGI << "Read file: " << entry.path().string() << std::endl;
                     }
                 }
             }
@@ -292,7 +292,7 @@ public:
             printf("Generating files for generator '%s'\n", generator.first.c_str());
             if (!program_structure_->generate_files(generator.second, (outputDirectory / generator.first).string()))
             {
-                std::cout << "Failed to generate files for generator '" << generator.first << "'" << std::endl;
+                PLOGE << "Failed to generate files for generator '" << generator.first << "'" << std::endl;
                 return false;
             }
         }
