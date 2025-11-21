@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS {{identifier}} (
         DEFAULT 0
     {% else %}
         {% if field.reference.struct_name!="" %} REFERENCES {{field.reference.struct_name}}({{field.reference.variable_name}}) {% endif %}
-        {% if field.default_value %} DEFAULT {{SQLite_format_default(field.type, field.default_value)}}{% endif %}
+        {% if field.default_value != "" %} DEFAULT {{SQLite_format_default(field.type, field.default_value)}}{% endif %}
     {% endif %}
     {% if not field.type.is_array %}
         {% if current_field < field_count or additional_field_count > 0 %},{% endif %}    

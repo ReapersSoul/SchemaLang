@@ -97,7 +97,7 @@ void SQLiteDB::create{{struct.identifierCamel}}Table() {
 CREATE TABLE IF NOT EXISTS {{struct.identifier}} (
 {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}
 {% if not field.type.is_array %}{% set current_field = current_field + 1 %}
-    {{ field.identifier }} {{ SQLite_convert_to_local_type(field.type) }} {% if field.type.required %} NOT NULL {% endif %}{% if field.unique %} UNIQUE {% endif %}{% if field.primary_key %} PRIMARY KEY {% endif %}{% if field.auto_increment %} AUTOINCREMENT {% endif %}{% if field.reference.struct_name!="" %} REFERENCES {{field.reference.struct_name}}({{field.reference.variable_name}}) {% endif %}{% if field.default_value %} DEFAULT {{SQLite_format_default(field.type, field.default_value)}}{% endif %}{% if current_field < field_count or additional_field_count > 0 %},{% endif %}
+    {{ field.identifier }} {{ SQLite_convert_to_local_type(field.type) }} {% if field.type.required %} NOT NULL {% endif %}{% if field.unique %} UNIQUE {% endif %}{% if field.primary_key %} PRIMARY KEY {% endif %}{% if field.auto_increment %} AUTOINCREMENT {% endif %}{% if field.reference.struct_name!="" %} REFERENCES {{field.reference.struct_name}}({{field.reference.variable_name}}) {% endif %}{% if field.default_value != "" %} DEFAULT {{SQLite_format_default(field.type, field.default_value)}}{% endif %}{% if current_field < field_count or additional_field_count > 0 %},{% endif %}
         
 {% endif %}
 {% endfor %}{% set current_field = 0 %}
