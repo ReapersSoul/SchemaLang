@@ -101,7 +101,7 @@ json JsonGenerator::structToSchema(StructDefinition s, std::shared_ptr<ProgramSt
 		j["required"] = json::array();
 		for (auto& mv : s.getMemberVariables())
 		{
-			if (mv.required)
+			if (mv.type.is_required())
 			{
 				j["required"].push_back(mv.identifier);
 			}
@@ -131,7 +131,7 @@ JsonGenerator::JsonGenerator()
 		{
 			if (mv.type.is_struct(ps))
 			{
-				if (mv.required)
+				if (mv.type.is_required())
 				{
 					structFile << "\tj[\"" << mv.identifier << "\"] = " << mv.identifier << "->toJSON();\n";
 				}
@@ -144,7 +144,7 @@ JsonGenerator::JsonGenerator()
 			}
 			else if (mv.type.is_enum(ps))
 			{
-				if (mv.required)
+				if (mv.type.is_required())
 				{
 					structFile << "\tj[\"" << mv.identifier << "\"] = " << mv.identifier << ";\n";
 				}
@@ -157,7 +157,7 @@ JsonGenerator::JsonGenerator()
 			}
 			else if (mv.type.is_array())
 			{
-				if (mv.required)
+				if (mv.type.is_required())
 				{
 					structFile << "\tnlohmann::json " << mv.identifier << "Array;\n";
 					structFile << "\tfor(auto &v : " << mv.identifier << "){\n";
@@ -200,7 +200,7 @@ JsonGenerator::JsonGenerator()
 			}
 			else
 			{
-				if (mv.required)
+				if (mv.type.is_required())
 				{
 					structFile << "\tj[\"" << mv.identifier << "\"] = " << mv.identifier << ";\n";
 				}
@@ -226,7 +226,7 @@ JsonGenerator::JsonGenerator()
 			if (mv.type.is_struct(ps))
 			{
 				structFile << "\tif(j.find(\"" << mv.identifier << "\") != j.end()){\n";
-				if (mv.required)
+				if (mv.type.is_required())
 				{
 					structFile << "\t\t" << mv.identifier << " = new " << mv.type.identifier() << "Schema();\n";
 					structFile << "\t\t" << mv.identifier << "->fromJSON(j[\"" << mv.identifier << "\"]);\n";
@@ -242,7 +242,7 @@ JsonGenerator::JsonGenerator()
 			else if (mv.type.is_enum(ps))
 			{
 				structFile << "\tif(j.find(\"" << mv.identifier << "\") != j.end()){\n";
-				if (mv.required)
+				if (mv.type.is_required())
 				{
 					structFile << "\t\t" << mv.identifier << " = " + mv.type.identifier() + "SchemaFromString(j[\"" << mv.identifier << "\"]);\n";
 				}
@@ -251,7 +251,7 @@ JsonGenerator::JsonGenerator()
 					structFile << "\t\t" << mv.identifier << " = " + mv.type.identifier() + "SchemaFromString(j[\"" << mv.identifier << "\"]);\n";
 				}
 				structFile << "\t}\n";
-				if (mv.required)
+				if (mv.type.is_required())
 				{
 					structFile << "\telse{\n";
 					structFile << "\t\t" << mv.identifier << " = " + mv.type.identifier() + "Schema::" + mv.type.identifier() + "_Unknown;\n";
@@ -261,7 +261,7 @@ JsonGenerator::JsonGenerator()
 			else if (mv.type.is_array())
 			{
 				structFile << "\tif(j.find(\"" << mv.identifier << "\") != j.end()){\n";
-				if (mv.required)
+				if (mv.type.is_required())
 				{
 					structFile << "\t\t" << mv.identifier << ".clear();\n";
 					structFile << "\t\tfor(auto &v : j[\"" << mv.identifier << "\"]){\n";
@@ -311,7 +311,7 @@ JsonGenerator::JsonGenerator()
 			else
 			{
 				structFile << "\tif(j.find(\"" << mv.identifier << "\") != j.end()){\n";
-				if (mv.required)
+				if (mv.type.is_required())
 				{
 					structFile << "\t\t" << mv.identifier << " = j[\"" << mv.identifier << "\"];\n";
 				}

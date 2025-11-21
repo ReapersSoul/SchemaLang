@@ -36,7 +36,7 @@ const mysqlx::abi2::r0::Row {{identifier}}Schema::toMySQLRow() const
 {% set column_index = 0 %}
 {% for mv in member_variables %}
 {% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
-    row.set({{column_index}}, this->{{mv.identifier}}{% if not mv.required %}.value_or({{mv.type.estimated}}{}){% endif %});
+    row.set({{column_index}}, this->{{mv.identifier}}{% if not mv.type.required %}.value_or({{mv.type.estimated}}{}){% endif %});
 {% set column_index = column_index + 1 %}
 {% endif %}
 {% endfor %}

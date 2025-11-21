@@ -511,7 +511,7 @@
 // 		}
 		
 // 		// Check required fields
-// 		if (mv.required)
+// 		if (mv.type.is_required())
 // 		{
 // 			luaFile << "  if self." << mv.identifier << " == nil then\n";
 // 			luaFile << "    table.insert(errors, \"" << mv.identifier << " is required\")\n";
@@ -754,7 +754,7 @@
 // 			bool first = true;
 // 			for (auto& [generator, mv] : s.getMemberVariables())
 // 			{
-// 				if (mv.required)
+// 				if (mv.type.is_required())
 // 				{
 // 					if (!first) luaFile << ", ";
 // 					luaFile << "'" << mv.identifier << "'";

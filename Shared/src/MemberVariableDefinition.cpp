@@ -8,7 +8,6 @@ inja::json MemberVariableDefinition::to_json(std::shared_ptr<ProgramStructure> p
     std::string identifierCamel = identifier;
 	identifierCamel[0] = toupper(identifierCamel[0]);
 	j["identifierCamel"] = identifierCamel;
-    j["required"] = required;
     j["auto_increment"] = auto_increment;
     j["primary_key"] = primary_key;
     j["unique"] = unique;

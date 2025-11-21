@@ -22,7 +22,7 @@ public:
 	}
 
 	//getters
-{% for mv in member_variables %}{% if not mv.required %}
+{% for mv in member_variables %}{% if not mv.type.required %}
 	// Optional getter for {{mv.identifier}}
 	// Returns an optional containing the value of {{mv.identifier}} if it exists, or std::nullopt otherwise.
 	// {{mv.identifier}}: {{mv.description}}
@@ -34,10 +34,16 @@ public:
 {% endif %}{% endfor %}
 
 	//setters
-{% for mv in member_variables %}
+{% for mv in member_variables %}{% if not mv.type.required %}
+	// Optional setter for {{mv.identifier}}
+	// Sets the value of {{mv.identifier}}.
+	// {{mv.identifier}}: {{mv.description}}
+	virtual void set{{mv.identifierCamel}}(std::optional<{{mv.type.estimated}}> value);
+{% else %}
 	// Setter for {{mv.identifier}}
 	// {{mv.identifier}}: {{mv.description}}
 	virtual void set{{mv.identifierCamel}}({{mv.type.estimated}} value);
+{% endif %}
 {% endfor %}
 
 {% for mv in member_variables %}{% if mv.type.is_array %}
@@ -82,7 +88,7 @@ protected:
 {% endfor %}
 
 {% for mv in member_variables %}
-{% if not mv.required %}
+{% if not mv.type.required %}
 	// Optional member variable for {{mv.identifier}}
 	// {{mv.identifier}}: {{mv.description}}
 	std::optional<{{mv.type.estimated}}> {{mv.identifier}}{% if mv.type.defaulted %} = {{mv.default_value}}{% endif %};

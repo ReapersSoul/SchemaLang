@@ -72,7 +72,7 @@ std::string SqliteGenerator::generate_create_table_statement_string_struct(std::
 		// add type
 		sql += convert_to_local_type(ps, s.getMemberVariables()[i].type);
 		// add constraints
-		if (s.getMemberVariables()[i].required)
+		if (s.getMemberVariables()[i].type.is_required())
 		{
 			sql += " NOT NULL";
 		}
@@ -122,7 +122,7 @@ void SqliteGenerator::add_foreign_key_columns_for_arrays(std::shared_ptr<Program
 							MemberVariableDefinition reference_column;
 							reference_column.identifier = parent_struct.getIdentifier() + "Id";
 							reference_column.type = TypeDefinition("int64");
-							reference_column.required = member_var.required; // If array is required, reference is NOT NULL
+							reference_column.type.setRequired(member_var.type.is_required()); // If array is required, reference is NOT NULL
 							reference_column.reference.struct_name = parent_struct.getIdentifier();
 							reference_column.reference.variable_name = "id"; // Assuming parent has 'id' as primary key
 							reference_column.description = "Foreign key reference to " + parent_struct.getIdentifier() + " table";
@@ -313,7 +313,7 @@ std::string generate_bind(std::shared_ptr<Generator>gen, std::shared_ptr<Program
 	{
 		std::string local_type = gen->convert_to_local_type(ps, mv.type);
 		local_type = local_type.substr(0, local_type.size() - 2);
-		if (mv.required)
+		if (mv.type.is_required())
 		{
 			ret += "int(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ");\n";
 		}
@@ -324,7 +324,7 @@ std::string generate_bind(std::shared_ptr<Generator>gen, std::shared_ptr<Program
 	}
 	else if (mv.type.is_real())
 	{
-		if (mv.required)
+		if (mv.type.is_required())
 		{
 			ret += "double(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ");\n";
 		}
@@ -335,7 +335,7 @@ std::string generate_bind(std::shared_ptr<Generator>gen, std::shared_ptr<Program
 	}
 	else if (mv.type.is_bool())
 	{
-		if (mv.required)
+		if (mv.type.is_required())
 		{
 			ret += "int(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ");\n";
 		}
@@ -346,7 +346,7 @@ std::string generate_bind(std::shared_ptr<Generator>gen, std::shared_ptr<Program
 	}
 	else if (mv.type.is_string())
 	{
-		if (mv.required)
+		if (mv.type.is_required())
 		{
 			ret += "text(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".c_str(), -1, SQLITE_STATIC);\n";
 		}
@@ -357,7 +357,7 @@ std::string generate_bind(std::shared_ptr<Generator>gen, std::shared_ptr<Program
 	}
 	else if (mv.type.is_char())
 	{
-		if (mv.required)
+		if (mv.type.is_required())
 		{
 			ret += "text(stmt, " + std::to_string(i + 1) + ", std::string(1, " + mv.identifier + ").c_str(), -1, SQLITE_STATIC);\n";
 		}
@@ -368,7 +368,7 @@ std::string generate_bind(std::shared_ptr<Generator>gen, std::shared_ptr<Program
 	}
 	else if (mv.type.is_array())
 	{
-		if (mv.required)
+		if (mv.type.is_required())
 		{
 			ret += "text(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".c_str());\n";
 		}
@@ -377,7 +377,7 @@ std::string generate_bind(std::shared_ptr<Generator>gen, std::shared_ptr<Program
 			ret += "text(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".has_value() ? " + mv.identifier + ".value().c_str() : nullptr);\n";
 		}
 	}
-	else if (!mv.required)
+	else if (!mv.type.is_required())
 	{
 		throw std::runtime_error("Optional types are not supported in SQLite generator.");
 	}
@@ -410,14 +410,7 @@ void SqliteGenerator::generate_select_all_statement_function_member_variable(std
 	select_all_statement.return_type.identifier() = "std::vector<std::shared_ptr<" + s.getIdentifier() + "Schema>>";
 	select_all_statement.static_function = true;
 	select_all_statement.parameters.push_back(std::make_pair(sqlite_db, "db"));
-	if (mv.required)
-	{
-		select_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
-	}
-	else
-	{
-		select_all_statement.parameters.push_back(std::make_pair(TypeDefinition("std::optional<" + gen->convert_to_local_type(ps, mv.type) + ">"), mv.identifier));
-	}
+	select_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 
 	select_all_statement.generate_function = [this, &mv](std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s, FunctionDefinition &fd, std::ostream &structFile)
 	{
@@ -577,7 +570,7 @@ void SqliteGenerator::generate_insert_statements_function_struct(std::shared_ptr
 			continue;
 		}
 		// Only add required parameters in this pass
-		if (mv.required)
+		if (mv.type.is_required())
 		{
 			insert_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 		}
@@ -597,7 +590,7 @@ void SqliteGenerator::generate_insert_statements_function_struct(std::shared_ptr
 			continue;
 		}
 		// Only add optional parameters in this pass
-		if (!mv.required)
+		if (!mv.type.is_required())
 		{
 			std::string param_type = "std::optional<" + gen->convert_to_local_type(ps, mv.type) + ">";
 			insert_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type, true), mv.identifier));
@@ -705,7 +698,7 @@ void SqliteGenerator::generate_update_all_statement_function_struct(std::shared_
 			continue;
 		}
 		// For optional fields, use std::optional<T> with default std::nullopt
-		if (!mv.required)
+		if (!mv.type.is_required())
 		{
 			std::string param_type = "std::optional<" + gen->convert_to_local_type(ps, mv.type) + ">";
 			update_all_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type, true), mv.identifier));
@@ -759,7 +752,7 @@ void SqliteGenerator::generate_update_statements_function_struct(std::shared_ptr
 			continue;
 		}
 		// Only add required parameters in this pass
-		if (mv.required)
+		if (mv.type.is_required())
 		{
 			update_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 		}
@@ -778,7 +771,7 @@ void SqliteGenerator::generate_update_statements_function_struct(std::shared_ptr
 			continue;
 		}
 		// Only add optional parameters in this pass
-		if (!mv.required)
+		if (!mv.type.is_required())
 		{
 			std::string param_type = "std::optional<" + gen->convert_to_local_type(ps, mv.type) + ">";
 			update_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type, true), mv.identifier));

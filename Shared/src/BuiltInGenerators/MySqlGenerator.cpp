@@ -69,7 +69,7 @@ std::string MysqlGenerator::generate_create_table_statement_string_struct(std::s
 		{
 			sql += " AUTO_INCREMENT";
 		}
-		if (s.getMemberVariables()[i].required)
+		if (s.getMemberVariables()[i].type.is_required())
 		{
 			sql += " NOT NULL";
 		}
@@ -130,7 +130,7 @@ void MysqlGenerator::add_foreign_key_columns_for_arrays(std::shared_ptr<ProgramS
 							MemberVariableDefinition reference_column;
 							reference_column.identifier = parent_struct.getIdentifier() + "Id";
 							reference_column.type = TypeDefinition("int64");
-							reference_column.required = member_var.required; // If array is required, reference is NOT NULL
+							reference_column.type.setRequired(member_var.type.is_required()); // If array is required, reference is NOT NULL
 							reference_column.reference.struct_name = parent_struct.getIdentifier();
 							reference_column.reference.variable_name = "id"; // Assuming parent has 'id' as primary key
 							reference_column.description = "Foreign key reference to " + parent_struct.getIdentifier() + " table";
@@ -434,7 +434,7 @@ void MysqlGenerator::generate_insert_statements_function_struct(std::shared_ptr<
 			continue;
 		}
 		// Only add required parameters in this pass
-		if (mv.required)
+		if (mv.type.is_required())
 		{
 			insert_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 		}
@@ -454,7 +454,7 @@ void MysqlGenerator::generate_insert_statements_function_struct(std::shared_ptr<
 			continue;
 		}
 		// Only add optional parameters in this pass
-		if (!mv.required)
+		if (!mv.type.is_required())
 		{
 			std::string param_type = "std::optional<" + gen->convert_to_local_type(ps, mv.type) + ">";
 			insert_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type,true), mv.identifier));
@@ -505,7 +505,7 @@ void MysqlGenerator::generate_insert_statements_function_struct(std::shared_ptr<
 			{
 				structFile << ", ";
 			}
-			if (s.getMemberVariables()[i].required)
+			if (s.getMemberVariables()[i].type.is_required())
 			{
 				// Required field - emit value directly (cast enums to int)
 				if (s.getMemberVariables()[i].type.is_enum(ps)) {
@@ -585,7 +585,7 @@ void MysqlGenerator::generate_insert_statements_function_struct(std::shared_ptr<
 			{
 				structFile << ", ";
 			}
-			if (s.getMemberVariables()[i].required)
+			if (s.getMemberVariables()[i].type.is_required())
 			{
 				// Required field on instance - emit directly (cast enums to int)
 				if (s.getMemberVariables()[i].type.is_enum(ps)) {
@@ -639,7 +639,7 @@ void MysqlGenerator::generate_update_all_statement_function_struct(std::shared_p
 			continue;
 		}
 		// Only add required parameters in this pass
-		if (mv.required)
+		if (mv.type.is_required())
 		{
 			update_all_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 		}
@@ -659,7 +659,7 @@ void MysqlGenerator::generate_update_all_statement_function_struct(std::shared_p
 			continue;
 		}
 		// Only add optional parameters in this pass
-		if (!mv.required)
+		if (!mv.type.is_required())
 		{
 			std::string param_type = "std::optional<" + gen->convert_to_local_type(ps, mv.type) + ">";
 			update_all_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type,true), mv.identifier));
@@ -699,7 +699,7 @@ void MysqlGenerator::generate_update_all_statement_function_struct(std::shared_p
 				{
 					continue;
 				}
-				if (mv.required)
+				if (mv.type.is_required())
 				{
 					if(mv.type.is_struct(ps)){
 						continue;
@@ -769,7 +769,7 @@ void MysqlGenerator::generate_update_statements_function_struct(std::shared_ptr<
 			continue;
 		}
 		// Only add required parameters in this pass
-		if (mv.required)
+		if (mv.type.is_required())
 		{
 			update_statement.parameters.push_back(std::make_pair(gen->convert_to_local_type(ps, mv.type), mv.identifier));
 		}
@@ -788,7 +788,7 @@ void MysqlGenerator::generate_update_statements_function_struct(std::shared_ptr<
 			continue;
 		}
 		// Only add optional parameters in this pass
-		if (!mv.required)
+		if (!mv.type.is_required())
 		{
 			std::string param_type = "std::optional<" + gen->convert_to_local_type(ps, mv.type) + ">";
 			update_statement.parameters.push_back(std::make_pair(TypeDefinition(param_type,true), mv.identifier));
@@ -813,7 +813,7 @@ void MysqlGenerator::generate_update_statements_function_struct(std::shared_ptr<
 			{
 				continue;
 			}
-			if (mv.required)
+			if (mv.type.is_required())
 			{
 				if(mv.type.is_struct(ps))
 				{
@@ -894,7 +894,7 @@ void MysqlGenerator::generate_update_statements_function_struct(std::shared_ptr<
 			{
 				continue;
 			}
-			if (mv.required)
+			if (mv.type.is_required())
 			{
 				if(mv.type.is_struct(ps))
 				{

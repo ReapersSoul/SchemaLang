@@ -9,7 +9,6 @@ struct MemberVariableDefinition
 	TypeDefinition type;
 	std::string identifier = "";
 
-	bool required = false;
 	bool auto_increment = false;
 	bool primary_key = false;
 	bool unique = false;

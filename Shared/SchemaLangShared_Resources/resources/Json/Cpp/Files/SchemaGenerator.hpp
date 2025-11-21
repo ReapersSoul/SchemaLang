@@ -416,7 +416,7 @@ nlohmann::json get_field_schema(const FieldOptions& options = {}) {
         \
         for (const auto& field : fields) { \
             schema["properties"][field.name] = field.schema; \
-            if (field.required) { \
+            if (field.type.required) { \
                 schema["required"].push_back(field.name); \
             } \
         } \

@@ -124,7 +124,7 @@ int64_t MySQLDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{stru
         mysqlx::abi2::r0::TableUpdate update=table.update();
 {% for mv in struct.member_variables %}
 {% if not mv.type.is_array and not mv.type.is_struct and not mv.type.is_enum %}
-{% if mv.required %}
+{% if mv.type.required %}
             update.set("{{mv.identifier}}", obj->get{{mv.identifierCamel}}());
 {% else %}
             update.set("{{mv.identifier}}", obj->get{{mv.identifierCamel}}().value_or({{format_default(mv.type,"")}}));
@@ -145,7 +145,7 @@ int64_t MySQLDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{stru
             auto cachedObj = cacheIt->second;
 {% for mv in struct.member_variables %}
 {% if not mv.type.is_array and not mv.type.is_struct and not mv.type.is_enum %}
-{% if mv.required %}
+{% if mv.type.required %}
             cachedObj->set{{mv.identifierCamel}}(obj->get{{mv.identifierCamel}}());
 {% else %}
             cachedObj->set{{mv.identifierCamel}}(obj->get{{mv.identifierCamel}}());
@@ -265,7 +265,7 @@ int64_t MySQLDB::insertOrUpdate{{enum.identifierCamel}}(const std::shared_ptr<{{
         mysqlx::abi2::r0::TableUpdate update=table.update();
 {% for mv in enum.member_variables %}
 {% if not mv.type.is_array and not mv.type.is_struct and not mv.type.is_enum %}
-{% if mv.required %}
+{% if mv.type.required %}
             update.set("{{mv.identifier}}", obj->get{{mv.identifierCamel}}());
 {% else %}
             update.set("{{mv.identifier}}", obj->get{{mv.identifierCamel}}().value_or({{format_default(mv.type,"")}}));

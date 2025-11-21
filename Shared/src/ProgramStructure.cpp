@@ -789,11 +789,11 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 		{
 			if (member_variable_tokens[j] == "required")
 			{
-				current_MemberVariableDefinition.required = true;
+				current_MemberVariableDefinition.type.setRequired(true);
 			}
 			else if (member_variable_tokens[j] == "optional")
 			{
-				current_MemberVariableDefinition.required = false;
+				current_MemberVariableDefinition.type.setRequired(false);
 			}
 			else if (member_variable_tokens[j] == "unique")
 			{
@@ -1078,10 +1078,10 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 	// insert an 'id' member variable
 	MemberVariableDefinition id_member;
 	id_member.type = TypeDefinition("int64");
+	id_member.type.setRequired(true);
 	id_member.identifier = "id";
 	id_member.primary_key = true;
 	id_member.auto_increment = true;
-	id_member.required = true;
 	id_member.unique = true;
 	id_member.description = "Primary unique identifier for " + current_struct.getIdentifier();
 	current_struct.add_member_variable(id_member);
@@ -1800,10 +1800,10 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 				forward_decl.setIdentifier(tokens[i].value);
 				MemberVariableDefinition id_member;
 				id_member.type = TypeDefinition("int64");
+				id_member.type.setRequired(true);
 				id_member.identifier = "id";
 				id_member.primary_key = true;
 				id_member.auto_increment = true;
-				id_member.required = true;
 				id_member.unique = true;
 				id_member.description = "Primary unique identifier for " + current_struct.getIdentifier();
 				forward_decl.add_member_variable(id_member);

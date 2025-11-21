@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS {{identifier}} (
     {% endif %}
 
     {% if not field.type.is_array %}
-        {% if field.required %} NOT NULL {% endif %}
+        {% if field.type.required %} NOT NULL {% endif %}
         {% if field.unique %} UNIQUE {% endif %}
         {% if field.primary_key %} PRIMARY KEY {% endif %}
         {% if field.auto_increment %} AUTOINCREMENT {% endif %}

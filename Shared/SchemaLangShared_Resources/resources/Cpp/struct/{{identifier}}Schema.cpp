@@ -1,7 +1,7 @@
 #include {{header_include}}
 
 // Getter implementations
-{% for mv in member_variables %}{% if not mv.required %}
+{% for mv in member_variables %}{% if not mv.type.required %}
 std::optional<{{mv.type.estimated}}>&{{identifier}}Schema::get{{mv.identifierCamel}}() {
     return this->{{mv.identifier}};
 }
@@ -12,18 +12,26 @@ std::optional<{{mv.type.estimated}}>&{{identifier}}Schema::get{{mv.identifierCam
 {% endif %}{% endfor %}
 
 // Setter implementations
-{% for mv in member_variables %}
+{% for mv in member_variables %}{% if not mv.type.required %}
+void {{identifier}}Schema::set{{mv.identifierCamel}}(std::optional<{{mv.type.estimated}}> value) {
+{% for sl in before_setter_lines %}
+    {{sl.line}}
+{% endfor %}
+    this->{{mv.identifier}} = value;
+}
+{% else %}
 void {{identifier}}Schema::set{{mv.identifierCamel}}({{mv.type.estimated}} value) {
 {% for sl in before_setter_lines %}
     {{sl.line}}
 {% endfor %}
     this->{{mv.identifier}} = value;
 }
+{% endif %}
 {% endfor %}
 
 {% for mv in member_variables %}{% if mv.type.is_array %}
 void {{identifier}}Schema::addTo{{mv.identifierCamel}}({{mv.type.elem_type.estimated}} value) {
-    {% if not mv.required %}
+    {% if not mv.type.required %}
     if (!this->{{mv.identifier}}.has_value()){
         this->{{mv.identifier}} = std::vector<{{mv.type.elem_type.estimated}}>();
     }
@@ -36,7 +44,7 @@ void {{identifier}}Schema::addTo{{mv.identifierCamel}}({{mv.type.elem_type.estim
 
 {% for mv in member_variables %}{% if mv.type.is_array %}
 void {{identifier}}Schema::clear{{mv.identifierCamel}}() {
-    {% if not mv.required %}
+    {% if not mv.type.required %}
     if (!this->{{mv.identifier}}.has_value()){
         return; // or throw an error
     }
@@ -51,7 +59,7 @@ void {{identifier}}Schema::clear{{mv.identifierCamel}}() {
 std::shared_ptr<{{identifier}}Schema> {{identifier}}Schema::clone() const {
     auto cloned = std::make_shared<{{identifier}}Schema>();
     
-{% for mv in member_variables %}{% if not mv.required %}
+{% for mv in member_variables %}{% if not mv.type.required %}
     if (this->{{mv.identifier}}.has_value()) {
         cloned->{{mv.identifier}} = this->{{mv.identifier}}.value();
     }
@@ -65,7 +73,7 @@ std::shared_ptr<{{identifier}}Schema> {{identifier}}Schema::clone() const {
 std::shared_ptr<{{identifier}}Schema> {{identifier}}Schema::deepClone() const {
     auto cloned = std::make_shared<{{identifier}}Schema>();
     
-{% for mv in member_variables %}{% if not mv.required %}
+{% for mv in member_variables %}{% if not mv.type.required %}
     if (this->{{mv.identifier}}.has_value()) {
         // TODO: Add deep cloning logic for {{mv.identifier}} if it contains schema objects
         cloned->{{mv.identifier}} = this->{{mv.identifier}}.value();

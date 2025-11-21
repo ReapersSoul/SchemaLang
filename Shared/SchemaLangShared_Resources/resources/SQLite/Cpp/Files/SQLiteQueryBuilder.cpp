@@ -28,6 +28,7 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteQueryBuilder::Ex
 {% for field in struct.member_variables %}
 {% if not field.type.is_array %}
         // Set {{field.identifier}}
+{% if field.type.required %}
 {% if field.type.identifier == "string" or field.type.identifier == "std::string" %}
         const char* {{field.identifier}}_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, col++));
         if ({{field.identifier}}_text) {
@@ -45,6 +46,32 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteQueryBuilder::Ex
         obj->set{{field.identifierCamel}}(static_cast<{{field.type.identifier}}Schema>(sqlite3_column_int(stmt, col++)));
 {% else %}
         col++;
+{% endif %}
+{% else %}
+        if(sqlite3_column_type(stmt, col)!=SQLITE_NULL){
+{% if field.type.identifier == "string" or field.type.identifier == "std::string" %}
+        const char* {{field.identifier}}_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, col++));
+        if ({{field.identifier}}_text) {
+            obj->set{{field.identifierCamel}}(std::string({{field.identifier}}_text));
+        }
+{% else if field.type.identifier == "int64_t" or field.type.identifier == "long" %}
+            obj->set{{field.identifierCamel}}(sqlite3_column_int64(stmt, col++));
+{% else if field.type.is_integer %}
+            obj->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++));
+{% else if field.type.is_real %}
+            obj->set{{field.identifierCamel}}(sqlite3_column_double(stmt, col++));
+{% else if field.type.is_bool %}
+            obj->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++) != 0);
+{% else if field.type.is_enum %}
+            obj->set{{field.identifierCamel}}(static_cast<{{field.type.identifier}}Schema>(sqlite3_column_int(stmt, col++)));
+{% else %}
+            col++;
+{% endif %}
+        }
+        else
+        {
+            obj->set{{field.identifierCamel}}(std::nullopt);
+        }
 {% endif %}
 {% endif %}
 {% endfor %}

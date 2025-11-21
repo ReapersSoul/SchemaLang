@@ -8,12 +8,15 @@ class TypeDefinition
 	std::string ident;
 	TypeDefinition *elem_type;
 	bool defaulted = false;
+	bool required = false;
 public:
 	TypeDefinition();
 	TypeDefinition(std::string ident);
     TypeDefinition(std::string ident, bool defaulted);
     TypeDefinition(std::string ident, TypeDefinition elem_type);
     std::string &identifier();
+	bool is_required() const { return required; }
+	void setRequired(bool value) { required = value; }
 	bool is_array();
 	bool is_struct(std::shared_ptr<ProgramStructure>ps);
 	bool is_enum(std::shared_ptr<ProgramStructure>ps);

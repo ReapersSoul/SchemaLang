@@ -20,7 +20,7 @@ uint64_t {{identifier}}Schema::SQLiteInsertUpdateCascade(SQLiteDB* db)
 {% for mv in member_variables %}
 {% if mv.type.is_struct %}
     // Handle single struct field {{mv.identifier}}
-{% if not mv.required %}
+{% if not mv.type.required %}
     if (this->{{mv.identifier}}.has_value() && this->{{mv.identifier}}.value()) {
         auto& childObj = this->{{mv.identifier}}.value();
 {% else %}
@@ -52,7 +52,7 @@ uint64_t {{identifier}}Schema::SQLiteInsertUpdateCascade(SQLiteDB* db)
 {% for mv in member_variables %}
 {% if mv.type.is_array and mv.type.elem_type.is_struct %}
     // Handle {{mv.identifier}} array
-    {% if not mv.required %}
+    {% if not mv.type.required %}
     if (this->{{mv.identifier}}.has_value()) {
         for (auto& childObj : this->{{mv.identifier}}.value()) {
     {% else %}
@@ -70,7 +70,7 @@ uint64_t {{identifier}}Schema::SQLiteInsertUpdateCascade(SQLiteDB* db)
                 }
             }
         }
-    {% if not mv.required %}
+    {% if not mv.type.required %}
     }
     {% endif %}
 {% endif %}

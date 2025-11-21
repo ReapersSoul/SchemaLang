@@ -97,7 +97,7 @@ void SQLiteDB::create{{struct.identifierCamel}}Table() {
 CREATE TABLE IF NOT EXISTS {{struct.identifier}} (
 {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}
 {% if not field.type.is_array %}{% set current_field = current_field + 1 %}
-    {{ field.identifier }} {{ SQLite_convert_to_local_type(field.type) }} {% if field.required %} NOT NULL {% endif %}{% if field.unique %} UNIQUE {% endif %}{% if field.primary_key %} PRIMARY KEY {% endif %}{% if field.auto_increment %} AUTOINCREMENT {% endif %}{% if field.reference.struct_name!="" %} REFERENCES {{field.reference.struct_name}}({{field.reference.variable_name}}) {% endif %}{% if field.default_value %} DEFAULT {{SQLite_format_default(field.type, field.default_value)}}{% endif %}{% if current_field < field_count or additional_field_count > 0 %},{% endif %}
+    {{ field.identifier }} {{ SQLite_convert_to_local_type(field.type) }} {% if field.type.required %} NOT NULL {% endif %}{% if field.unique %} UNIQUE {% endif %}{% if field.primary_key %} PRIMARY KEY {% endif %}{% if field.auto_increment %} AUTOINCREMENT {% endif %}{% if field.reference.struct_name!="" %} REFERENCES {{field.reference.struct_name}}({{field.reference.variable_name}}) {% endif %}{% if field.default_value %} DEFAULT {{SQLite_format_default(field.type, field.default_value)}}{% endif %}{% if current_field < field_count or additional_field_count > 0 %},{% endif %}
         
 {% endif %}
 {% endfor %}{% set current_field = 0 %}
@@ -451,7 +451,7 @@ int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{str
     if (obj->getId() > 0 || force_id) {
 {% endif %}
     // Bind {{field.identifier}}
-{% if field.required %}
+{% if field.type.required %}
 {% if field.type.is_string %}
     sqlite3_bind_text(stmt, param++, obj->get{{field.identifierCamel}}().c_str(), -1, SQLITE_STATIC);
 {% else if field.type.identifier == "int64_t" or field.type.identifier == "long" %}

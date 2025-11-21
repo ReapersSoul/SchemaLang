@@ -300,6 +300,7 @@ inja::json TypeDefinition::to_json(std::shared_ptr<ProgramStructure>ps, std::sha
 	identifierCamel[0] = toupper(identifierCamel[0]);
 	j["identifierCamel"] = identifierCamel;
     j["defaulted"] = defaulted;
+	j["required"] = is_required();
     if (elem_type != nullptr)
     {
         j["elem_type"] = elem_type->to_json(ps,generator);
@@ -343,6 +344,7 @@ void TypeDefinition::from_json(inja::json j)
 {
 	ident = j["identifier"].get<std::string>();
 	defaulted = j["defaulted"].get<bool>();
+	setRequired(j["required"].get<bool>());
 	if (!j["elem_type"].is_null())
 	{
 		elem_type = new TypeDefinition();
