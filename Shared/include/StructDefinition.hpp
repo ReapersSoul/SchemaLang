@@ -7,6 +7,7 @@
 #include <MemberVariableDefinition.hpp>
 #include <inja/inja.hpp>
 #include <map>
+#include <Debug.hpp>
 
 template<typename T>
 using generator_otherwise_pair = std::pair<std::string, T>;
@@ -112,7 +113,12 @@ struct StructDefinition
 	void update(StructDefinition def);
 
 	inja::json to_json(std::shared_ptr<ProgramStructure> ps, std::shared_ptr<Generator> generator);
+	void from_json(const inja::json& j);
+
+	Version getVersion() const { return version; }
+	void setVersion(const Version& ver) { version = ver; }
 private:
+	Version version;
 	std::set<std::string> includes;
 	std::vector<std::string> before_lines;
 	std::string identifier;

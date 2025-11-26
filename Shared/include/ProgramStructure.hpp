@@ -19,20 +19,9 @@ struct ProgramStructure: std::enable_shared_from_this<ProgramStructure>
 	std::vector<std::string> already_included_files;
 	std::string current_file;
 	SourcePosition current_position;
-	
-	// Per-file version tracking (keyed by filename)
-	struct FileVersion
-	{
-		int major = -1;
-		int minor = -1;
-		int patch = -1;
-		SourcePosition position;
-	};
 
 	// Versions keyed by filename (basename only). Collisions are errors.
-	std::unordered_map<std::string, FileVersion> file_versions;          // SchemaFileVersion per file
-	std::unordered_map<std::string, FileVersion> transpiler_versions;   // SchemaLangVersion per file
-	std::unordered_set<std::string> file_version_warnings_emitted; // set of files we've warned about missing SchemaFileVersion
+	std::unordered_map<std::string, Version> transpiler_versions;   // SchemaLangVersion per file
 	std::unordered_set<std::string> transpiler_version_warnings_emitted; // set of files we've warned about missing SchemaLangVersion
 	std::string root_filename; // store basename of root file for default accessors
 
@@ -58,11 +47,8 @@ struct ProgramStructure: std::enable_shared_from_this<ProgramStructure>
 	bool parseVersion(std::vector<Token> tokens, int &i);
 	bool parseFileVersion(std::vector<Token> tokens, int &i);
 	bool validateTranspilerVersion();
-	bool validateFileVersion(bool is_root);
 	std::string getTranspilerVersionString(const std::string &filename = "") const;
-	std::string getSchemaFileVersionString(const std::string &filename = "") const;
-	std::optional<FileVersion> getTranspilerVersion(const std::string &filename) const;
-	std::optional<FileVersion> getFileVersion(const std::string &filename) const;
+	std::optional<Version> getTranspilerVersion(const std::string &filename) const;
 
 	bool readMemberVariable(std::vector<Token> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition);
 

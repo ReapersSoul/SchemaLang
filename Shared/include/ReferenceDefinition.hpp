@@ -8,4 +8,5 @@ struct ReferenceDefinition
 	std::string variable_name = "";
 
 	inja::json to_json(std::shared_ptr<ProgramStructure> ps, std::shared_ptr<Generator> generator);
+	void from_json(const inja::json& j);
 };

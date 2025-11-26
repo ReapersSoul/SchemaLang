@@ -27,4 +27,5 @@ struct MemberVariableDefinition
 	std::set<std::string> disabled_for_generators;
 
 	inja::json to_json(std::shared_ptr<ProgramStructure>ps,std::shared_ptr<Generator> generator);
+	void from_json(const inja::json& j);
 };

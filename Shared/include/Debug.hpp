@@ -11,6 +11,21 @@ struct SourcePosition
 	SourcePosition(const std::string& file, int l, int c) : file_path(file), line(l), column(c) {}
 };
 
+struct Version
+{
+    int major = -1;
+    int minor = -1;
+    int patch = -1;
+};
+
+struct VersionWithPosition
+{
+    int major = -1;
+    int minor = -1;
+    int patch = -1;
+    SourcePosition position;
+};
+
 struct Token
 {
 	std::string value;

@@ -295,7 +295,17 @@ public:
                 PLOGE << "Failed to generate files for generator '" << generator.first << "'" << std::endl;
                 return false;
             }
+            if(migrations){
+                PLOGI << "Generating migration files" << std::endl;
+                std::fstream migration_file(outputDirectory / "migrations"/ generator.first /".json", std::ios::out);
+                if(!migration_file.is_open()){
+                    PLOGE << "Failed to open migration file for writing: " << (outputDirectory / "migrations.json").string() << std::endl;
+                    return false;
+                }
+                inja::json migration_json=program_structure_->to_json(generator.second);
+            }
         }
+
         return true;
     }
 
@@ -310,6 +320,7 @@ private:
     std::filesystem::path outputDirectory;
     bool EnableExponentialOperations = false;
     bool recursive = false;
+    bool migrations = false;
     std::map<std::string, std::shared_ptr<Generator>> generators;
     std::shared_ptr<ProgramStructure> program_structure_;
 };

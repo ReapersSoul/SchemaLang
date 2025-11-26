@@ -403,11 +403,10 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	// Expected format: version 1.0.0;
 	// We're at the token after "version"
 
-	
-	if (debug_server) {
+	if (debug_server)
+	{
 		debug_server->beginParseOperation("parsing version");
 	}
-	
 
 	// store by filename (basename). Duplicate filenames are errors.
 	std::string filename = std::filesystem::path(current_file).filename().string();
@@ -415,11 +414,11 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	{
 		auto &existing = transpiler_versions[filename];
 		reportError("SchemaLangVersion already specified for filename '" + filename + "' in " + existing.position.file_path + ":" +
-					std::to_string(existing.position.line) + ":" + std::to_string(existing.position.column),
+						std::to_string(existing.position.line) + ":" + std::to_string(existing.position.column),
 					tokens[i]);
 		return false;
 	}
-	FileVersion fv;
+	Version fv;
 	fv.position = tokens[i].position;
 
 	// Parse major version
@@ -430,9 +429,9 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	}
 	fv.major = std::stoi(tokens[i].value);
 	i++;
-	
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-	
+
+	if (debug_server && i < tokens.size())
+		debug_server->onTokenParsed(tokens[i]);
 
 	// Expect '.'
 	if (tokens[i] != ".")
@@ -441,9 +440,9 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		return false;
 	}
 	i++;
-	
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-	
+
+	if (debug_server && i < tokens.size())
+		debug_server->onTokenParsed(tokens[i]);
 
 	// Parse minor version
 	if (!isInt(tokens[i].value))
@@ -453,9 +452,9 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	}
 	fv.minor = std::stoi(tokens[i].value);
 	i++;
-	
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-	
+
+	if (debug_server && i < tokens.size())
+		debug_server->onTokenParsed(tokens[i]);
 
 	// Expect '.'
 	if (tokens[i] != ".")
@@ -464,9 +463,9 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		return false;
 	}
 	i++;
-	
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-	
+
+	if (debug_server && i < tokens.size())
+		debug_server->onTokenParsed(tokens[i]);
 
 	// Parse patch version
 	if (!isInt(tokens[i].value))
@@ -476,9 +475,9 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 	}
 	fv.patch = std::stoi(tokens[i].value);
 	i++;
-	
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-	
+
+	if (debug_server && i < tokens.size())
+		debug_server->onTokenParsed(tokens[i]);
 
 	// Expect ';'
 	if (tokens[i] != ";")
@@ -486,118 +485,39 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 		reportError("Expected ';' after version declaration", tokens[i]);
 		return false;
 	}
-	if (debug_server) debug_server->beginParseOperation("version parsed: " + std::to_string(fv.major) + "." + std::to_string(fv.minor) + "." + std::to_string(fv.patch));
+	if (debug_server)
+		debug_server->beginParseOperation("version parsed: " + std::to_string(fv.major) + "." + std::to_string(fv.minor) + "." + std::to_string(fv.patch));
 
 	// store it
 	transpiler_versions[filename] = fv;
-	if (debug_server) debug_server->endParseOperation();
-	return true;
-}
-
-bool ProgramStructure::parseFileVersion(std::vector<Token> tokens, int &i)
-{
-	if (debug_server) {
-		debug_server->beginParseOperation("parsing schema file version");
-	}
-
-	// store by filename (basename). Duplicate filenames are errors.
-	std::string filename = std::filesystem::path(current_file).filename().string();
-	if (file_versions.find(filename) != file_versions.end())
-	{
-		auto &existing = file_versions[filename];
-		reportError("SchemaFileVersion already specified for filename '" + filename + "' in " + existing.position.file_path + ":" +
-					std::to_string(existing.position.line) + ":" + std::to_string(existing.position.column),
-					tokens[i]);
-		return false;
-	}
-
-	FileVersion fv;
-	fv.position = tokens[i].position;
-
-	// Parse major version
-	if (!isInt(tokens[i].value))
-	{
-		reportError("Expected integer for major version number", tokens[i]);
-		return false;
-	}
-	fv.major = std::stoi(tokens[i].value);
-	i++;
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-
-	// Expect '.'
-	if (tokens[i] != ".")
-	{
-		reportError("Expected '.' after major file version", tokens[i]);
-		return false;
-	}
-	i++;
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-
-	// Parse minor version
-	if (!isInt(tokens[i].value))
-	{
-		reportError("Expected integer for minor version number", tokens[i]);
-		return false;
-	}
-	fv.minor = std::stoi(tokens[i].value);
-	i++;
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-
-	// Expect '.'
-	if (tokens[i] != ".")
-	{
-		reportError("Expected '.' after minor file version", tokens[i]);
-		return false;
-	}
-	i++;
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-
-	// Parse patch version
-	if (!isInt(tokens[i].value))
-	{
-		reportError("Expected integer for patch version number", tokens[i]);
-		return false;
-	}
-	fv.patch = std::stoi(tokens[i].value);
-	i++;
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-
-	// Expect ';'
-	if (tokens[i] != ";")
-	{
-		reportError("Expected ';' after SchemaFileVersion declaration", tokens[i]);
-		return false;
-	}
-	if (debug_server) debug_server->beginParseOperation("schema file version parsed: " + std::to_string(fv.major) + "." + std::to_string(fv.minor) + "." + std::to_string(fv.patch));
-
-	file_versions[filename] = fv;
-	if (debug_server) debug_server->endParseOperation();
+	if (debug_server)
+		debug_server->endParseOperation();
 	return true;
 }
 
 bool ProgramStructure::validateTranspilerVersion()
 {
-    bool ok = true;
-    // Validate each file's transpiler version if present
-    for (auto &pair : transpiler_versions)
-    {
-        const std::string &filename = pair.first;
-        const FileVersion &fv = pair.second;
-        if (fv.major != SCHEMALANG_VERSION_MAJOR)
-        {
-            reportError("Schema major version mismatch for file '" + filename + "'. Schema requires v" + std::to_string(fv.major) + ".x.x but transpiler is v" +
-                        std::to_string(SCHEMALANG_VERSION_MAJOR) + "." + std::to_string(SCHEMALANG_VERSION_MINOR) + "." + std::to_string(SCHEMALANG_VERSION_PATCH) + ".",
-                        fv.position);
-            ok = false;
-        }
-        if (fv.minor > SCHEMALANG_VERSION_MINOR)
-        {
-            reportError("Schema requires features from v" + std::to_string(fv.major) + "." + std::to_string(fv.minor) + ".x but transpiler is v" +
-                        std::to_string(SCHEMALANG_VERSION_MAJOR) + "." + std::to_string(SCHEMALANG_VERSION_MINOR) + "." + std::to_string(SCHEMALANG_VERSION_PATCH) + ".",
-                        fv.position);
-            ok = false;
-        }
-    }
+	bool ok = true;
+	// Validate each file's transpiler version if present
+	for (auto &pair : transpiler_versions)
+	{
+		const std::string &filename = pair.first;
+		const Version &fv = pair.second;
+		if (fv.major != SCHEMALANG_VERSION_MAJOR)
+		{
+			reportError("Schema major version mismatch for file '" + filename + "'. Schema requires v" + std::to_string(fv.major) + ".x.x but transpiler is v" +
+							std::to_string(SCHEMALANG_VERSION_MAJOR) + "." + std::to_string(SCHEMALANG_VERSION_MINOR) + "." + std::to_string(SCHEMALANG_VERSION_PATCH) + ".",
+						fv.position);
+			ok = false;
+		}
+		if (fv.minor > SCHEMALANG_VERSION_MINOR)
+		{
+			reportError("Schema requires features from v" + std::to_string(fv.major) + "." + std::to_string(fv.minor) + ".x but transpiler is v" +
+							std::to_string(SCHEMALANG_VERSION_MAJOR) + "." + std::to_string(SCHEMALANG_VERSION_MINOR) + "." + std::to_string(SCHEMALANG_VERSION_PATCH) + ".",
+						fv.position);
+			ok = false;
+		}
+	}
 
 	// Warn for each included file missing a SchemaLangVersion (never an error)
 	for (const auto &file_path : already_included_files)
@@ -613,41 +533,7 @@ bool ProgramStructure::validateTranspilerVersion()
 			transpiler_version_warnings_emitted.insert(file_path);
 		}
 	}
-    return ok;
-}
-
-bool ProgramStructure::validateFileVersion(bool is_root)
-{
-	// If no file versions were specified at all, still proceed and warn per-file below
-
-	// Basic validation: components must be non-negative for each entry
-	for (auto &pair : file_versions)
-	{
-		const FileVersion &fv = pair.second;
-		if (fv.major < 0 || fv.minor < 0 || fv.patch < 0)
-		{
-			reportError("Invalid SchemaFileVersion numbers for file '" + pair.first + "'", fv.position);
-			return false;
-		}
-	}
-
-	// Warn per included file if it lacks a SchemaFileVersion (never an error)
-	for (const auto &file_path : already_included_files)
-	{
-		// Skip if we've already warned for this file
-		if (file_version_warnings_emitted.find(file_path) != file_version_warnings_emitted.end())
-			continue;
-
-		std::string filename = std::filesystem::path(file_path).filename().string();
-		if (file_versions.find(filename) == file_versions.end())
-		{
-			PLOGW << "WARNING: No SchemaFileVersion specified in " << file_path
-					  << ". Without a schema file version it is impossible to generate migrations.\n"
-					  << "Please add 'SchemaFileVersion X.Y.Z;' to your schema file." << std::endl;
-			file_version_warnings_emitted.insert(file_path);
-		}
-	}
-	return true;
+	return ok;
 }
 
 std::string ProgramStructure::getTranspilerVersionString(const std::string &filename) const
@@ -659,16 +545,7 @@ std::string ProgramStructure::getTranspilerVersionString(const std::string &file
 	return std::to_string(v->major) + "." + std::to_string(v->minor) + "." + std::to_string(v->patch);
 }
 
-std::string ProgramStructure::getSchemaFileVersionString(const std::string &filename) const
-{
-	std::string key = filename.empty() ? root_filename : filename;
-	auto v = getFileVersion(key);
-	if (!v.has_value())
-		return "unspecified";
-	return std::to_string(v->major) + "." + std::to_string(v->minor) + "." + std::to_string(v->patch);
-}
-
-std::optional<ProgramStructure::FileVersion> ProgramStructure::getTranspilerVersion(const std::string &filename) const
+std::optional<Version> ProgramStructure::getTranspilerVersion(const std::string &filename) const
 {
 	auto it = transpiler_versions.find(filename);
 	if (it == transpiler_versions.end())
@@ -676,21 +553,13 @@ std::optional<ProgramStructure::FileVersion> ProgramStructure::getTranspilerVers
 	return it->second;
 }
 
-std::optional<ProgramStructure::FileVersion> ProgramStructure::getFileVersion(const std::string &filename) const
-{
-	auto it = file_versions.find(filename);
-	if (it == file_versions.end())
-		return std::nullopt;
-	return it->second;
-}
-
 bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition)
 {
-	
-	if (debug_server) {
+
+	if (debug_server)
+	{
 		debug_server->beginParseOperation("parsing member variable");
 	}
-	
 
 	std::vector<Token> member_variable_tokens;
 	if (tokenIsValidTypeName(tokens[i].value))
@@ -698,9 +567,10 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 		// collect the type
 		current_MemberVariableDefinition.type.identifier() = tokens[i].value;
 		i++;
-		
-		if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-		
+
+		if (debug_server && i < tokens.size())
+			debug_server->onTokenParsed(tokens[i]);
+
 		// if array
 		if (current_MemberVariableDefinition.type.is_array())
 		{
@@ -711,7 +581,7 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 				if (tokenIsValidTypeName(tokens[i].value))
 				{
 					current_MemberVariableDefinition.type.element_type().identifier() = tokens[i].value;
-					current_MemberVariableDefinition.generate_initializer = [](std::shared_ptr<ProgramStructure>ps, MemberVariableDefinition &mv, std::ofstream &structFile) -> bool
+					current_MemberVariableDefinition.generate_initializer = [](std::shared_ptr<ProgramStructure> ps, MemberVariableDefinition &mv, std::ofstream &structFile) -> bool
 					{
 						structFile << "{}";
 						return true;
@@ -743,13 +613,14 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 		i++;
 		// collect the identifier
 		current_MemberVariableDefinition.identifier = tokens[i].value;
-		
-		//if (debug_server) debug_server->onMemberParsing(&current_MemberVariableDefinition);
-		
+
+		// if (debug_server) debug_server->onMemberParsing(&current_MemberVariableDefinition);
+
 		i++;
-		
-		if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-		
+
+		if (debug_server && i < tokens.size())
+			debug_server->onTokenParsed(tokens[i]);
+
 		// check for ':'
 		if (tokens[i] != ":")
 		{
@@ -757,9 +628,10 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 			return false;
 		}
 		i++;
-		
-		if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-		
+
+		if (debug_server && i < tokens.size())
+			debug_server->onTokenParsed(tokens[i]);
+
 		// collect all tokens for member variable up to ';'
 		bool next_token_should_be_colon = false;
 		while (tokens[i] != ";")
@@ -952,17 +824,18 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 		reportError("Expected member variable type After {", tokens[i]);
 		return false;
 	}
-	if (debug_server) debug_server->endParseOperation();
+	if (debug_server)
+		debug_server->endParseOperation();
 	return true;
 }
 
 bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefinition &current_struct)
 {
-	
-	if (debug_server) {
+
+	if (debug_server)
+	{
 		debug_server->beginParseOperation("reading struct definition");
 	}
-	
 
 	if (tokens[i] != "struct")
 	{
@@ -970,66 +843,130 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 		return false;
 	}
 	i++;
-	
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-	
+
+	if (debug_server && i < tokens.size())
+		debug_server->onTokenParsed(tokens[i]);
+
 	current_struct.setIdentifier(tokens[i].value);
-	
-	//if (debug_server) debug_server->onStructParsing(&current_struct);
-	
+
+	// if (debug_server) debug_server->onStructParsing(&current_struct);
+
 	i++;
-	
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-	
+
+	if (debug_server && i < tokens.size())
+		debug_server->onTokenParsed(tokens[i]);
+
 	if (tokens[i] == ":")
 	{
 		i++;
-		if (tokens[i] == "gens_enabled")
+		while (tokens[i] != "{")
 		{
-			i++;
-			if (tokens[i] != "(")
-			{
-				reportError("Expected '(' after gens_enabled", tokens[i]);
-				return false;
-			}
-			do
+			if (tokens[i] == "gens_enabled")
 			{
 				i++;
-				current_struct.add_gen_enabled(tokens[i]);
+				if (tokens[i] != "(")
+				{
+					reportError("Expected '(' after gens_enabled", tokens[i]);
+					return false;
+				}
+				do
+				{
+					i++;
+					current_struct.add_gen_enabled(tokens[i]);
+					i++;
+				} while (tokens[i] == ",");
+				if (tokens[i] != ")")
+				{
+					reportError("Expected ')' after gens_enabled", tokens[i]);
+					return false;
+				}
 				i++;
-			} while (tokens[i] == ",");
-			if (tokens[i] != ")")
+			}
+			else if (tokens[i] == "gens_disabled")
 			{
-				reportError("Expected ')' after gens_enabled", tokens[i]);
+				i++;
+				if (tokens[i] != "(")
+				{
+					reportError("Expected '(' after gens_disabled", tokens[i]);
+					return false;
+				}
+				do
+				{
+					i++;
+					current_struct.add_gen_disabled(tokens[i]);
+					i++;
+				} while (tokens[i] == ",");
+				if (tokens[i] != ")")
+				{
+					reportError("Expected ')' after gens_disabled", tokens[i]);
+					return false;
+				}
+				i++;
+			}
+			else if (tokens[i] == "version"){
+				i++;
+				if (tokens[i] != "(")
+				{
+					reportError("Expected '(' after version", tokens[i]);
+					return false;
+				}
+				i++;
+				// parse version number
+				if (!isInt(tokens[i].value))
+				{
+					reportError("Expected integer for major version number", tokens[i]);
+					return false;
+				}
+				int major = std::stoi(tokens[i].value);
+				i++;
+
+				if (debug_server && i < tokens.size())
+					debug_server->onTokenParsed(tokens[i]);
+
+				// Expect '.'
+				if (tokens[i] != ".")
+				{
+					reportError("Expected '.' after major version", tokens[i]);
+					return false;
+				}
+				i++;
+
+				if (debug_server && i < tokens.size())
+					debug_server->onTokenParsed(tokens[i]);
+
+				// Parse minor version
+				if (!isInt(tokens[i].value))
+				{
+					reportError("Expected integer for minor version number", tokens[i]);
+					return false;
+				}
+				int minor = std::stoi(tokens[i].value);
+				i++;
+
+				if (debug_server && i < tokens.size())
+					debug_server->onTokenParsed(tokens[i]);
+
+				// Expect ')'
+				if (tokens[i] != ")")
+				{
+					reportError("Expected ')' after minor version", tokens[i]);
+					return false;
+				}
+				i++;
+				current_struct.setVersion(Version{major, minor, 0});
+			}
+			else
+			{
+				reportError("Invalid struct modifier", tokens[i]);
 				return false;
 			}
-			i++;
-		}
-		else if (tokens[i] == "gens_disabled")
-		{
-			i++;
-			if (tokens[i] != "(")
-			{
-				reportError("Expected '(' after gens_disabled", tokens[i]);
+			if(tokens[i] == ","){
+				i++;
+			}
+			if(tokens[i] != "{"&& tokens[i] != ","){
+				reportError("Expected '{' or ',' after struct modifier", tokens[i]);
 				return false;
 			}
-			do
-			{
-				i++;
-				current_struct.add_gen_disabled(tokens[i]);
-				i++;
-			} while (tokens[i] == ",");
-			if (tokens[i] != ")")
-			{
-				reportError("Expected ')' after gens_disabled", tokens[i]);
-				return false;
-			}
-			i++;
-		}
-		else
-		{
-			reportError("Invalid struct modifier", tokens[i]);
-			return false;
 		}
 	}
 	if (tokens[i] != "{")
@@ -1038,9 +975,10 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 		return false;
 	}
 	i++;
-	
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-	
+
+	if (debug_server && i < tokens.size())
+		debug_server->onTokenParsed(tokens[i]);
+
 	while (tokens[i] != "}")
 	{
 		if (tokenIsValidTypeName(tokens[i].value))
@@ -1092,23 +1030,25 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 	{
 		type_names.erase(it);
 	}
-	if (debug_server) debug_server->endParseOperation();
+	if (debug_server)
+		debug_server->endParseOperation();
 	return true;
 }
 
 bool ProgramStructure::readEnumValue(std::vector<Token> tokens, int &i, EnumDefinition &current_enum, int &curent_index)
 {
-	
-	if (debug_server) {
+
+	if (debug_server)
+	{
 		debug_server->beginParseOperation("parsing enum value");
 	}
-	
 
 	std::string identifier = tokens[i].value;
 	i++;
-	
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-	
+
+	if (debug_server && i < tokens.size())
+		debug_server->onTokenParsed(tokens[i]);
+
 	if (tokens[i] == "=")
 	{
 		i++;
@@ -1148,17 +1088,18 @@ bool ProgramStructure::readEnumValue(std::vector<Token> tokens, int &i, EnumDefi
 
 	current_enum.add_value(identifier, curent_index);
 	curent_index++;
-	if (debug_server) debug_server->endParseOperation();
+	if (debug_server)
+		debug_server->endParseOperation();
 	return true;
 }
 
 bool ProgramStructure::readEnum(std::vector<Token> tokens, int &i, EnumDefinition &current_enum)
 {
-	
-	if (debug_server) {
+
+	if (debug_server)
+	{
 		debug_server->beginParseOperation("reading enum definition");
 	}
-	
 
 	if (tokens[i] != "enum")
 	{
@@ -1166,17 +1107,19 @@ bool ProgramStructure::readEnum(std::vector<Token> tokens, int &i, EnumDefinitio
 		return false;
 	}
 	i++;
-	
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-	
+
+	if (debug_server && i < tokens.size())
+		debug_server->onTokenParsed(tokens[i]);
+
 	current_enum.identifier = tokens[i].value;
-	
-	//if (debug_server) debug_server->onEnumParsing(&current_enum);
-	
+
+	// if (debug_server) debug_server->onEnumParsing(&current_enum);
+
 	i++;
-	
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
-	
+
+	if (debug_server && i < tokens.size())
+		debug_server->onTokenParsed(tokens[i]);
+
 	if (tokens[i] == ":")
 	{
 		i++;
@@ -1247,13 +1190,15 @@ bool ProgramStructure::readEnum(std::vector<Token> tokens, int &i, EnumDefinitio
 			return false;
 		}
 	}
-	if (debug_server) debug_server->endParseOperation();
+	if (debug_server)
+		debug_server->endParseOperation();
 	return true;
 }
 
 bool ProgramStructure::readConfig(std::vector<Token> tokens, int &i)
 {
-	if (debug_server) {
+	if (debug_server)
+	{
 		debug_server->beginParseOperation("reading config");
 	}
 
@@ -1271,30 +1216,28 @@ bool ProgramStructure::readConfig(std::vector<Token> tokens, int &i)
 		return false;
 	}
 	i++;
-	if (debug_server && i < tokens.size()) debug_server->onTokenParsed(tokens[i]);
+	if (debug_server && i < tokens.size())
+		debug_server->onTokenParsed(tokens[i]);
 	while (tokens[i] != "}")
 	{
 		i++;
 	}
 	i++;
-	if (debug_server) debug_server->endParseOperation();
+	if (debug_server)
+		debug_server->endParseOperation();
 	return true;
 }
 
 bool ProgramStructure::validate(bool is_root)
 {
-	
-	if (debug_server) {
-		//debug_server->onValidation();
+
+	if (debug_server)
+	{
+		// debug_server->onValidation();
 		debug_server->beginParseOperation("validating schema");
 	}
-	
 
-	// Validate file and transpiler versions (warn if missing) before deeper validation
-	if (!validateFileVersion(is_root))
-	{
-		return false;
-	}
+	// Validate transpiler versions (warn if missing) before deeper validation
 	if (!validateTranspilerVersion())
 	{
 		return false;
@@ -1318,7 +1261,7 @@ bool ProgramStructure::validate(bool is_root)
 																		  "\t}");
 				return false;
 			}
-			
+
 			// Check for self-reference in array element type
 			if (mv.type.is_array() && mv.type.element_type().identifier() == s.getIdentifier())
 			{
@@ -1326,14 +1269,14 @@ bool ProgramStructure::validate(bool is_root)
 				if (!has_ref)
 				{
 					reportError("Member variable " + mv.identifier + " in struct " + s.getIdentifier() + " can not have an array of the same type as the struct itself without a reference.\n"
-																									 "This is a recursive dependency and will cause issues with certain generators.\n"
-																									 "Please use the 'reference' modifier to resolve this issue.\n"
-																									 "Example:\n"
-																									 "\tstruct " +
+																										 "This is a recursive dependency and will cause issues with certain generators.\n"
+																										 "Please use the 'reference' modifier to resolve this issue.\n"
+																										 "Example:\n"
+																										 "\tstruct " +
 								s.getIdentifier() + "{\n"
 													"\t\t" +
 								mv.type.identifier() + "<" + mv.type.element_type().identifier() + ">: " + mv.identifier + ": reference(" + s.getIdentifier() + ".id);\n"
-																		  "\t}");
+																																								"\t}");
 					return false;
 				}
 			}
@@ -1541,7 +1484,7 @@ bool ProgramStructure::validate(bool is_root)
 	return true;
 }
 
-inja::json ProgramStructure::to_json(std::shared_ptr<Generator>generator)
+inja::json ProgramStructure::to_json(std::shared_ptr<Generator> generator)
 {
 	inja::json j;
 	j["includes"] = inja::json::array();
@@ -1560,11 +1503,6 @@ inja::json ProgramStructure::to_json(std::shared_ptr<Generator>generator)
 		j["enums"].push_back(e.to_json(shared_from_this(), generator));
 	}
 
-	// add file_versions and transpiler_versions keyed by filename
-	for (auto &pair : file_versions)
-	{
-		j["file_versions"][pair.first] = std::to_string(pair.second.major) + "." + std::to_string(pair.second.minor) + "." + std::to_string(pair.second.patch);
-	}
 	for (auto &pair : transpiler_versions)
 	{
 		j["transpiler_versions"][pair.first] = std::to_string(pair.second.major) + "." + std::to_string(pair.second.minor) + "." + std::to_string(pair.second.patch);
@@ -1663,12 +1601,12 @@ bool ProgramStructure::parseTypeNames(std::vector<Token> tokens)
 bool ProgramStructure::readFile(std::string file_path, bool is_root)
 {
 	// Notify debug_server about file load
-	
-	if (debug_server) {
-		//debug_server->onFileLoaded(file_path);
+
+	if (debug_server)
+	{
+		// debug_server->onFileLoaded(file_path);
 	}
-	
-	
+
 	if (std::find(already_included_files.begin(), already_included_files.end(), file_path) != already_included_files.end())
 	{
 		return true;
@@ -1725,8 +1663,9 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 	{
 		// Update current parsing position
 		current_position = tokens[i].position;
-		
-		if (debug_server) {
+
+		if (debug_server)
+		{
 			debug_server->onTokenParsed(tokens[i]);
 		}
 
@@ -1741,16 +1680,6 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 				return false;
 			}
 			// do not validate here to avoid repeated warnings; global validate() will be called once per file
-            continue;
-		}
-
-		if (token == "SchemaFileVersion")
-		{
-			i++;
-			if (!parseFileVersion(tokens, i))
-			{
-				return false;
-			}
 			continue;
 		}
 
@@ -1840,20 +1769,19 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 
 		if (token == "struct")
 		{
-			
-			if (debug_server) {
+
+			if (debug_server)
+			{
 				debug_server->beginParseOperation("parsing struct");
 			}
-			
-			
+
 			if (readStruct(tokens, i, current_struct))
 			{
-				
+
 				// if (debug_server) {
 				// 	debug_server->onStructParsing(&current_struct);
 				// }
-				
-				
+
 				auto it = std::find_if(structs.begin(), structs.end(), [&](const StructDefinition &s)
 									   { return s.getIdentifier() == current_struct.getIdentifier(); });
 				if (it != structs.end())
@@ -1876,20 +1804,19 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 
 		if (token == "enum")
 		{
-			
-			if (debug_server) {
+
+			if (debug_server)
+			{
 				debug_server->beginParseOperation("parsing enum");
 			}
-			
-			
+
 			if (readEnum(tokens, i, current_enum))
 			{
-				
+
 				// if (debug_server) {
 				// 	debug_server->onEnumParsing(&current_enum);
 				// }
-				
-				
+
 				int count = current_enum.values.size();
 				current_enum.add_value("Unknown", -1);
 				current_enum.add_value("Count", count);
@@ -1926,7 +1853,7 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 	return validate(is_root);
 }
 
-bool ProgramStructure::generate_files(std::shared_ptr<Generator>gen, std::string out_path)
+bool ProgramStructure::generate_files(std::shared_ptr<Generator> gen, std::string out_path)
 {
 	return gen->generate_files(shared_from_this(), out_path);
 }

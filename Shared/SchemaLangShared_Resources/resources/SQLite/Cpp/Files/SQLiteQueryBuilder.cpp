@@ -71,6 +71,7 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteQueryBuilder::Ex
         else
         {
             obj->set{{field.identifierCamel}}(std::nullopt);
+            col++;
         }
 {% endif %}
 {% endif %}

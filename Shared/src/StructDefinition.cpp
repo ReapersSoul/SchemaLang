@@ -239,6 +239,7 @@ void StructDefinition::update(StructDefinition def)
 inja::json StructDefinition::to_json(std::shared_ptr<ProgramStructure> ps, std::shared_ptr<Generator> generator)
 {
     inja::json j;
+	j["version"] = {version.major,version.minor,version.patch};
     j["identifier"] = identifier;
 	std::string identifierCamel = identifier;
 	identifierCamel[0] = toupper(identifierCamel[0]);
@@ -274,4 +275,36 @@ inja::json StructDefinition::to_json(std::shared_ptr<ProgramStructure> ps, std::
     j["enabled_for_generators"] = std::vector<std::string>(enabled_for_generators.begin(), enabled_for_generators.end());
     j["disabled_for_generators"] = std::vector<std::string>(disabled_for_generators.begin(), disabled_for_generators.end());
     return j;
+}
+
+void StructDefinition::from_json(const inja::json& j)
+{
+	version.major = j["version"][0];
+	version.minor = j["version"][1];
+	version.patch = j["version"][2];
+	identifier = j["identifier"].get<std::string>();
+	includes = j["includes"].get<std::set<std::string>>();
+	before_lines = j["before_lines"].get<std::vector<std::string>>();
+	before_setter_lines = j["before_setter_lines"].get<std::vector<std::string>>();
+	before_getter_lines = j["before_getter_lines"].get<std::vector<std::string>>();
+	functions.clear();
+	for (const auto& func_json : j["functions"]) {
+		FunctionDefinition func;
+		func.from_json(func_json);
+		functions.push_back(func);
+	}
+	private_variables.clear();
+	for (const auto& pv_json : j["private_variables"]) {
+		PrivateVariableDefinition pv;
+		pv.from_json(pv_json);
+		private_variables.push_back(pv);
+	}
+	member_variables.clear();
+	for (const auto& mv_json : j["member_variables"]) {
+		MemberVariableDefinition mv;
+		mv.from_json(mv_json);
+		member_variables.push_back(mv);
+	}
+	enabled_for_generators = std::set<std::string>(j["enabled_for_generators"].begin(), j["enabled_for_generators"].end());
+	disabled_for_generators = std::set<std::string>(j["disabled_for_generators"].begin(), j["disabled_for_generators"].end());
 }
