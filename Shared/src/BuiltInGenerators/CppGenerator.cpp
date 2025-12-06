@@ -304,6 +304,10 @@ bool CppGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::str
 				data["additions"] = inja::json::array();
 				for (auto &gen : generators)
 				{
+					if (!gen->enabled)
+					{
+						continue;
+					}
 					if (gen == shared_from_this())
 						continue;
 					// Use a fresh Additions object per-generator so fetched additions don't accumulate

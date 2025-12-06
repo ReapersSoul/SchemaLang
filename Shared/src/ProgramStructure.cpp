@@ -418,7 +418,7 @@ bool ProgramStructure::parseVersion(std::vector<Token> tokens, int &i)
 					tokens[i]);
 		return false;
 	}
-	Version fv;
+	VersionWithPosition fv;
 	fv.position = tokens[i].position;
 
 	// Parse major version
@@ -502,7 +502,7 @@ bool ProgramStructure::validateTranspilerVersion()
 	for (auto &pair : transpiler_versions)
 	{
 		const std::string &filename = pair.first;
-		const Version &fv = pair.second;
+		const VersionWithPosition &fv = pair.second;
 		if (fv.major != SCHEMALANG_VERSION_MAJOR)
 		{
 			reportError("Schema major version mismatch for file '" + filename + "'. Schema requires v" + std::to_string(fv.major) + ".x.x but transpiler is v" +
@@ -545,7 +545,7 @@ std::string ProgramStructure::getTranspilerVersionString(const std::string &file
 	return std::to_string(v->major) + "." + std::to_string(v->minor) + "." + std::to_string(v->patch);
 }
 
-std::optional<Version> ProgramStructure::getTranspilerVersion(const std::string &filename) const
+std::optional<VersionWithPosition> ProgramStructure::getTranspilerVersion(const std::string &filename) const
 {
 	auto it = transpiler_versions.find(filename);
 	if (it == transpiler_versions.end())
@@ -636,6 +636,11 @@ bool ProgramStructure::readMemberVariable(std::vector<Token> tokens, int &i, Mem
 		bool next_token_should_be_colon = false;
 		while (tokens[i] != ";")
 		{
+			if(i>=tokens.size())
+			{
+				reportError("Unexpected end of tokens while parsing member variable " + current_MemberVariableDefinition.identifier);
+				return false;
+			}
 			if (tokens[i] != ":")
 			{
 				member_variable_tokens.push_back(tokens[i]);

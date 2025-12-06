@@ -145,8 +145,6 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::selectAll{{s
         if ({{field.identifier}}_text) {
             obj->set{{field.identifierCamel}}(std::string({{field.identifier}}_text));
         }
-{% else if field.type.identifier == "int64_t" or field.type.identifier == "long" %}
-        obj->set{{field.identifierCamel}}(sqlite3_column_int64(stmt, col++));
 {% else if field.type.is_integer %}
         obj->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++));
 {% else if field.type.is_real %}
@@ -155,8 +153,15 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::selectAll{{s
         obj->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++) != 0);
 {% else if field.type.is_enum %}
         obj->set{{field.identifierCamel}}(static_cast<{{field.type.identifier}}Schema>(sqlite3_column_int(stmt, col++)));
+{% else if field.type.is_struct %}
+        // If this is a struct, we need to handle it differently
+        int64_t {{field.identifier}}_id_value = sqlite3_column_int64(stmt, col++);
+        if ({{field.identifier}}_id_value > 0) {
+            obj->set{{field.identifierCamel}}(select{{field.type.identifier}}ById({{field.identifier}}_id_value));
+        }
 {% else %}
-        // Handle other types as needed
+        // Need to handle type {{field.type.identifier}} here in generated code
+        // For now, just skip it
         col++;
 {% endif %}
 {% endif %}
@@ -200,7 +205,7 @@ std::shared_ptr<{{struct.identifier}}Schema> SQLiteDB::select{{struct.identifier
 
     const char* sql = R"(
     SELECT
-    {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{{field.identifier}}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
+   {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{{field.identifier}}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
     
     FROM {{struct.identifier}} WHERE id = ?;
     )";
@@ -224,29 +229,27 @@ std::shared_ptr<{{struct.identifier}}Schema> SQLiteDB::select{{struct.identifier
         int col = 0;
 {% for field in struct.member_variables %}
         // Set {{field.identifier}}
-{% if field.type.identifier == "string" or field.type.identifier == "std::string" %}
+{% if field.type.is_string %}
         const char* {{field.identifier}}_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, col++));
         if ({{field.identifier}}_text) {
             result->set{{field.identifierCamel}}(std::string({{field.identifier}}_text));
         }
-{% else if field.type.identifier == "int" or field.type.identifier == "int32_t" %}
+{% else if field.type.is_integer %}
         result->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++));
-{% else if field.type.identifier == "int64_t" or field.type.identifier == "long" %}
-        result->set{{field.identifierCamel}}(sqlite3_column_int64(stmt, col++));
-{% else if field.type.identifier == "float" %}
-        result->set{{field.identifierCamel}}(static_cast<float>(sqlite3_column_double(stmt, col++)));
-{% else if field.type.identifier == "double" %}
+{% else if field.type.is_real %}
         result->set{{field.identifierCamel}}(sqlite3_column_double(stmt, col++));
-{% else if field.type.identifier == "bool" %}
+{% else if field.type.is_bool %}
         result->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++) != 0);
-{% else if field.type.identifier == "int8_t" or field.type.identifier == "signed char" %}
-        result->set{{field.identifierCamel}}(static_cast<int8_t>(sqlite3_column_int(stmt, col++)));
 {% else if field.type.is_enum %}
         result->set{{field.identifierCamel}}(static_cast<{{field.type.identifier}}Schema>(sqlite3_column_int(stmt, col++)));
 {% else if field.type.is_struct %}
         {{field.identifier}}_id_value = sqlite3_column_int64(stmt, col++);
+        if ({{field.identifier}}_id_value > 0) {
+            result->set{{field.identifierCamel}}(select{{field.type.identifier}}ById({{field.identifier}}_id_value));
+        }
 {% else %}
-        // Handle other types as needed
+        // Need to handle type {{field.type.identifier}} here in generated code
+        // For now, just skip it
         col++;
 {% endif %}
 {% endfor %}
@@ -274,10 +277,8 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::select{{stru
     }
     
     std::vector<std::shared_ptr<{{struct.identifier}}Schema>> results;
-    const char* sql = R"(SELECT 
-{% for field in struct.member_variables %}
-{{field.identifier}}{% if not loop.is_last %}, {% endif %}
-{% endfor %}
+    const char* sql = R"(    SELECT
+        {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{{field.identifier}}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
 
 FROM {{struct.identifier}} WHERE {{mv.identifier}} = ?;)";
     
@@ -287,22 +288,17 @@ FROM {{struct.identifier}} WHERE {{mv.identifier}} = ?;)";
     }
     
     // Bind the parameter
-    {% if mv.type.identifier == "string" or mv.type.identifier == "std::string" %}
+    {% if mv.type.is_string %}
     sqlite3_bind_text(stmt, 1, value.c_str(), -1, SQLITE_STATIC);
-    {% else if mv.type.identifier == "int" or mv.type.identifier == "int32_t" %}
+    {% else if mv.type.is_integer %}
     sqlite3_bind_int(stmt, 1, value);
-    {% else if mv.type.identifier == "int64_t" or mv.type.identifier == "long" %}
-    sqlite3_bind_int64(stmt, 1, value);
-    {% else if mv.type.identifier == "float" %}
-    sqlite3_bind_double(stmt, 1, static_cast<double>(value));
-    {% else if mv.type.identifier == "double" %}
+    {% else if mv.type.is_real %}
     sqlite3_bind_double(stmt, 1, value);
-    {% else if mv.type.identifier == "bool" %}
+    {% else if mv.type.is_bool %}
     sqlite3_bind_int(stmt, 1, value ? 1 : 0);
-    {% else if mv.type.identifier == "int8_t" or mv.type.identifier == "signed char" %}
-    sqlite3_bind_int(stmt, 1, static_cast<int>(value));
     {% else %}
-    // Handle other types as needed
+    // Need to handle type {{mv.type.identifier}} here in generated code
+    // For now, just bind a default value
     sqlite3_bind_text(stmt, 1, "", -1, SQLITE_STATIC);
     {% endif %}
     
@@ -310,29 +306,32 @@ FROM {{struct.identifier}} WHERE {{mv.identifier}} = ?;)";
         auto obj = std::make_shared<{{struct.identifier}}Schema>();
         int col = 0;
 {% for field in struct.member_variables %}
+{% if not field.type.is_array %}
         // Set {{field.identifier}}
-{% if field.type.identifier == "string" or field.type.identifier == "std::string" %}
+{% if field.type.is_string %}
         const char* {{field.identifier}}_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, col++));
         if ({{field.identifier}}_text) {
             obj->set{{field.identifierCamel}}(std::string({{field.identifier}}_text));
         }
-{% else if field.type.identifier == "int" or field.type.identifier == "int32_t" %}
+{% else if field.type.is_integer %}
         obj->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++));
-{% else if field.type.identifier == "int64_t" or field.type.identifier == "long" %}
-        obj->set{{field.identifierCamel}}(sqlite3_column_int64(stmt, col++));
-{% else if field.type.identifier == "float" %}
-        obj->set{{field.identifierCamel}}(static_cast<float>(sqlite3_column_double(stmt, col++)));
-{% else if field.type.identifier == "double" %}
+{% else if field.type.is_real %}
         obj->set{{field.identifierCamel}}(sqlite3_column_double(stmt, col++));
-{% else if field.type.identifier == "bool" %}
+{% else if field.type.is_bool %}
         obj->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++) != 0);
-{% else if field.type.identifier == "int8_t" or field.type.identifier == "signed char" %}
-        obj->set{{field.identifierCamel}}(static_cast<int8_t>(sqlite3_column_int(stmt, col++)));
 {% else if field.type.is_enum %}
         obj->set{{field.identifierCamel}}(static_cast<{{field.type.identifier}}Schema>(sqlite3_column_int(stmt, col++)));
+{% else if field.type.is_struct %}
+        // If this is a struct, we need to handle it differently
+        int64_t {{field.identifier}}_id_value = sqlite3_column_int64(stmt, col++);
+        if ({{field.identifier}}_id_value > 0) {
+            obj->set{{field.identifierCamel}}(select{{field.type.identifier}}ById({{field.identifier}}_id_value));
+        }
 {% else %}
-        // Handle other types as needed
+        // Need to handle type {{field.type.identifier}} here in generated code
+        // For now, just skip it
         col++;
+{% endif %}
 {% endif %}
 {% endfor %}
         results.push_back(obj);
@@ -364,7 +363,7 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::select{{stru
     std::vector<std::shared_ptr<{{struct.identifier}}Schema>> results;
     const char * sql = R"(
     SELECT
-        {% for field in struct.member_variables %}{% if not field.type.is_array %}{{field.identifier}}{% if not loop.is_last %}, {% endif %}{% endif %}{% endfor %}
+        {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{{field.identifier}}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
         
         FROM {{struct.identifier}} WHERE {{other_struct.identifier}}_id = ?;
     )";
@@ -380,13 +379,11 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::select{{stru
 {% for field in struct.member_variables %}
 {% if not field.type.is_array %}
         // Set {{field.identifier}}
-{% if field.type.identifier == "string" or field.type.identifier == "std::string" %}
+{% if field.type.is_string %}
         const char* {{field.identifier}}_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, col++));
         if ({{field.identifier}}_text) {
             obj->set{{field.identifierCamel}}(std::string({{field.identifier}}_text));
         }
-{% else if field.type.identifier == "int64_t" or field.type.identifier == "long" %}
-        obj->set{{field.identifierCamel}}(sqlite3_column_int64(stmt, col++));
 {% else if field.type.is_integer %}
         obj->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++));
 {% else if field.type.is_real %}
@@ -395,8 +392,15 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::select{{stru
         obj->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++) != 0);
 {% else if field.type.is_enum %}
         obj->set{{field.identifierCamel}}(static_cast<{{field.type.identifier}}Schema>(sqlite3_column_int(stmt, col++)));
+{% else if field.type.is_struct %}
+        // If this is a struct, we need to handle it differently
+        int64_t {{field.identifier}}_id_value = sqlite3_column_int64(stmt, col++);
+        if ({{field.identifier}}_id_value > 0) {
+            obj->set{{field.identifierCamel}}(select{{field.type.identifier}}ById({{field.identifier}}_id_value));
+        }
 {% else %}
-        // Handle other types as needed
+        // Need to handle type {{field.type.identifier}} here in generated code
+        // For now, just skip it
         col++;
 {% endif %}
 {% endif %}
@@ -471,8 +475,9 @@ int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{str
         param++;
     }
 {% else %}
-    // Handle other types as needed
-    param++;
+    // Need to handle type {{field.type.identifier}} here in generated code
+    // For now, just bind null
+    sqlite3_bind_null(stmt, param++);
 {% endif %}
 {% else %}
     // Optional field - check if has value and bind accordingly
@@ -519,7 +524,8 @@ int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{str
         sqlite3_bind_null(stmt, param++);
     }
 {% else %}
-    // Handle other types as needed
+    // Need to handle type {{field.type.identifier}} here in generated code
+    // For now, just bind null
     sqlite3_bind_null(stmt, param++);
 {% endif %}
 {% endif %}
@@ -579,6 +585,25 @@ bool SQLiteDB::delete{{struct.identifierCamel}}ById(int64_t id) {
     return success;
 }
 
+bool SQLiteDB::delete{{struct.identifierCamel}}ByIdCascade(int64_t id) {
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::delete{{struct.identifierCamel}}ByIdCascade(" + std::to_string(id) + ") - Database not connected. Call connect() first.");
+    }
+    
+    // First, delete nested array items
+{% for mv in struct.member_variables %}
+{% if mv.type.is_array and mv.type.elem_type.is_struct %}
+    auto nested_items = select{{mv.type.elem_type.identifier}}By{{struct.identifier}}_id(id);
+    for (const auto& item : nested_items) {
+        delete{{mv.type.elem_type.identifierCamel}}ByIdCascade(item->getId());
+    }
+{% endif %}
+{% endfor %}
+
+    // Now delete the main object
+    return delete{{struct.identifierCamel}}ById(id);
+}
+
 bool SQLiteDB::has{{struct.identifierCamel}}ById(int64_t id){
     if (!isConnected()) {
         throw std::runtime_error("SQLiteDB::has{{struct.identifierCamel}}ById(" + std::to_string(id) + ") - Database not connected. Call connect() first.");
@@ -615,22 +640,17 @@ bool SQLiteDB::has{{struct.identifierCamel}}By{{mv.identifierCamel}}({{mv.type.e
     }
     
     // Bind the parameter
-    {% if mv.type.identifier == "string" or mv.type.identifier == "std::string" %}
+    {% if mv.type.is_string %}
     sqlite3_bind_text(stmt, 1, value.c_str(), -1, SQLITE_STATIC);
-    {% else if mv.type.identifier == "int" or mv.type.identifier == "int32_t" %}
+    {% else if mv.type.is_integer %}
     sqlite3_bind_int(stmt, 1, value);
-    {% else if mv.type.identifier == "int64_t" or mv.type.identifier == "long" %}
-    sqlite3_bind_int64(stmt, 1, value);
-    {% else if mv.type.identifier == "float" %}
-    sqlite3_bind_double(stmt, 1, static_cast<double>(value));
-    {% else if mv.type.identifier == "double" %}
+    {% else if mv.type.is_real %}
     sqlite3_bind_double(stmt, 1, value);
-    {% else if mv.type.identifier == "bool" %}
+    {% else if mv.type.is_bool %}
     sqlite3_bind_int(stmt, 1, value ? 1 : 0);
-    {% else if mv.type.identifier == "int8_t" or mv.type.identifier == "signed char" %}
-    sqlite3_bind_int(stmt, 1, static_cast<int>(value));
     {% else %}
-    // Handle other types as needed
+    // Need to handle type {{mv.type.identifier}} here in generated code
+    // For now, just bind null
     sqlite3_bind_text(stmt, 1, "", -1, SQLITE_STATIC);
     {% endif %}
     

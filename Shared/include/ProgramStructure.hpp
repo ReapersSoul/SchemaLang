@@ -21,7 +21,7 @@ struct ProgramStructure: std::enable_shared_from_this<ProgramStructure>
 	SourcePosition current_position;
 
 	// Versions keyed by filename (basename only). Collisions are errors.
-	std::unordered_map<std::string, Version> transpiler_versions;   // SchemaLangVersion per file
+	std::unordered_map<std::string, VersionWithPosition> transpiler_versions;   // SchemaLangVersion per file
 	std::unordered_set<std::string> transpiler_version_warnings_emitted; // set of files we've warned about missing SchemaLangVersion
 	std::string root_filename; // store basename of root file for default accessors
 
@@ -48,7 +48,7 @@ struct ProgramStructure: std::enable_shared_from_this<ProgramStructure>
 	bool parseFileVersion(std::vector<Token> tokens, int &i);
 	bool validateTranspilerVersion();
 	std::string getTranspilerVersionString(const std::string &filename = "") const;
-	std::optional<Version> getTranspilerVersion(const std::string &filename) const;
+	std::optional<VersionWithPosition> getTranspilerVersion(const std::string &filename) const;
 
 	bool readMemberVariable(std::vector<Token> tokens, int &i, MemberVariableDefinition &current_MemberVariableDefinition);
 

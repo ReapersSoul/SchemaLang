@@ -44,7 +44,15 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteQueryBuilder::Ex
         obj->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++) != 0);
 {% else if field.type.is_enum %}
         obj->set{{field.identifierCamel}}(static_cast<{{field.type.identifier}}Schema>(sqlite3_column_int(stmt, col++)));
+{% else if field.type.is_struct %}
+        // If this is a struct, we need to handle it differently
+        int64_t {{field.identifier}}_id_value = sqlite3_column_int64(stmt, col++);
+        if ({{field.identifier}}_id_value > 0) {
+            obj->set{{field.identifierCamel}}(db->select{{field.type.identifier}}ById({{field.identifier}}_id_value));
+        }
 {% else %}
+        // Need to handle type {{field.type.identifier}} here in generated code
+        // For now, just skip it
         col++;
 {% endif %}
 {% else %}
@@ -64,7 +72,15 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteQueryBuilder::Ex
             obj->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++) != 0);
 {% else if field.type.is_enum %}
             obj->set{{field.identifierCamel}}(static_cast<{{field.type.identifier}}Schema>(sqlite3_column_int(stmt, col++)));
+{% else if field.type.is_struct %}
+            // If this is a struct, we need to handle it differently
+            int64_t {{field.identifier}}_id_value = sqlite3_column_int64(stmt, col++);
+            if ({{field.identifier}}_id_value > 0) {
+                obj->set{{field.identifierCamel}}(db->select{{field.type.identifier}}ById({{field.identifier}}_id_value));
+            }
 {% else %}
+            // Need to handle type {{field.type.identifier}} here in generated code
+            // For now, just skip it
             col++;
 {% endif %}
         }

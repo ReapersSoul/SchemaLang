@@ -1093,12 +1093,12 @@ std::string SqliteGenerator::convert_to_local_type(std::shared_ptr<ProgramStruct
 	// convert int types to "INTEGER"
 	if (type.is_struct(ps))
 	{
-		return "INVALID_TYPE_FOR_COLUMN";
+		return "INTEGER";
 	}
 
 	if (type.is_enum(ps))
 	{
-		return "INVALID_TYPE_FOR_COLUMN";
+		return "INTEGER";
 	}
 
 	if (type.is_integer())

@@ -259,9 +259,14 @@ public:
     // Custom select methods that return SqliteResult
     std::vector<SqliteResult> ExecCustom();
     SqliteResult FirstCustom();
+    
+    // Public method to inspect generated SQL query
+    std::string BuildQuery() {
+        return BuildQuery("*");
+    }
 
 private:
-    std::string BuildQuery(const std::string& select_clause = "*") {
+    std::string BuildQuery(const std::string& select_clause) {
         if (table_name.empty()) {
             throw std::runtime_error("SQLiteQueryBuilder: No table specified. Call From() method first.");
         }
@@ -458,9 +463,14 @@ public:
     SqliteResult First();
     bool Exists();
     int Count();
+    
+    // Public method to inspect generated SQL query
+    std::string BuildQuery() {
+        return BuildQuery("");
+    }
 
 private:
-    std::string BuildQuery(const std::string& select_clause = "") {
+    std::string BuildQuery(const std::string& select_clause) {
         if (table_name.empty()) {
             throw std::runtime_error("GenericSQLiteQueryBuilder: No table specified. Call From() method first.");
         }
