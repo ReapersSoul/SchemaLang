@@ -55,6 +55,8 @@ public:
     virtual int64_t insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{struct.identifier}}Schema> obj, bool force_id=false);
 
     virtual bool delete{{struct.identifierCamel}}ById(int64_t id);
+    
+    virtual bool delete{{struct.identifierCamel}}ByIdCascade(int64_t id);
 
     virtual bool has{{struct.identifierCamel}}ById(int64_t id);
 
@@ -66,6 +68,14 @@ public:
 {% endif %}
 {% endfor %}
 
+    // Primitive array helper methods
+{% for mv in struct.member_variables %}
+{% if mv.type.is_array and mv.type.is_array_of_base_type and not mv.type.is_array_of_enum %}
+    virtual std::vector<{{mv.type.elem_type.estimated}}> select{{struct.identifierCamel}}{{mv.identifierCamel}}(int64_t parent_id);
+    virtual bool delete{{struct.identifierCamel}}{{mv.identifierCamel}}(int64_t parent_id);
+    virtual bool update{{struct.identifierCamel}}{{mv.identifierCamel}}(int64_t parent_id, const std::vector<{{mv.type.elem_type.estimated}}>& values);
+{% endif %}
+{% endfor %}
 
 {#    // // Bulk insert/update
     // int64_t insertOrUpdateBulk{{struct}}(std::vector<std::shared_ptr<{{struct}}Schema>> objects);

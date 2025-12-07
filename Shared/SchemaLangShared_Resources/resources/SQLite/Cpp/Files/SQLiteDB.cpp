@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS {{struct.identifier}} (
 {% for inner_struct in structs %}
 {% for mv in inner_struct.member_variables %}
 {% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}
-    {{inner_struct.identifier}}_id INTEGER REFERENCES {{inner_struct.identifier}}(id){% if current_field < additional_field_count %},{% endif %}
+    {{inner_struct.identifier}}_id INTEGER REFERENCES {{inner_struct.identifier}}(id) ON DELETE CASCADE{% if current_field < additional_field_count %},{% endif %}
 {% endif %}
 {% endfor %}
 {% endfor %}
@@ -116,6 +116,30 @@ CREATE TABLE IF NOT EXISTS {{struct.identifier}} (
         sqlite3_free(errMsg);
         throw std::runtime_error("SQLiteDB::create{{struct.identifierCamel}}Table() - SQL execution failed: " + error + "\nSQL: " + std::string(create_table_sql));
     }
+    
+    // Create child tables for primitive arrays
+{% for mv in struct.member_variables %}
+{% if mv.type.is_array and mv.type.is_array_of_base_type and not mv.type.is_array_of_enum %}
+    {
+        const char* child_table_sql = R"(
+CREATE TABLE IF NOT EXISTS {{struct.identifier}}_{{mv.identifier}} (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    {{struct.identifier}}_id INTEGER NOT NULL REFERENCES {{struct.identifier}}(id) ON DELETE CASCADE,
+    sequence INTEGER NOT NULL,
+    value {{ SQLite_convert_to_local_type(mv.type.elem_type) }} NOT NULL{% if mv.unique %},
+    UNIQUE({{struct.identifier}}_id, value){% endif %},
+    UNIQUE({{struct.identifier}}_id, sequence)
+);
+CREATE INDEX IF NOT EXISTS idx_{{struct.identifier}}_{{mv.identifier}}_parent_id ON {{struct.identifier}}_{{mv.identifier}}({{struct.identifier}}_id);
+        )";
+        if (sqlite3_exec(db, child_table_sql, nullptr, nullptr, &errMsg) != SQLITE_OK) {
+            std::string error = errMsg ? errMsg : "Unknown error";
+            sqlite3_free(errMsg);
+            throw std::runtime_error("SQLiteDB::create{{struct.identifierCamel}}Table() - Failed to create child table {{struct.identifier}}_{{mv.identifier}}: " + error);
+        }
+    }
+{% endif %}
+{% endfor %}
 }
 
 std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::selectAll{{struct.identifierCamel}}() {
@@ -190,6 +214,40 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::selectAll{{s
 {% endif %}
 {% endfor %}
 
+        //get primitive arrays if any
+{% for mv in struct.member_variables %}
+{% if mv.type.is_array and mv.type.is_array_of_base_type and not mv.type.is_array_of_enum %}
+        {
+            const char* array_sql = "SELECT value FROM {{struct.identifier}}_{{mv.identifier}} WHERE {{struct.identifier}}_id = ? ORDER BY sequence";
+            sqlite3_stmt* array_stmt;
+            if (sqlite3_prepare_v2(db, array_sql, -1, &array_stmt, nullptr) == SQLITE_OK) {
+                sqlite3_bind_int64(array_stmt, 1, obj->getId());
+                while (sqlite3_step(array_stmt) == SQLITE_ROW) {
+{% if mv.type.elem_type.is_string %}
+                    const char* value_text = reinterpret_cast<const char*>(sqlite3_column_text(array_stmt, 0));
+                    if (value_text) {
+                        obj->addTo{{mv.identifierCamel}}(std::string(value_text));
+                    }
+{% else if mv.type.elem_type.identifier == "int64_t" or mv.type.elem_type.identifier == "long" %}
+                    obj->addTo{{mv.identifierCamel}}(sqlite3_column_int64(array_stmt, 0));
+{% else if mv.type.elem_type.is_integer %}
+                    obj->addTo{{mv.identifierCamel}}(sqlite3_column_int(array_stmt, 0));
+{% else if mv.type.elem_type.is_real %}
+                    obj->addTo{{mv.identifierCamel}}(static_cast<{{mv.type.elem_type.estimated}}>(sqlite3_column_double(array_stmt, 0)));
+{% else if mv.type.elem_type.is_bool %}
+                    obj->addTo{{mv.identifierCamel}}(sqlite3_column_int(array_stmt, 0) != 0);
+{% else if mv.type.elem_type.is_char %}
+                    const char* char_text = reinterpret_cast<const char*>(sqlite3_column_text(array_stmt, 0));
+                    if (char_text && char_text[0]) {
+                        obj->addTo{{mv.identifierCamel}}(char_text[0]);
+                    }
+{% endif %}
+                }
+                sqlite3_finalize(array_stmt);
+            }
+        }
+{% endif %}
+{% endfor %}
 
         results.push_back(obj);
     }
@@ -264,6 +322,43 @@ std::shared_ptr<{{struct.identifier}}Schema> SQLiteDB::select{{struct.identifier
 {% endif %}
 {% endfor %}
 
+    // Load primitive arrays if any
+    if (result) {
+{% for mv in struct.member_variables %}\
+{% if mv.type.is_array and mv.type.is_array_of_base_type and not mv.type.is_array_of_enum %}
+        {
+            const char* array_sql = "SELECT value FROM {{struct.identifier}}_{{mv.identifier}} WHERE {{struct.identifier}}_id = ? ORDER BY sequence";
+            sqlite3_stmt* array_stmt;
+            if (sqlite3_prepare_v2(db, array_sql, -1, &array_stmt, nullptr) == SQLITE_OK) {
+                sqlite3_bind_int64(array_stmt, 1, result->getId());
+                while (sqlite3_step(array_stmt) == SQLITE_ROW) {
+{% if mv.type.elem_type.is_string %}
+                    const char* value_text = reinterpret_cast<const char*>(sqlite3_column_text(array_stmt, 0));
+                    if (value_text) {
+                        result->addTo{{mv.identifierCamel}}(std::string(value_text));
+                    }
+{% else if mv.type.elem_type.identifier == "int64_t" or mv.type.elem_type.identifier == "long" %}
+                    result->addTo{{mv.identifierCamel}}(sqlite3_column_int64(array_stmt, 0));
+{% else if mv.type.elem_type.is_integer %}
+                    result->addTo{{mv.identifierCamel}}(sqlite3_column_int(array_stmt, 0));
+{% else if mv.type.elem_type.is_real %}
+                    result->addTo{{mv.identifierCamel}}(static_cast<{{mv.type.elem_type.estimated}}>(sqlite3_column_double(array_stmt, 0)));
+{% else if mv.type.elem_type.is_bool %}
+                    result->addTo{{mv.identifierCamel}}(sqlite3_column_int(array_stmt, 0) != 0);
+{% else if mv.type.elem_type.is_char %}
+                    const char* char_text = reinterpret_cast<const char*>(sqlite3_column_text(array_stmt, 0));
+                    if (char_text && char_text[0]) {
+                        result->addTo{{mv.identifierCamel}}(char_text[0]);
+                    }
+{% endif %}
+                }
+                sqlite3_finalize(array_stmt);
+            }
+        }
+{% endif %}
+{% endfor %}
+    }
+
     sqlite3_finalize(stmt);
     return result;
 }
@@ -334,6 +429,42 @@ FROM {{struct.identifier}} WHERE {{mv.identifier}} = ?;)";
 {% endif %}
 {% endif %}
 {% endfor %}
+
+        //get primitive arrays if any
+{% for arr_mv in struct.member_variables %}
+{% if arr_mv.type.is_array and arr_mv.type.is_array_of_base_type and not arr_mv.type.is_array_of_enum %}
+        {
+            const char* array_sql = "SELECT value FROM {{struct.identifier}}_{{arr_mv.identifier}} WHERE {{struct.identifier}}_id = ? ORDER BY sequence";
+            sqlite3_stmt* array_stmt;
+            if (sqlite3_prepare_v2(db, array_sql, -1, &array_stmt, nullptr) == SQLITE_OK) {
+                sqlite3_bind_int64(array_stmt, 1, obj->getId());
+                while (sqlite3_step(array_stmt) == SQLITE_ROW) {
+{% if arr_mv.type.elem_type.is_string %}
+                    const char* value_text = reinterpret_cast<const char*>(sqlite3_column_text(array_stmt, 0));
+                    if (value_text) {
+                        obj->addTo{{arr_mv.identifierCamel}}(std::string(value_text));
+                    }
+{% else if arr_mv.type.elem_type.identifier == "int64_t" or arr_mv.type.elem_type.identifier == "long" %}
+                    obj->addTo{{arr_mv.identifierCamel}}(sqlite3_column_int64(array_stmt, 0));
+{% else if arr_mv.type.elem_type.is_integer %}
+                    obj->addTo{{arr_mv.identifierCamel}}(sqlite3_column_int(array_stmt, 0));
+{% else if arr_mv.type.elem_type.is_real %}
+                    obj->addTo{{arr_mv.identifierCamel}}(static_cast<{{arr_mv.type.elem_type.estimated}}>(sqlite3_column_double(array_stmt, 0)));
+{% else if arr_mv.type.elem_type.is_bool %}
+                    obj->addTo{{arr_mv.identifierCamel}}(sqlite3_column_int(array_stmt, 0) != 0);
+{% else if arr_mv.type.elem_type.is_char %}
+                    const char* char_text = reinterpret_cast<const char*>(sqlite3_column_text(array_stmt, 0));
+                    if (char_text && char_text[0]) {
+                        obj->addTo{{arr_mv.identifierCamel}}(char_text[0]);
+                    }
+{% endif %}
+                }
+                sqlite3_finalize(array_stmt);
+            }
+        }
+{% endif %}
+{% endfor %}
+
         results.push_back(obj);
     }
     
@@ -403,6 +534,41 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::select{{stru
         // For now, just skip it
         col++;
 {% endif %}
+{% endif %}
+{% endfor %}
+
+        //get primitive arrays if any
+{% for arr_mv in struct.member_variables %}
+{% if arr_mv.type.is_array and arr_mv.type.is_array_of_base_type and not arr_mv.type.is_array_of_enum %}
+        {
+            const char* array_sql = "SELECT value FROM {{struct.identifier}}_{{arr_mv.identifier}} WHERE {{struct.identifier}}_id = ? ORDER BY sequence";
+            sqlite3_stmt* array_stmt;
+            if (sqlite3_prepare_v2(db, array_sql, -1, &array_stmt, nullptr) == SQLITE_OK) {
+                sqlite3_bind_int64(array_stmt, 1, obj->getId());
+                while (sqlite3_step(array_stmt) == SQLITE_ROW) {
+{% if arr_mv.type.elem_type.is_string %}
+                    const char* value_text = reinterpret_cast<const char*>(sqlite3_column_text(array_stmt, 0));
+                    if (value_text) {
+                        obj->addTo{{arr_mv.identifierCamel}}(std::string(value_text));
+                    }
+{% else if arr_mv.type.elem_type.identifier == "int64_t" or arr_mv.type.elem_type.identifier == "long" %}
+                    obj->addTo{{arr_mv.identifierCamel}}(sqlite3_column_int64(array_stmt, 0));
+{% else if arr_mv.type.elem_type.is_integer %}
+                    obj->addTo{{arr_mv.identifierCamel}}(sqlite3_column_int(array_stmt, 0));
+{% else if arr_mv.type.elem_type.is_real %}
+                    obj->addTo{{arr_mv.identifierCamel}}(static_cast<{{arr_mv.type.elem_type.estimated}}>(sqlite3_column_double(array_stmt, 0)));
+{% else if arr_mv.type.elem_type.is_bool %}
+                    obj->addTo{{arr_mv.identifierCamel}}(sqlite3_column_int(array_stmt, 0) != 0);
+{% else if arr_mv.type.elem_type.is_char %}
+                    const char* char_text = reinterpret_cast<const char*>(sqlite3_column_text(array_stmt, 0));
+                    if (char_text && char_text[0]) {
+                        obj->addTo{{arr_mv.identifierCamel}}(char_text[0]);
+                    }
+{% endif %}
+                }
+                sqlite3_finalize(array_stmt);
+            }
+        }
 {% endif %}
 {% endfor %}
 
@@ -562,6 +728,63 @@ int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{str
     }
     
     sqlite3_finalize(stmt);
+    
+    // Handle primitive array fields
+{% for mv in struct.member_variables %}
+{% if mv.type.is_array and mv.type.is_array_of_base_type and not mv.type.is_array_of_enum %}
+    // Delete existing {{mv.identifier}} array entries
+    {
+        const char* delete_sql = "DELETE FROM {{struct.identifier}}_{{mv.identifier}} WHERE {{struct.identifier}}_id = ?";
+        sqlite3_stmt* delete_stmt;
+        if (sqlite3_prepare_v2(db, delete_sql, -1, &delete_stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_int64(delete_stmt, 1, resultId);
+            sqlite3_step(delete_stmt);
+            sqlite3_finalize(delete_stmt);
+        }
+    }
+    
+    // Insert new {{mv.identifier}} array entries
+{% if mv.type.required %}
+    if (!obj->get{{mv.identifierCamel}}().empty()) {
+{% else %}
+    if (obj->get{{mv.identifierCamel}}().has_value() && !obj->get{{mv.identifierCamel}}().value().empty()) {
+{% endif %}
+        const char* insert_sql = "INSERT INTO {{struct.identifier}}_{{mv.identifier}} ({{struct.identifier}}_id, sequence, value) VALUES (?, ?, ?)";
+        sqlite3_stmt* insert_stmt;
+        if (sqlite3_prepare_v2(db, insert_sql, -1, &insert_stmt, nullptr) == SQLITE_OK) {
+            int sequence = 0;
+{% if mv.type.required %}
+            for (const auto& item : obj->get{{mv.identifierCamel}}()) {
+{% else %}
+            for (const auto& item : obj->get{{mv.identifierCamel}}().value()) {
+{% endif %}
+                sqlite3_reset(insert_stmt);
+                sqlite3_bind_int64(insert_stmt, 1, resultId);
+                sqlite3_bind_int(insert_stmt, 2, sequence++);
+{% if mv.type.elem_type.is_string %}
+                sqlite3_bind_text(insert_stmt, 3, item.c_str(), -1, SQLITE_TRANSIENT);
+{% else if mv.type.elem_type.identifier == "int64_t" or mv.type.elem_type.identifier == "long" %}
+                sqlite3_bind_int64(insert_stmt, 3, item);
+{% else if mv.type.elem_type.is_integer %}
+                sqlite3_bind_int(insert_stmt, 3, item);
+{% else if mv.type.elem_type.is_real %}
+                sqlite3_bind_double(insert_stmt, 3, static_cast<double>(item));
+{% else if mv.type.elem_type.is_bool %}
+                sqlite3_bind_int(insert_stmt, 3, item ? 1 : 0);
+{% else if mv.type.elem_type.is_char %}
+                sqlite3_bind_text(insert_stmt, 3, std::string(1, item).c_str(), -1, SQLITE_TRANSIENT);
+{% endif %}
+                if (sqlite3_step(insert_stmt) != SQLITE_DONE) {
+                    sqlite3_finalize(insert_stmt);
+                    throw std::runtime_error("Failed to insert {{mv.identifier}} array item: " + std::string(sqlite3_errmsg(db)));
+                }
+            }
+            sqlite3_finalize(insert_stmt);
+        }
+    }
+{% endif %}
+{% endfor %}
+    
     return resultId;
 }
 
@@ -593,8 +816,8 @@ bool SQLiteDB::delete{{struct.identifierCamel}}ByIdCascade(int64_t id) {
     // First, delete nested array items
 {% for mv in struct.member_variables %}
 {% if mv.type.is_array and mv.type.elem_type.is_struct %}
-    auto nested_items = select{{mv.type.elem_type.identifier}}By{{struct.identifier}}_id(id);
-    for (const auto& item : nested_items) {
+    auto nested_{{mv.identifier}}_items = select{{mv.type.elem_type.identifier}}By{{struct.identifier}}_id(id);
+    for (const auto& item : nested_{{mv.identifier}}_items) {
         delete{{mv.type.elem_type.identifierCamel}}ByIdCascade(item->getId());
     }
 {% endif %}
@@ -660,6 +883,120 @@ bool SQLiteDB::has{{struct.identifierCamel}}By{{mv.identifierCamel}}({{mv.type.e
     return exists;
 }
 {% endif %}
+{% endif %}
+{% endfor %}
+
+// Primitive array helper method implementations
+{% for mv in struct.member_variables %}
+{% if mv.type.is_array and mv.type.is_array_of_base_type and not mv.type.is_array_of_enum %}
+std::vector<{{mv.type.elem_type.estimated}}> SQLiteDB::select{{struct.identifierCamel}}{{mv.identifierCamel}}(int64_t parent_id) {
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::select{{struct.identifierCamel}}{{mv.identifierCamel}}() - Database not connected. Call connect() first.");
+    }
+    
+    std::vector<{{mv.type.elem_type.estimated}}> result;
+    const char* sql = "SELECT value FROM {{struct.identifier}}_{{mv.identifier}} WHERE {{struct.identifier}}_id = ? ORDER BY sequence";
+    
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
+    }
+    
+    sqlite3_bind_int64(stmt, 1, parent_id);
+    
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+{% if mv.type.elem_type.is_string %}
+        const char* value_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        if (value_text) {
+            result.push_back(std::string(value_text));
+        }
+{% else if mv.type.elem_type.identifier == "int64_t" or mv.type.elem_type.identifier == "long" %}
+        result.push_back(sqlite3_column_int64(stmt, 0));
+{% else if mv.type.elem_type.is_integer %}
+        result.push_back(sqlite3_column_int(stmt, 0));
+{% else if mv.type.elem_type.is_real %}
+        result.push_back(static_cast<{{mv.type.elem_type.estimated}}>(sqlite3_column_double(stmt, 0)));
+{% else if mv.type.elem_type.is_bool %}
+        result.push_back(sqlite3_column_int(stmt, 0) != 0);
+{% else if mv.type.elem_type.is_char %}
+        const char* char_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        if (char_text && char_text[0]) {
+            result.push_back(char_text[0]);
+        }
+{% endif %}
+    }
+    
+    sqlite3_finalize(stmt);
+    return result;
+}
+
+bool SQLiteDB::delete{{struct.identifierCamel}}{{mv.identifierCamel}}(int64_t parent_id) {
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::delete{{struct.identifierCamel}}{{mv.identifierCamel}}() - Database not connected. Call connect() first.");
+    }
+    
+    const char* sql = "DELETE FROM {{struct.identifier}}_{{mv.identifier}} WHERE {{struct.identifier}}_id = ?";
+    
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
+    }
+    
+    sqlite3_bind_int64(stmt, 1, parent_id);
+    
+    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+    sqlite3_finalize(stmt);
+    
+    return success;
+}
+
+bool SQLiteDB::update{{struct.identifierCamel}}{{mv.identifierCamel}}(int64_t parent_id, const std::vector<{{mv.type.elem_type.estimated}}>& values) {
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::update{{struct.identifierCamel}}{{mv.identifierCamel}}() - Database not connected. Call connect() first.");
+    }
+    
+    // Delete existing entries
+    delete{{struct.identifierCamel}}{{mv.identifierCamel}}(parent_id);
+    
+    // Insert new entries
+    if (!values.empty()) {
+        const char* sql = "INSERT INTO {{struct.identifier}}_{{mv.identifier}} ({{struct.identifier}}_id, sequence, value) VALUES (?, ?, ?)";
+        sqlite3_stmt* stmt;
+        
+        if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+            throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
+        }
+        
+        int sequence = 0;
+        for (const auto& value : values) {
+            sqlite3_reset(stmt);
+            sqlite3_bind_int64(stmt, 1, parent_id);
+            sqlite3_bind_int(stmt, 2, sequence++);
+{% if mv.type.elem_type.is_string %}
+            sqlite3_bind_text(stmt, 3, value.c_str(), -1, SQLITE_TRANSIENT);
+{% else if mv.type.elem_type.identifier == "int64_t" or mv.type.elem_type.identifier == "long" %}
+            sqlite3_bind_int64(stmt, 3, value);
+{% else if mv.type.elem_type.is_integer %}
+            sqlite3_bind_int(stmt, 3, value);
+{% else if mv.type.elem_type.is_real %}
+            sqlite3_bind_double(stmt, 3, static_cast<double>(value));
+{% else if mv.type.elem_type.is_bool %}
+            sqlite3_bind_int(stmt, 3, value ? 1 : 0);
+{% else if mv.type.elem_type.is_char %}
+            sqlite3_bind_text(stmt, 3, std::string(1, value).c_str(), -1, SQLITE_TRANSIENT);
+{% endif %}
+            
+            if (sqlite3_step(stmt) != SQLITE_DONE) {
+                sqlite3_finalize(stmt);
+                throw std::runtime_error("Failed to insert {{mv.identifier}} array value: " + std::string(sqlite3_errmsg(db)));
+            }
+        }
+        
+        sqlite3_finalize(stmt);
+    }
+    
+    return true;
+}
 {% endif %}
 {% endfor %}
 

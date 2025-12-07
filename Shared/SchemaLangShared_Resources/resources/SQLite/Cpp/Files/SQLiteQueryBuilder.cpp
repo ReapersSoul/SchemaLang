@@ -92,6 +92,42 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteQueryBuilder::Ex
 {% endif %}
 {% endif %}
 {% endfor %}
+
+        //get primitive arrays if any
+{% for mv in struct.member_variables %}
+{% if mv.type.is_array and mv.type.is_array_of_base_type and not mv.type.is_array_of_enum %}
+        {
+            const char* array_sql = "SELECT value FROM {{struct.identifier}}_{{mv.identifier}} WHERE {{struct.identifier}}_id = ? ORDER BY sequence";
+            sqlite3_stmt* array_stmt;
+            if (sqlite3_prepare_v2(db->getDB(), array_sql, -1, &array_stmt, nullptr) == SQLITE_OK) {
+                sqlite3_bind_int64(array_stmt, 1, obj->getId());
+                while (sqlite3_step(array_stmt) == SQLITE_ROW) {
+{% if mv.type.elem_type.is_string %}
+                    const char* value_text = reinterpret_cast<const char*>(sqlite3_column_text(array_stmt, 0));
+                    if (value_text) {
+                        obj->addTo{{mv.identifierCamel}}(std::string(value_text));
+                    }
+{% else if mv.type.elem_type.identifier == "int64_t" or mv.type.elem_type.identifier == "long" %}
+                    obj->addTo{{mv.identifierCamel}}(sqlite3_column_int64(array_stmt, 0));
+{% else if mv.type.elem_type.is_integer %}
+                    obj->addTo{{mv.identifierCamel}}(sqlite3_column_int(array_stmt, 0));
+{% else if mv.type.elem_type.is_real %}
+                    obj->addTo{{mv.identifierCamel}}(static_cast<{{mv.type.elem_type.estimated}}>(sqlite3_column_double(array_stmt, 0)));
+{% else if mv.type.elem_type.is_bool %}
+                    obj->addTo{{mv.identifierCamel}}(sqlite3_column_int(array_stmt, 0) != 0);
+{% else if mv.type.elem_type.is_char %}
+                    const char* char_text = reinterpret_cast<const char*>(sqlite3_column_text(array_stmt, 0));
+                    if (char_text && char_text[0]) {
+                        obj->addTo{{mv.identifierCamel}}(char_text[0]);
+                    }
+{% endif %}
+                }
+                sqlite3_finalize(array_stmt);
+            }
+        }
+{% endif %}
+{% endfor %}
+
         results.push_back(obj);
     }
     
