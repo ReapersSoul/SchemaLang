@@ -424,4 +424,27 @@ nlohmann::json get_field_schema(const FieldOptions& options = {}) {
         return schema; \
     }
 
+
+
+#define SCHEMA_DEFINE_STATIC(Type, ...) \
+    static nlohmann::json schema_static() { \
+        using T = Type; \
+        nlohmann::json schema = { \
+            {"type", "object"}, \
+            {"properties", nlohmann::json::object()}, \
+            {"required", nlohmann::json::array()} \
+        }; \
+        \
+        std::vector<schema::FieldInfo> fields = {__VA_ARGS__}; \
+        \
+        for (const auto& field : fields) { \
+            schema["properties"][field.name] = field.schema; \
+            if (field.required) { \
+                schema["required"].push_back(field.name); \
+            } \
+        } \
+        \
+        return schema; \
+    }
+
 } // namespace schema

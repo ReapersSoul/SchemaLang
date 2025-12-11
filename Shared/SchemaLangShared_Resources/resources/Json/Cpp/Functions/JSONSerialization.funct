@@ -3,7 +3,73 @@
 template<typename BasicJsonType>
 friend void to_json(BasicJsonType& j, const {{identifier}}Schema& {{identifier}}) {
 {% for mv in member_variables %}
-{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
+{% if mv.type.is_array %}
+{% if mv.type.is_array_of_base_type and not mv.type.is_array_of_enum %}
+    // Primitive array
+{% if mv.type.required %}
+    j["{{mv.identifier}}"] = {{identifier}}.{{mv.identifier}};
+{% else %}
+    if ({{identifier}}.{{mv.identifier}}.has_value()) {
+        j["{{mv.identifier}}"] = {{identifier}}.{{mv.identifier}}.value();
+    }
+{% endif %}
+{% else if mv.type.elem_type.is_enum %}
+    // Enum array
+{% if mv.type.required %}
+    j["{{mv.identifier}}"] = BasicJsonType::array();
+    for (const auto& item : {{identifier}}.{{mv.identifier}}) {
+        j["{{mv.identifier}}"].push_back(static_cast<int>(item));
+    }
+{% else %}
+    if ({{identifier}}.{{mv.identifier}}.has_value()) {
+        j["{{mv.identifier}}"] = BasicJsonType::array();
+        for (const auto& item : {{identifier}}.{{mv.identifier}}.value()) {
+            j["{{mv.identifier}}"].push_back(static_cast<int>(item));
+        }
+    }
+{% endif %}
+{% else if mv.type.elem_type.is_struct %}
+    // Struct array
+{% if mv.type.required %}
+    j["{{mv.identifier}}"] = BasicJsonType::array();
+    for (const auto& item : {{identifier}}.{{mv.identifier}}) {
+        BasicJsonType item_json;
+        to_json(item_json, *item);
+        j["{{mv.identifier}}"].push_back(item_json);
+    }
+{% else %}
+    if ({{identifier}}.{{mv.identifier}}.has_value()) {
+        j["{{mv.identifier}}"] = BasicJsonType::array();
+        for (const auto& item : {{identifier}}.{{mv.identifier}}.value()) {
+            BasicJsonType item_json;
+            to_json(item_json, *item);
+            j["{{mv.identifier}}"].push_back(item_json);
+        }
+    }
+{% endif %}
+{% endif %}
+{% else if mv.type.is_struct %}
+    // Single struct
+{% if mv.type.required %}
+    if ({{identifier}}.{{mv.identifier}}) {
+        to_json(j["{{mv.identifier}}"], *{{identifier}}.{{mv.identifier}});
+    }
+{% else %}
+    if ({{identifier}}.{{mv.identifier}}.has_value() && {{identifier}}.{{mv.identifier}}.value()) {
+        to_json(j["{{mv.identifier}}"], *{{identifier}}.{{mv.identifier}}.value());
+    }
+{% endif %}
+{% else if mv.type.is_enum %}
+    // Enum
+{% if mv.type.required %}
+    j["{{mv.identifier}}"] = static_cast<int>({{identifier}}.{{mv.identifier}});
+{% else %}
+    if ({{identifier}}.{{mv.identifier}}.has_value()) {
+        j["{{mv.identifier}}"] = static_cast<int>({{identifier}}.{{mv.identifier}}.value());
+    }
+{% endif %}
+{% else %}
+    // Primitive type
     j["{{mv.identifier}}"] = {{identifier}}.{{mv.identifier}}{% if mv.type.required %}{% else %}.value_or({{format_default(mv.type,"")}}){% endif %};
 {% endif %}
 {% endfor %}
@@ -12,7 +78,80 @@ friend void to_json(BasicJsonType& j, const {{identifier}}Schema& {{identifier}}
 template<typename BasicJsonType>
 friend void from_json(const BasicJsonType& j, {{identifier}}Schema& {{identifier}}) {
 {% for mv in member_variables %}
-{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
+{% if mv.type.is_array %}
+{% if mv.type.is_array_of_base_type and not mv.type.is_array_of_enum %}
+    // Primitive array
+    if (j.contains("{{mv.identifier}}") && j["{{mv.identifier}}"].is_array()) {
+{% if mv.type.required %}
+        {{identifier}}.{{mv.identifier}}.clear();
+        for (const auto& item : j["{{mv.identifier}}"]) {
+            {{identifier}}.{{mv.identifier}}.push_back(item.template get<{{mv.type.elem_type.estimated}}>());
+        }
+{% else %}
+        {{identifier}}.{{mv.identifier}} = std::vector<{{mv.type.elem_type.estimated}}>();
+        for (const auto& item : j["{{mv.identifier}}"]) {
+            {{identifier}}.{{mv.identifier}}.value().push_back(item.template get<{{mv.type.elem_type.estimated}}>());
+        }
+{% endif %}
+    }
+{% else if mv.type.elem_type.is_enum %}
+    // Enum array
+    if (j.contains("{{mv.identifier}}") && j["{{mv.identifier}}"].is_array()) {
+{% if mv.type.required %}
+        {{identifier}}.{{mv.identifier}}.clear();
+        for (const auto& item : j["{{mv.identifier}}"]) {
+            {{identifier}}.{{mv.identifier}}.push_back(static_cast<{{mv.type.elem_type.identifier}}Schema>(item.template get<int>()));
+        }
+{% else %}
+        {{identifier}}.{{mv.identifier}} = std::vector<{{mv.type.elem_type.identifier}}Schema>();
+        for (const auto& item : j["{{mv.identifier}}"]) {
+            {{identifier}}.{{mv.identifier}}.value().push_back(static_cast<{{mv.type.elem_type.identifier}}Schema>(item.template get<int>()));
+        }
+{% endif %}
+    }
+{% else if mv.type.elem_type.is_struct %}
+    // Struct array
+    if (j.contains("{{mv.identifier}}") && j["{{mv.identifier}}"].is_array()) {
+{% if mv.type.required %}
+        {{identifier}}.{{mv.identifier}}.clear();
+        for (const auto& item : j["{{mv.identifier}}"]) {
+            auto struct_ptr = std::make_shared<{{mv.type.elem_type.identifier}}Schema>();
+            from_json(item, *struct_ptr);
+            {{identifier}}.{{mv.identifier}}.push_back(struct_ptr);
+        }
+{% else %}
+        {{identifier}}.{{mv.identifier}} = std::vector<std::shared_ptr<{{mv.type.elem_type.identifier}}Schema>>();
+        for (const auto& item : j["{{mv.identifier}}"]) {
+            auto struct_ptr = std::make_shared<{{mv.type.elem_type.identifier}}Schema>();
+            from_json(item, *struct_ptr);
+            {{identifier}}.{{mv.identifier}}.value().push_back(struct_ptr);
+        }
+{% endif %}
+    }
+{% endif %}
+{% else if mv.type.is_struct %}
+    // Single struct
+    if (j.contains("{{mv.identifier}}") && j["{{mv.identifier}}"].is_object()) {
+{% if mv.type.required %}
+        {{identifier}}.{{mv.identifier}} = std::make_shared<{{mv.type.identifier}}Schema>();
+        from_json(j["{{mv.identifier}}"], *{{identifier}}.{{mv.identifier}});
+{% else %}
+        auto struct_ptr = std::make_shared<{{mv.type.identifier}}Schema>();
+        from_json(j["{{mv.identifier}}"], *struct_ptr);
+        {{identifier}}.{{mv.identifier}} = struct_ptr;
+{% endif %}
+    }
+{% else if mv.type.is_enum %}
+    // Enum
+    if (j.contains("{{mv.identifier}}")) {
+{% if mv.type.required %}
+        {{identifier}}.{{mv.identifier}} = static_cast<{{mv.type.identifier}}Schema>(j["{{mv.identifier}}"].template get<int>());
+{% else %}
+        {{identifier}}.{{mv.identifier}} = static_cast<{{mv.type.identifier}}Schema>(j["{{mv.identifier}}"].template get<int>());
+{% endif %}
+    }
+{% else %}
+    // Primitive type
 {% if mv.type.required %}
     {{identifier}}.{{mv.identifier}} = j.value("{{mv.identifier}}", {{format_default(mv.type,"")}});
 {% else %}
@@ -26,7 +165,13 @@ friend void from_json(const BasicJsonType& j, {{identifier}}Schema& {{identifier
 
 static void default_value({{identifier}}Schema &obj){
 {% for mv in member_variables %}
-{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
+{% if mv.type.is_array %}
+    // Arrays default to empty
+{% else if mv.type.is_struct %}
+    // Structs default to nullptr
+{% else if mv.type.is_enum %}
+    obj.set{{mv.identifierCamel}}(static_cast<{{mv.type.identifier}}Schema>(0));
+{% else %}
     obj.set{{mv.identifierCamel}}({{format_default(mv.type, "")}});
 {% endif %}
 {% endfor %}
@@ -34,29 +179,30 @@ static void default_value({{identifier}}Schema &obj){
 
 SCHEMA_DEFINE({{identifier}}Schema,
 {% for mv in member_variables %}
-{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
 SCHEMA_FIELD({{mv.identifier}}, schema::desc("{{mv.description}}"){% if not mv.type.required %} | schema::optional(){% endif %} | schema::callback([&](schema::FieldOptions & options){
-    {{mv.identifier}}GlobalSchemaCallback(options);
+    {{identifier}}Schema::{{mv.identifier}}GlobalSchemaCallback(options);
     {{mv.identifier}}LocalSchemaCallback(options);
     })){% if not loop.is_last %},{% endif %}
-{% endif %}
+{% endfor %})
+
+SCHEMA_DEFINE_STATIC({{identifier}}Schema,
+{% for mv in member_variables %}
+SCHEMA_FIELD({{mv.identifier}}, schema::desc("{{mv.description}}"){% if not mv.type.required %} | schema::optional(){% endif %} | schema::callback([](schema::FieldOptions & options){
+    {{identifier}}Schema::{{mv.identifier}}GlobalSchemaCallback(options);
+    })){% if not loop.is_last %},{% endif %}
 {% endfor %})
 
 {% for mv in member_variables %}
-{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
 static std::function<void(schema::FieldOptions &)> {{mv.identifier}}GlobalSchemaCallback;
-virtual void {{mv.identifier}}LocalSchemaCallback(schema::FieldOptions & options) {
+virtual void {{mv.identifier}}LocalSchemaCallback(schema::FieldOptions & options) const {
     // You can modify the options here
 }
-{% endif %}
 {% endfor %}
 
 {% else %}
 {% for mv in member_variables %}
-{% if not (mv.type.is_array or mv.type.is_struct or mv.type.is_enum) %}
 std::function<void(schema::FieldOptions &)> {{identifier}}Schema::{{mv.identifier}}GlobalSchemaCallback=[](schema::FieldOptions & options){
     // You can modify the options here
 };
-{% endif %}
 {% endfor %}
 {% endif %}

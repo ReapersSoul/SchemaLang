@@ -25,8 +25,21 @@ public:
     virtual void disconnect();
     virtual bool isConnected() const;
     virtual sqlite3* getDB();
+{% for enum in enums %}
+	virtual void create{{enum.identifierCamel}}Table();
+	virtual int64_t get{{enum.identifierCamel}}IdByName(const std::string& name);
+	virtual int64_t get{{enum.identifierCamel}}IdByValue(int value);
+	virtual std::optional<std::string> get{{enum.identifierCamel}}NameById(int64_t id);
+	virtual std::optional<int> get{{enum.identifierCamel}}ValueById(int64_t id);
+	virtual std::optional<std::string> get{{enum.identifierCamel}}NameByValue(int value);
+	virtual std::optional<int> get{{enum.identifierCamel}}ValueByName(const std::string& name);
+	virtual std::vector<std::pair<std::string, int>> getAll{{enum.identifierCamel}}Values();
+{% endfor %}
+
 {% for struct in structs %}
     virtual void create{{struct.identifierCamel}}Table();
+    virtual void create{{struct.identifierCamel}}Triggers();
+	virtual void delete{{struct.identifierCamel}}Triggers();
 
     virtual std::vector<std::shared_ptr<{{struct.identifier}}Schema>> selectAll{{struct.identifierCamel}}();
 
@@ -142,14 +155,71 @@ public:
     // Generic query builder for custom queries
     GenericSQLiteQueryBuilder Query();
 
+    // SQLite callback hooks
     virtual void updateHook(int operation, const char* dbName, const char* tableName, sqlite3_int64 rowid);
+    virtual int commitHook();
+    virtual void rollbackHook();
+    virtual void traceHook(unsigned int traceType, void* pCtx, void* p, void* x);
+    virtual int progressHook();
+    virtual int authorizerHook(int actionCode, const char* detail1, const char* detail2, 
+                              const char* dbName, const char* triggerOrView);
+
+    // Foreign key debugging helpers
+    struct ForeignKeyViolation {
+        std::string table;
+        int64_t rowid;
+        std::string parent;
+        int fkid;
+    };
+    
+    struct ForeignKeyInfo {
+        int id;
+        int seq;
+        std::string table;
+        std::string from;
+        std::string to;
+        std::string on_update;
+        std::string on_delete;
+    };
+    
+    virtual std::vector<ForeignKeyViolation> checkForeignKeyViolations();
+    virtual std::vector<ForeignKeyInfo> getForeignKeyList(const std::string& table_name);
+    virtual std::string formatForeignKeyError(const std::string& operation, const std::string& table, int64_t id);
+
 private:
     std::filesystem::path db_path;
     sqlite3* db;
 
     static void updateCallback(void* userData, int operation, const char* dbName, 
                    const char* tableName, sqlite3_int64 rowid) {
-                   SQLiteDB* self = static_cast<SQLiteDB*>(userData);
+        SQLiteDB* self = static_cast<SQLiteDB*>(userData);
         self->updateHook(operation, dbName, tableName, rowid);
+    }
+    
+    static int commitCallback(void* userData) {
+        SQLiteDB* self = static_cast<SQLiteDB*>(userData);
+        return self->commitHook();
+    }
+    
+    static void rollbackCallback(void* userData) {
+        SQLiteDB* self = static_cast<SQLiteDB*>(userData);
+        self->rollbackHook();
+    }
+    
+    static int traceCallback(unsigned int traceType, void* userData, void* p, void* x) {
+        SQLiteDB* self = static_cast<SQLiteDB*>(userData);
+        self->traceHook(traceType, userData, p, x);
+        return 0;
+    }
+    
+    static int progressCallback(void* userData) {
+        SQLiteDB* self = static_cast<SQLiteDB*>(userData);
+        return self->progressHook();
+    }
+    
+    static int authorizerCallback(void* userData, int actionCode, const char* detail1, 
+                                 const char* detail2, const char* dbName, const char* triggerOrView) {
+        SQLiteDB* self = static_cast<SQLiteDB*>(userData);
+        return self->authorizerHook(actionCode, detail1, detail2, dbName, triggerOrView);
     }
 };

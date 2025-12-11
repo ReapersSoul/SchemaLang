@@ -8,8 +8,5 @@ CREATE TABLE
 
 -- insert into if not exists if conflict do nothing
 INSERT INTO {{identifier}} (name, value)
-{% for value in values %}
-VALUES ('{{value.name}}', {{value.value}})
-{% if not loop.is_last %}, {% endif %}
-{% endfor %}
+VALUES {% for value in values %}('{{value.name}}', {{value.value}}){% if not loop.is_last %}, {% endif %}{% endfor %}
 ON CONFLICT(name) DO NOTHING;

@@ -13,6 +13,7 @@ SQLiteDB::SQLiteDB(std::filesystem::path db_path){
 };
 
 void SQLiteDB::connect(){
+	try{
     if (isConnected()) {
         return; // Already connected
     }
@@ -52,13 +53,32 @@ void SQLiteDB::connect(){
     // Optional: log the path we opened (swap to your logging system if you have one)
     // fprintf(stderr, "Opened SQLite DB at: %s\n", db_path.string().c_str());
 
-    // Foreign keys and update hook
-    sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
-    sqlite3_update_hook(db, SQLiteDB::updateCallback, this);
+    // Enable extended error codes for more detailed error information
+    sqlite3_extended_result_codes(db, 1);
 
+    // Foreign keys
+    sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
+    
+    // Register all SQLite callbacks
+    sqlite3_update_hook(db, SQLiteDB::updateCallback, this);
+    sqlite3_commit_hook(db, SQLiteDB::commitCallback, this);
+    sqlite3_rollback_hook(db, SQLiteDB::rollbackCallback, this);
+    sqlite3_trace_v2(db, SQLITE_TRACE_STMT | SQLITE_TRACE_PROFILE, SQLiteDB::traceCallback, this);
+    sqlite3_progress_handler(db, 1000, SQLiteDB::progressCallback, this); // Check every 1000 VM ops
+    sqlite3_set_authorizer(db, SQLiteDB::authorizerCallback, this);
+
+{% for enum in enums %}
+        create{{enum.identifierCamel}}Table();
+{% endfor %}
 {% for struct in structs %}
         create{{struct.identifierCamel}}Table();
 {% endfor %}
+	}
+	catch (const std::exception& e) {
+		printf("SQLiteDB::connect() - Exception during connect: %s\n", e.what());
+		disconnect();
+		throw; // Re-throw the exception after cleanup
+	}
 };
 
 void SQLiteDB::disconnect(){
@@ -79,6 +99,177 @@ sqlite3* SQLiteDB::getDB(){
     return db;
 };
 
+{% for enum in enums %}
+
+void SQLiteDB::create{{enum.identifierCamel}}Table() {
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::create{{enum.identifierCamel}}Table() - Database not connected. Call connect() first.");
+    }
+    const char* create_table_sql = R"(
+CREATE TABLE IF NOT EXISTS {{enum.identifier}} (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    name TEXT NOT NULL UNIQUE,
+    value INTEGER NOT NULL
+);
+
+INSERT INTO {{enum.identifier}} (name, value)
+VALUES {% for value in enum.values %}('{{value.name}}', {{value.value}}){% if not loop.is_last %}, {% endif %}{% endfor %}
+ON CONFLICT(name) DO NOTHING;
+        )";
+    char* errMsg = nullptr;
+    if (sqlite3_exec(db, create_table_sql, nullptr, nullptr, &errMsg) != SQLITE_OK) {
+        std::string error = errMsg ? errMsg : "Unknown error";
+        sqlite3_free(errMsg);
+        throw std::runtime_error("SQLiteDB::create{{enum.identifierCamel}}Table() - SQL execution failed: " + error + "\nSQL: " + std::string(create_table_sql));
+    }
+}
+
+{% endfor %}
+{% for enum in enums %}
+
+int64_t SQLiteDB::get{{enum.identifierCamel}}IdByName(const std::string& name) {
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::get{{enum.identifierCamel}}IdByName() - Database not connected.");
+    }
+    const char* sql = "SELECT id FROM {{enum.identifier}} WHERE name = ? LIMIT 1;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
+    }
+    sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
+    
+    int64_t id = -1;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        id = sqlite3_column_int64(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+    return id;
+}
+
+int64_t SQLiteDB::get{{enum.identifierCamel}}IdByValue(int value) {
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::get{{enum.identifierCamel}}IdByValue() - Database not connected.");
+    }
+    const char* sql = "SELECT id FROM {{enum.identifier}} WHERE value = ? LIMIT 1;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
+    }
+    sqlite3_bind_int(stmt, 1, value);
+    
+    int64_t id = -1;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        id = sqlite3_column_int64(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+    return id;
+}
+
+std::optional<std::string> SQLiteDB::get{{enum.identifierCamel}}NameById(int64_t id) {
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::get{{enum.identifierCamel}}NameById() - Database not connected.");
+    }
+    const char* sql = "SELECT name FROM {{enum.identifier}} WHERE id = ? LIMIT 1;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
+    }
+    sqlite3_bind_int64(stmt, 1, id);
+    
+    std::optional<std::string> name;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char* name_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        if (name_text) {
+            name = std::string(name_text);
+        }
+    }
+    sqlite3_finalize(stmt);
+    return name;
+}
+
+std::optional<int> SQLiteDB::get{{enum.identifierCamel}}ValueById(int64_t id) {
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::get{{enum.identifierCamel}}ValueById() - Database not connected.");
+    }
+    const char* sql = "SELECT value FROM {{enum.identifier}} WHERE id = ? LIMIT 1;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
+    }
+    sqlite3_bind_int64(stmt, 1, id);
+    
+    std::optional<int> value;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        value = sqlite3_column_int(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+    return value;
+}
+
+std::optional<std::string> SQLiteDB::get{{enum.identifierCamel}}NameByValue(int value) {
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::get{{enum.identifierCamel}}NameByValue() - Database not connected.");
+    }
+    const char* sql = "SELECT name FROM {{enum.identifier}} WHERE value = ? LIMIT 1;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
+    }
+    sqlite3_bind_int(stmt, 1, value);
+    
+    std::optional<std::string> name;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char* name_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        if (name_text) {
+            name = std::string(name_text);
+        }
+    }
+    sqlite3_finalize(stmt);
+    return name;
+}
+
+std::optional<int> SQLiteDB::get{{enum.identifierCamel}}ValueByName(const std::string& name) {
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::get{{enum.identifierCamel}}ValueByName() - Database not connected.");
+    }
+    const char* sql = "SELECT value FROM {{enum.identifier}} WHERE name = ? LIMIT 1;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
+    }
+    sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
+    
+    std::optional<int> value;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        value = sqlite3_column_int(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+    return value;
+}
+
+std::vector<std::pair<std::string, int>> SQLiteDB::getAll{{enum.identifierCamel}}Values() {
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::getAll{{enum.identifierCamel}}Values() - Database not connected.");
+    }
+    std::vector<std::pair<std::string, int>> results;
+    const char* sql = "SELECT name, value FROM {{enum.identifier}} ORDER BY value;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
+    }
+    
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char* name_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        int value = sqlite3_column_int(stmt, 1);
+        if (name_text) {
+            results.push_back({std::string(name_text), value});
+        }
+    }
+    sqlite3_finalize(stmt);
+    return results;
+}
+
+{% endfor %}
 {% for struct in structs %}
 
 void SQLiteDB::create{{struct.identifierCamel}}Table() {
@@ -88,27 +279,78 @@ void SQLiteDB::create{{struct.identifierCamel}}Table() {
     const char* create_table_sql = R"(
 {% set additional_field_count = 0 %}
 {% for inner_struct in structs %}
-{% for mv in inner_struct.member_variables %}
-{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}
-{% set additional_field_count = additional_field_count + 1 %}
-{% endif %}
-{% endfor %}
+    {% for mv in inner_struct.member_variables %}
+        {% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}
+            {% set additional_field_count = additional_field_count + 1 %}
+        {% endif %}
+    {% endfor %}
 {% endfor %}
 CREATE TABLE IF NOT EXISTS {{struct.identifier}} (
-{% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}
-{% if not field.type.is_array %}{% set current_field = current_field + 1 %}
-    {{ field.identifier }} {{ SQLite_convert_to_local_type(field.type) }} {% if field.type.required %} NOT NULL {% endif %}{% if field.unique %} UNIQUE {% endif %}{% if field.primary_key %} PRIMARY KEY {% endif %}{% if field.auto_increment %} AUTOINCREMENT {% endif %}{% if field.reference.struct_name!="" %} REFERENCES {{field.reference.struct_name}}({{field.reference.variable_name}}) {% endif %}{% if field.default_value != "" %} DEFAULT {{SQLite_format_default(field.type, field.default_value)}}{% endif %}{% if current_field < field_count or additional_field_count > 0 %},{% endif %}
-        
-{% endif %}
-{% endfor %}{% set current_field = 0 %}
-{% for inner_struct in structs %}
-{% for mv in inner_struct.member_variables %}
-{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}
-    {{inner_struct.identifier}}_id INTEGER REFERENCES {{inner_struct.identifier}}(id) ON DELETE CASCADE{% if current_field < additional_field_count %},{% endif %}
-{% endif %}
+{% set field_count = 0 %}
+{% for field in struct.member_variables %}
+    {% if not field.type.is_array %}
+        {% set field_count = field_count + 1 %}
+    {% endif %}
 {% endfor %}
+{% set current_field = 0 %}
+{% for field in struct.member_variables %}
+    {% if not field.type.is_array %}
+        {% set current_field = current_field + 1 %}
+    {% endif %}
+
+    {% if field.type.is_array %}
+    {% else if field.type.is_struct %}
+        {{field.type.identifier}}_id INTEGER
+    {% else if field.type.is_enum %}
+        {{field.type.identifier}}_id INTEGER
+    {% else %}
+        {{ field.identifier }} {{ SQLite_convert_to_local_type(field.type) }} 
+    {% endif %}
+
+    {% if not field.type.is_array %}
+        {% if field.type.required %} NOT NULL {% endif %}
+        {% if field.unique %} UNIQUE {% endif %}
+        {% if field.primary_key %} PRIMARY KEY {% endif %}
+        {% if field.auto_increment %} AUTOINCREMENT {% endif %}
+    {% endif %}
+
+    {% if field.type.is_array %}
+    {% else if field.type.is_struct %}
+        REFERENCES {{field.type.identifier}}(id)
+        DEFAULT 0
+    {% else if field.type.is_enum %}
+        REFERENCES {{field.type.identifier}}(id)
+        DEFAULT 0
+    {% else %}
+        {% if field.reference.struct_name!="" %} REFERENCES {{field.reference.struct_name}}({{field.reference.variable_name}}) {% endif %}
+        {% if field.default_value != "" %} DEFAULT {{SQLite_format_default(field.type, field.default_value)}}{% endif %}
+    {% endif %}
+    {% if not field.type.is_array %}
+        {% if current_field < field_count or additional_field_count > 0 %},{% endif %}    
+    {% endif %}
+{% endfor %}
+{% set current_field = 0 %}
+{% for inner_struct in structs %}
+    {% for mv in inner_struct.member_variables %}
+        {% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}
+            {{inner_struct.identifier}}_id INTEGER REFERENCES {{inner_struct.identifier}}(id){% if current_field < additional_field_count %},{% endif %}
+        {% endif %}
+    {% endfor %}
 {% endfor %}
 );
+{% for mv in struct.member_variables %}
+{% if mv.type.is_array and mv.type.is_array_of_base_type and not mv.type.is_array_of_enum %}
+CREATE TABLE IF NOT EXISTS {{struct.identifier}}_{{mv.identifier}} (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    {{struct.identifier}}_id INTEGER NOT NULL REFERENCES {{struct.identifier}}(id),
+    sequence INTEGER NOT NULL,
+    value {{ SQLite_convert_to_local_type(mv.type.elem_type) }} NOT NULL{% if mv.unique %},
+    UNIQUE({{struct.identifier}}_id, value){% endif %},
+    UNIQUE({{struct.identifier}}_id, sequence)
+);
+CREATE INDEX IF NOT EXISTS idx_{{struct.identifier}}_{{mv.identifier}}_parent_id ON {{struct.identifier}}_{{mv.identifier}}({{struct.identifier}}_id);
+{% endif %}
+{% endfor %}
         )";
     char* errMsg = nullptr;
     if (sqlite3_exec(db, create_table_sql, nullptr, nullptr, &errMsg) != SQLITE_OK) {
@@ -116,29 +358,126 @@ CREATE TABLE IF NOT EXISTS {{struct.identifier}} (
         sqlite3_free(errMsg);
         throw std::runtime_error("SQLiteDB::create{{struct.identifierCamel}}Table() - SQL execution failed: " + error + "\nSQL: " + std::string(create_table_sql));
     }
-    
-    // Create child tables for primitive arrays
+}
+
+void SQLiteDB::create{{struct.identifierCamel}}Triggers() {
+    // Create ON DELETE triggers for cascade deletions
+{% for inner_struct in structs %}
+{% for mv in inner_struct.member_variables %}
+{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}
+        const char* {{struct.identifier}}_{{inner_struct.identifier}}_trigger_sql = R"(
+CREATE TRIGGER IF NOT EXISTS fk_{{struct.identifier}}_{{inner_struct.identifier}}_delete
+BEFORE DELETE ON {{inner_struct.identifier}}
+FOR EACH ROW
+BEGIN
+    DELETE FROM {{struct.identifier}} WHERE {{inner_struct.identifier}}_id = OLD.id;
+END;
+        )";
+		char* {{struct.identifier}}_{{inner_struct.identifier}}errMsg = nullptr;
+        if (sqlite3_exec(db, {{struct.identifier}}_{{inner_struct.identifier}}_trigger_sql, nullptr, nullptr, &{{struct.identifier}}_{{inner_struct.identifier}}errMsg) != SQLITE_OK) {
+            std::string error = {{struct.identifier}}_{{inner_struct.identifier}}errMsg ? {{struct.identifier}}_{{inner_struct.identifier}}errMsg : "Unknown error";
+            sqlite3_free({{struct.identifier}}_{{inner_struct.identifier}}errMsg);
+            throw std::runtime_error("SQLiteDB::create{{struct.identifierCamel}}Table() - Failed to create trigger for {{inner_struct.identifier}}: " + error);
+        }
+{% endif %}
+{% endfor %}
+{% endfor %}
+
+   // Create triggers for primitive arrays
 {% for mv in struct.member_variables %}
 {% if mv.type.is_array and mv.type.is_array_of_base_type and not mv.type.is_array_of_enum %}
-    {
-        const char* child_table_sql = R"(
-CREATE TABLE IF NOT EXISTS {{struct.identifier}}_{{mv.identifier}} (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    {{struct.identifier}}_id INTEGER NOT NULL REFERENCES {{struct.identifier}}(id) ON DELETE CASCADE,
-    sequence INTEGER NOT NULL,
-    value {{ SQLite_convert_to_local_type(mv.type.elem_type) }} NOT NULL{% if mv.unique %},
-    UNIQUE({{struct.identifier}}_id, value){% endif %},
-    UNIQUE({{struct.identifier}}_id, sequence)
-);
-CREATE INDEX IF NOT EXISTS idx_{{struct.identifier}}_{{mv.identifier}}_parent_id ON {{struct.identifier}}_{{mv.identifier}}({{struct.identifier}}_id);
+        // Create ON DELETE trigger for cascade deletion
+        const char* {{struct.identifier}}_{{mv.identifier}}_trigger_sql = R"(
+CREATE TRIGGER IF NOT EXISTS fk_{{struct.identifier}}_{{mv.identifier}}_delete
+BEFORE DELETE ON {{struct.identifier}}
+FOR EACH ROW
+BEGIN
+    DELETE FROM {{struct.identifier}}_{{mv.identifier}} WHERE {{struct.identifier}}_id = OLD.id;
+END;
         )";
-        if (sqlite3_exec(db, child_table_sql, nullptr, nullptr, &errMsg) != SQLITE_OK) {
+		char* {{struct.identifier}}_{{mv.identifier}}errMsg = nullptr;
+        if (sqlite3_exec(db, {{struct.identifier}}_{{mv.identifier}}_trigger_sql, nullptr, nullptr, &{{struct.identifier}}_{{mv.identifier}}errMsg) != SQLITE_OK) {
+            std::string error = {{struct.identifier}}_{{mv.identifier}}errMsg ? {{struct.identifier}}_{{mv.identifier}}errMsg : "Unknown error";
+            sqlite3_free({{struct.identifier}}_{{mv.identifier}}errMsg);
+            throw std::runtime_error("SQLiteDB::create{{struct.identifierCamel}}Triggers() - Failed to create trigger for {{struct.identifier}}_{{mv.identifier}}: " + error);
+        }
+{% endif %}
+{% endfor %}
+
+    // Create triggers for other structs that reference this struct
+{% for other_struct in structs %}
+{% for field in other_struct.member_variables %}
+{% if field.type.is_struct and field.type.identifier == struct.identifier %}
+        const char* {{struct.identifier}}_{{other_struct.identifier}}_{{field.identifier}}_check_trigger_sql = R"(
+CREATE TRIGGER IF NOT EXISTS fk_{{other_struct.identifier}}_{{field.identifier}}_delete_check
+BEFORE DELETE ON {{struct.identifier}}
+FOR EACH ROW
+BEGIN
+    DELETE FROM {{other_struct.identifier}} WHERE {{field.identifier}}_id = OLD.id;
+END;
+        )";
+		char* {{struct.identifier}}_{{other_struct.identifier}}_{{field.identifier}}_errMsg = nullptr;
+        if (sqlite3_exec(db, {{struct.identifier}}_{{other_struct.identifier}}_{{field.identifier}}_check_trigger_sql, nullptr, nullptr, &{{struct.identifier}}_{{other_struct.identifier}}_{{field.identifier}}_errMsg) != SQLITE_OK) {
+            std::string error = {{struct.identifier}}_{{other_struct.identifier}}_{{field.identifier}}_errMsg ? {{struct.identifier}}_{{other_struct.identifier}}_{{field.identifier}}_errMsg : "Unknown error";
+            sqlite3_free({{struct.identifier}}_{{other_struct.identifier}}_{{field.identifier}}_errMsg);
+            throw std::runtime_error("SQLiteDB::create{{struct.identifierCamel}}Triggers() - Failed to create trigger for {{other_struct.identifier}}.{{field.identifier}}: " + error);
+        }
+{% endif %}
+{% endfor %}
+{% endfor %}
+}
+
+void SQLiteDB::delete{{struct.identifierCamel}}Triggers() {
+    if (!isConnected()) {
+        throw std::runtime_error("SQLiteDB::delete{{struct.identifierCamel}}Triggers() - Database not connected. Call connect() first.");
+    }
+    
+    char* errMsg = nullptr;
+    
+    // Delete ON DELETE triggers for inner struct references
+{% for inner_struct in structs %}
+{% for mv in inner_struct.member_variables %}
+{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}
+    {
+        const char* drop_trigger_sql = "DROP TRIGGER IF EXISTS fk_{{struct.identifier}}_{{inner_struct.identifier}}_delete;";
+        if (sqlite3_exec(db, drop_trigger_sql, nullptr, nullptr, &errMsg) != SQLITE_OK) {
             std::string error = errMsg ? errMsg : "Unknown error";
             sqlite3_free(errMsg);
-            throw std::runtime_error("SQLiteDB::create{{struct.identifierCamel}}Table() - Failed to create child table {{struct.identifier}}_{{mv.identifier}}: " + error);
+            throw std::runtime_error("SQLiteDB::delete{{struct.identifierCamel}}Triggers() - Failed to drop trigger fk_{{struct.identifier}}_{{inner_struct.identifier}}_delete: " + error);
         }
     }
 {% endif %}
+{% endfor %}
+{% endfor %}
+    
+    // Delete triggers for primitive arrays
+{% for mv in struct.member_variables %}
+{% if mv.type.is_array and mv.type.is_array_of_base_type and not mv.type.is_array_of_enum %}
+    {
+        const char* drop_trigger_sql = "DROP TRIGGER IF EXISTS fk_{{struct.identifier}}_{{mv.identifier}}_delete;";
+        if (sqlite3_exec(db, drop_trigger_sql, nullptr, nullptr, &errMsg) != SQLITE_OK) {
+            std::string error = errMsg ? errMsg : "Unknown error";
+            sqlite3_free(errMsg);
+            throw std::runtime_error("SQLiteDB::delete{{struct.identifierCamel}}Triggers() - Failed to drop trigger fk_{{struct.identifier}}_{{mv.identifier}}_delete: " + error);
+        }
+    }
+{% endif %}
+{% endfor %}
+    
+    // Delete triggers for other structs that reference this struct
+{% for other_struct in structs %}
+{% for field in other_struct.member_variables %}
+{% if field.type.is_struct and field.type.identifier == struct.identifier %}
+    {
+        const char* drop_trigger_sql = "DROP TRIGGER IF EXISTS fk_{{other_struct.identifier}}_{{field.identifier}}_delete_check;";
+        if (sqlite3_exec(db, drop_trigger_sql, nullptr, nullptr, &errMsg) != SQLITE_OK) {
+            std::string error = errMsg ? errMsg : "Unknown error";
+            sqlite3_free(errMsg);
+            throw std::runtime_error("SQLiteDB::delete{{struct.identifierCamel}}Triggers() - Failed to drop trigger fk_{{other_struct.identifier}}_{{field.identifier}}_delete_check: " + error);
+        }
+    }
+{% endif %}
+{% endfor %}
 {% endfor %}
 }
 
@@ -149,7 +488,7 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::selectAll{{s
     
     std::vector<std::shared_ptr<{{struct.identifier}}Schema>> results;
     const char* sql = R"(SELECT 
-    {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set additional_field_count = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set additional_field_count = additional_field_count + 1 %}{% endif %}{% endfor %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{{field.identifier}}{% if current_field < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}{{inner_struct.identifier}}_id{% if current_field < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %}
+    {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set additional_field_count = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set additional_field_count = additional_field_count + 1 %}{% endif %}{% endfor %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}{{inner_struct.identifier}}_id{% if current_field < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %}
     
     FROM {{struct.identifier}};)";
     
@@ -263,7 +602,7 @@ std::shared_ptr<{{struct.identifier}}Schema> SQLiteDB::select{{struct.identifier
 
     const char* sql = R"(
     SELECT
-   {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{{field.identifier}}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
+   {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
     
     FROM {{struct.identifier}} WHERE id = ?;
     )";
@@ -373,7 +712,7 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::select{{stru
     
     std::vector<std::shared_ptr<{{struct.identifier}}Schema>> results;
     const char* sql = R"(    SELECT
-        {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{{field.identifier}}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
+        {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
 
 FROM {{struct.identifier}} WHERE {{mv.identifier}} = ?;)";
     
@@ -494,7 +833,7 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::select{{stru
     std::vector<std::shared_ptr<{{struct.identifier}}Schema>> results;
     const char * sql = R"(
     SELECT
-        {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{{field.identifier}}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
+        {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
         
         FROM {{struct.identifier}} WHERE {{other_struct.identifier}}_id = ?;
     )";
@@ -601,8 +940,8 @@ int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{str
     }
     
     // Use INSERT OR REPLACE to handle both insert and update in one statement
-    const char* sql_filter_id = "INSERT OR REPLACE INTO {{struct.identifier}} ({% set field_count = 0 %}{% for field in struct.member_variables %}{% if field.identifier != "id" and not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set additional_field_count = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set additional_field_count = additional_field_count + 1 %}{% endif %}{% endfor %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if field.identifier != "id" and not field.type.is_array %}{% set current_field = current_field + 1 %}{{field.identifier}}{% if current_field < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}{{inner_struct.identifier}}_id{% if current_field < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %}) VALUES ({% set current_param = 0 %}{% for field in struct.member_variables %}{% if field.identifier != "id" and not field.type.is_array %}{% set current_param = current_param + 1 %}?{% if current_param < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_param = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_param = current_param + 1 %}?{% if current_param < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %})";
-    const char* sql = "INSERT OR REPLACE INTO {{struct.identifier}} ({% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set additional_field_count = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set additional_field_count = additional_field_count + 1 %}{% endif %}{% endfor %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{{field.identifier}}{% if current_field < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}{{inner_struct.identifier}}_id{% if current_field < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %}) VALUES ({% set current_param = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_param = current_param + 1 %}?{% if current_param < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_param = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_param = current_param + 1 %}?{% if current_param < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %})";
+    const char* sql_filter_id = "INSERT OR REPLACE INTO {{struct.identifier}} ({% set field_count = 0 %}{% for field in struct.member_variables %}{% if field.identifier != "id" and not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set additional_field_count = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set additional_field_count = additional_field_count + 1 %}{% endif %}{% endfor %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if field.identifier != "id" and not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}{{inner_struct.identifier}}_id{% if current_field < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %}) VALUES ({% set current_param = 0 %}{% for field in struct.member_variables %}{% if field.identifier != "id" and not field.type.is_array %}{% set current_param = current_param + 1 %}?{% if current_param < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_param = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_param = current_param + 1 %}?{% if current_param < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %})";
+    const char* sql = "INSERT OR REPLACE INTO {{struct.identifier}} ({% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set additional_field_count = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set additional_field_count = additional_field_count + 1 %}{% endif %}{% endfor %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}{{inner_struct.identifier}}_id{% if current_field < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %}) VALUES ({% set current_param = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_param = current_param + 1 %}?{% if current_param < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_param = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_param = current_param + 1 %}?{% if current_param < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %})";
     
     if (obj->getId() <= 0&& !force_id) {
         sql = sql_filter_id;
@@ -802,10 +1141,24 @@ bool SQLiteDB::delete{{struct.identifierCamel}}ById(int64_t id) {
     
     sqlite3_bind_int64(stmt, 1, id);
     
-    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+    int result = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
     
-    return success;
+    if (result != SQLITE_DONE) {
+        int err = sqlite3_errcode(db);
+        int ext_err = sqlite3_extended_errcode(db);
+        std::string error_msg = sqlite3_errmsg(db);
+        
+        // Check if it's a foreign key constraint error
+        if (err == SQLITE_CONSTRAINT || ext_err == SQLITE_CONSTRAINT_FOREIGNKEY) {
+            std::string fk_details = formatForeignKeyError("DELETE", "{{struct.identifier}}", id);
+            throw std::runtime_error("SQLiteDB::delete{{struct.identifierCamel}}ById(" + std::to_string(id) + ") - Foreign key constraint violation: " + error_msg + "\n" + fk_details);
+        }
+        
+        throw std::runtime_error("SQLiteDB::delete{{struct.identifierCamel}}ById(" + std::to_string(id) + ") - Failed to delete: " + error_msg + " (error code: " + std::to_string(err) + ", extended: " + std::to_string(ext_err) + ")");
+    }
+    
+    return true;
 }
 
 bool SQLiteDB::delete{{struct.identifierCamel}}ByIdCascade(int64_t id) {
@@ -813,7 +1166,7 @@ bool SQLiteDB::delete{{struct.identifierCamel}}ByIdCascade(int64_t id) {
         throw std::runtime_error("SQLiteDB::delete{{struct.identifierCamel}}ByIdCascade(" + std::to_string(id) + ") - Database not connected. Call connect() first.");
     }
     
-    // First, delete nested array items
+    // First, recursively delete nested struct array items
 {% for mv in struct.member_variables %}
 {% if mv.type.is_array and mv.type.elem_type.is_struct %}
     auto nested_{{mv.identifier}}_items = select{{mv.type.elem_type.identifier}}By{{struct.identifier}}_id(id);
@@ -823,7 +1176,32 @@ bool SQLiteDB::delete{{struct.identifierCamel}}ByIdCascade(int64_t id) {
 {% endif %}
 {% endfor %}
 
-    // Now delete the main object
+    // Delete primitive array entries (stored in child tables)
+{% for mv in struct.member_variables %}
+{% if mv.type.is_array and mv.type.is_array_of_base_type and not mv.type.is_array_of_enum %}
+    delete{{struct.identifierCamel}}{{mv.identifierCamel}}(id);
+{% endif %}
+{% endfor %}
+
+    // Delete referenced struct objects if they exist
+{% for mv in struct.member_variables %}
+{% if mv.type.is_struct and not mv.type.is_array %}
+        auto {{struct.identifierCamel}}_{{mv.identifierCamel}}_obj = select{{struct.identifierCamel}}ById(id);
+        if ({{struct.identifierCamel}}_{{mv.identifierCamel}}_obj) {
+{% if mv.type.required %}
+            if ({{struct.identifierCamel}}_{{mv.identifierCamel}}_obj->get{{mv.identifierCamel}}()) {
+                delete{{mv.type.identifierCamel}}ByIdCascade({{struct.identifierCamel}}_{{mv.identifierCamel}}_obj->get{{mv.identifierCamel}}()->getId());
+            }
+{% else %}
+            if ({{struct.identifierCamel}}_{{mv.identifierCamel}}_obj->get{{mv.identifierCamel}}().has_value() && {{struct.identifierCamel}}_{{mv.identifierCamel}}_obj->get{{mv.identifierCamel}}().value()) {
+                delete{{mv.type.identifierCamel}}ByIdCascade({{struct.identifierCamel}}_{{mv.identifierCamel}}_obj->get{{mv.identifierCamel}}().value()->getId());
+            }
+{% endif %}
+        }
+{% endif %}
+{% endfor %}
+
+    // Now delete the main object (triggers will handle remaining FK cascades)
     return delete{{struct.identifierCamel}}ById(id);
 }
 
@@ -1007,6 +1385,7 @@ GenericSQLiteQueryBuilder SQLiteDB::Query() {
     return GenericSQLiteQueryBuilder(this);
 }
 
+// SQLite callback hook implementations
 void SQLiteDB::updateHook(int operation, const char* dbName, const char* tableName, sqlite3_int64 rowid){
     const char* opName;
     switch(operation) {
@@ -1016,5 +1395,167 @@ void SQLiteDB::updateHook(int operation, const char* dbName, const char* tableNa
         default: opName = "UNKNOWN"; break;
     }
     
+    // Default implementation - can be overridden in derived classes
     printf("%s on %s.%s, rowid: %lld\n", opName, dbName, tableName, rowid);
+}
+
+int SQLiteDB::commitHook() {
+    // Default implementation - return 0 to allow commit, non-zero to rollback
+    // Override in derived class to add custom commit logic
+    return 0;
+}
+
+void SQLiteDB::rollbackHook() {
+    // Default implementation - override in derived class to add custom rollback logic
+}
+
+void SQLiteDB::traceHook(unsigned int traceType, void* pCtx, void* p, void* x) {
+    // Default implementation - override in derived class for custom tracing
+    if (traceType == SQLITE_TRACE_STMT) {
+        sqlite3_stmt* stmt = static_cast<sqlite3_stmt*>(p);
+        char* sql = sqlite3_expanded_sql(stmt);
+        if (sql) {
+            printf("SQL: %s\n", sql);
+            sqlite3_free(sql);
+        }
+    } else if (traceType == SQLITE_TRACE_PROFILE) {
+        sqlite3_stmt* stmt = static_cast<sqlite3_stmt*>(p);
+        sqlite3_int64* nanoseconds = static_cast<sqlite3_int64*>(x);
+        printf("Profile: %lld ns\n", *nanoseconds);
+    }
+}
+
+int SQLiteDB::progressHook() {
+    // Default implementation - return 0 to continue, non-zero to interrupt
+    // Override in derived class to add custom progress monitoring
+    return 0;
+}
+
+int SQLiteDB::authorizerHook(int actionCode, const char* detail1, const char* detail2, 
+                            const char* dbName, const char* triggerOrView) {
+    // Default implementation - return SQLITE_OK to allow, SQLITE_DENY to deny, SQLITE_IGNORE to ignore
+    // Override in derived class to add custom authorization logic
+    
+    // Example of what you might check:
+    // if (actionCode == SQLITE_DELETE && detail1 && strcmp(detail1, "sensitive_table") == 0) {
+    //     return SQLITE_DENY;
+    // }
+    
+    return SQLITE_OK;
+}
+
+// Foreign key debugging helper implementations
+std::vector<SQLiteDB::ForeignKeyViolation> SQLiteDB::checkForeignKeyViolations() {
+    std::vector<ForeignKeyViolation> violations;
+    
+    if (!isConnected()) {
+        return violations;
+    }
+    
+    const char* sql = "PRAGMA foreign_key_check;";
+    sqlite3_stmt* stmt;
+    
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        return violations;
+    }
+    
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        ForeignKeyViolation violation;
+        
+        const char* table_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        violation.table = table_text ? table_text : "";
+        
+        violation.rowid = sqlite3_column_int64(stmt, 1);
+        
+        const char* parent_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        violation.parent = parent_text ? parent_text : "";
+        
+        violation.fkid = sqlite3_column_int(stmt, 3);
+        
+        violations.push_back(violation);
+    }
+    
+    sqlite3_finalize(stmt);
+    return violations;
+}
+
+std::vector<SQLiteDB::ForeignKeyInfo> SQLiteDB::getForeignKeyList(const std::string& table_name) {
+    std::vector<ForeignKeyInfo> fk_list;
+    
+    if (!isConnected()) {
+        return fk_list;
+    }
+    
+    std::string sql = "PRAGMA foreign_key_list(" + table_name + ");";
+    sqlite3_stmt* stmt;
+    
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        return fk_list;
+    }
+    
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        ForeignKeyInfo info;
+        
+        info.id = sqlite3_column_int(stmt, 0);
+        info.seq = sqlite3_column_int(stmt, 1);
+        
+        const char* table_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        info.table = table_text ? table_text : "";
+        
+        const char* from_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        info.from = from_text ? from_text : "";
+        
+        const char* to_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+        info.to = to_text ? to_text : "";
+        
+        const char* on_update_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+        info.on_update = on_update_text ? on_update_text : "";
+        
+        const char* on_delete_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
+        info.on_delete = on_delete_text ? on_delete_text : "";
+        
+        fk_list.push_back(info);
+    }
+    
+    sqlite3_finalize(stmt);
+    return fk_list;
+}
+
+std::string SQLiteDB::formatForeignKeyError(const std::string& operation, const std::string& table, int64_t id) {
+    std::string error_details = "Foreign key constraint details:\\n";
+    
+    auto violations = checkForeignKeyViolations();
+    
+    if (violations.empty()) {
+        error_details += "  No violations found in PRAGMA foreign_key_check (constraint may be preventing " + operation + ")\\n";
+        
+        // Get FK list for the table being operated on
+        auto fk_list = getForeignKeyList(table);
+        if (!fk_list.empty()) {
+            error_details += "  Foreign keys defined on table '" + table + "':\\n";
+            for (const auto& fk : fk_list) {
+                error_details += "    - " + fk.from + " -> " + fk.table + "(" + fk.to + ")";
+                error_details += " [on_delete: " + fk.on_delete + ", on_update: " + fk.on_update + "]\\n";
+            }
+        }
+    } else {
+        error_details += "  Violations detected:\\n";
+        for (const auto& violation : violations) {
+            error_details += "    - Child table '" + violation.table + "' (rowid: " + std::to_string(violation.rowid) + ")";
+            error_details += " references parent table '" + violation.parent + "' (fkid: " + std::to_string(violation.fkid) + ")\\n";
+            
+            // Get detailed FK info
+            auto fk_list = getForeignKeyList(violation.table);
+            for (const auto& fk : fk_list) {
+                if (fk.id == violation.fkid) {
+                    error_details += "      Column '" + fk.from + "' references " + fk.table + "(" + fk.to + ")\\n";
+                    break;
+                }
+            }
+        }
+    }
+    
+    error_details += "  Attempted operation: " + operation + " on table '" + table + "' (id: " + std::to_string(id) + ")";
+    
+    return error_details;
 }
