@@ -323,5 +323,38 @@ bool SqliteGenerator::generate_files(std::shared_ptr<ProgramStructure> ps, std::
 		}
 	}
 
+	// Generate schema version tracking table
+	try
+	{
+		std::string version_table_content(
+			reinterpret_cast<const char *>(loadSchemaLangShared_ResourcesEmbeddedFile("/SQLite/_schema_versions_create_table.sql").data()),
+			loadSchemaLangShared_ResourcesEmbeddedFile("/SQLite/_schema_versions_create_table.sql").size()
+		);
+		
+		std::ofstream version_file(out_path + "/_schema_versions_create_table.sql");
+		if (!version_file.is_open())
+		{
+			PLOGE << "Failed to create version tracking table file";
+			return false;
+		}
+		version_file << version_table_content;
+		version_file.close();
+		PLOGI << "Generated version tracking table: " << out_path << "/_schema_versions_create_table.sql" << std::endl;
+	}
+	catch (const std::exception &ex)
+	{
+		PLOGE << "Error generating version tracking table: " << ex.what() << std::endl;
+		return false;
+	}
+
+	return true;
+}
+
+bool SqliteGenerator::generate_migration_files(std::shared_ptr<ProgramStructure> ps, std::string out_path)
+{
+	// Migration SQL is now embedded in the generated C++ code via template
+	// The migration functions are generated as part of SQLiteDB.cpp
+	// No separate SQL files are needed
+	PLOGI << "Migrations will be embedded in generated C++ code" << std::endl;
 	return true;
 }

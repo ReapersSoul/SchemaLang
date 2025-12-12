@@ -46,6 +46,7 @@ SchemaLangTranspiler -schema=<path> -outputDirectory=<path> [options]
 - `-version` – Print the SchemaLang Transpiler version and exit.
 - `-additionalGenerators=<path>` – Load dynamic generator plug-ins from a directory of `.dll` / `.so` files.
 - `-R` – Recursively walk subdirectories when the `-schema` path is a directory.
+- `-migrationsPath=<path>` – Directory for auto-generated migration files. When specified, the transpiler automatically generates `.schema.migration` files when struct versions change and embeds migrations in generated code (SQLite, MySQL).
 
 ### Debugger Options
 
@@ -128,6 +129,116 @@ Generated files are organized in subdirectories based on the target:
 - `<outputDirectory>/Schemas/Sqlite/` - SQLite operation files
 - `<outputDirectory>/Schemas/Mysql/` - MySQL operation files
 - `<outputDirectory>/Schemas/[GeneratorName]/` - Dynamic generator output files (named by generator)
+
+## Schema Versioning and Migrations
+
+SchemaLang supports automatic schema evolution through struct versioning and migration files. When you change a struct's version, you can define migration operations that will be embedded directly into the generated database code.
+
+### Struct Versioning
+
+Add a version to any struct using the `version()` modifier:
+
+```schemalang
+struct Player: version(1.2.0) {
+    string: username: required: description("Player username");
+    int32: score: required: description("Player score");
+}
+```
+
+Versions follow semantic versioning: `major.minor.patch`
+- **Major**: Breaking changes to the struct
+- **Minor**: Backwards-compatible additions
+- **Patch**: Bug fixes or clarifications
+
+### Migration Files
+
+When you increment a struct's version, create a migration file to describe the changes:
+
+**File naming convention:** `<StructName>_<fromVersion>_to_<toVersion>.schema.migration`
+
+Example: `Player_1_0_0_to_1_1_0.schema.migration`
+
+```schemalang
+migration struct Player from 1.0.0 to 1.1.0 {
+    add field username: string: required: description("Player username");
+    rename field player_name to display_name;
+    change field score type from int32 to int64;
+}
+```
+
+### Supported Migration Operations
+
+- **add field** - Add a new field to the struct
+- **remove field** - Remove an existing field
+- **rename field** - Rename a field
+- **change field type** - Change the data type of a field
+- **change field modifier** - Modify constraints (required/optional, unique, etc.)
+
+See [SchemaLang Migration File Format.md](SchemaLang%20Migration%20File%20Format.md) for complete syntax.
+
+### Embedded Migrations (SQLite/MySQL)
+
+Database generators embed migration SQL directly into the generated C++ code as functions:
+
+```cpp
+// Generated in SQLiteDB.cpp
+std::string SQLiteDB::migrate_Player_table_1_0_0_to_1_1_0() {
+    return R"SQL(
+    BEGIN TRANSACTION;
+    ALTER TABLE Player ADD COLUMN username TEXT NOT NULL DEFAULT '';
+    UPDATE _schema_versions SET major=1, minor=1, patch=0 WHERE struct_name='Player';
+    COMMIT;
+    )SQL";
+}
+```
+
+### Auto-Migration on Connect
+
+Generated database classes automatically detect and apply migrations when connecting:
+
+```cpp
+SQLiteDB db;
+db.connect("./database.db");  // Auto-applies pending migrations
+```
+
+The system:
+1. Checks the `_schema_versions` table for current struct versions
+2. Compares against the compiled schema version
+3. Applies necessary migration functions in sequence
+4. Updates version tracking
+
+### Migration Workflow
+
+1. **Initial generation with migrations enabled:**
+   ```bash
+   SchemaLangTranspiler -schema=./schemas -outputDirectory=./output -cpp -sqlite -migrationsPath=./migrations
+   ```
+
+2. **Update your schema** - Modify struct fields and increment the version:
+   ```schemalang
+   struct Player: version(1.1.0) {  // Incremented from 1.0.0
+       string: username: required: description("Player username");
+       string: email: required: description("Player email");  // New field
+   }
+   ```
+
+3. **Regenerate code** - Run the same command again:
+   ```bash
+   SchemaLangTranspiler -schema=./schemas -outputDirectory=./output -cpp -sqlite -migrationsPath=./migrations
+   ```
+   The transpiler **automatically generates** `Player_1_0_0_to_1_1_0.schema.migration` detecting the version change.
+
+4. **Deploy** - Migration SQL is embedded in binaries, applied automatically on connect
+
+**Important:** You never manually create migration files. The transpiler generates them automatically by comparing struct versions.
+
+### Benefits of Embedded Migrations
+
+- **Zero runtime dependencies** - No migration files to deploy or manage
+- **Version safety** - Migrations compiled into binary, can't get out of sync
+- **Automatic execution** - Database self-updates on first connection
+- **Rollback support** - Generated code includes both up and down migrations
+- **Type safety** - Migration SQL validated at compile time
 
 
 ## Dynamic Generator System

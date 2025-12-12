@@ -31,6 +31,11 @@ std::string &TypeDefinition::identifier()
 	return ident;
 }
 
+const std::string &TypeDefinition::identifier() const
+{
+	return ident;
+}
+
 bool TypeDefinition::is_array()
 {
 	return ident == ARRAY;
@@ -166,7 +171,7 @@ bool TypeDefinition::is_number()
 	return is_number;
 }
 
-bool TypeDefinition::is_integer()
+bool TypeDefinition::is_integer() const
 {
 	bool is_integer = false;
 	if (ident == INT8)
@@ -204,7 +209,7 @@ bool TypeDefinition::is_integer()
 	return is_integer;
 }
 
-bool TypeDefinition::is_real()
+bool TypeDefinition::is_real() const
 {
 	bool is_real = false;
 	if (ident == FLOAT)
@@ -218,17 +223,17 @@ bool TypeDefinition::is_real()
 	return is_real;
 }
 
-bool TypeDefinition::is_bool()
+bool TypeDefinition::is_bool() const
 {
 	return ident == BOOL;
 }
 
-bool TypeDefinition::is_string()
+bool TypeDefinition::is_string() const
 {
 	return ident == STRING;
 }
 
-bool TypeDefinition::is_char()
+bool TypeDefinition::is_char() const
 {
 	return ident == CHAR;
 }

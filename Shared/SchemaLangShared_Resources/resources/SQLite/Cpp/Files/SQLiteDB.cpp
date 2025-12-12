@@ -67,11 +67,112 @@ void SQLiteDB::connect(){
     sqlite3_progress_handler(db, 1000, SQLiteDB::progressCallback, this); // Check every 1000 VM ops
     sqlite3_set_authorizer(db, SQLiteDB::authorizerCallback, this);
 
+    // Create version tracking table
+    const char* version_table_sql = R"(
+CREATE TABLE IF NOT EXISTS _schema_versions (
+    table_name TEXT PRIMARY KEY,
+    version_major INTEGER NOT NULL,
+    version_minor INTEGER NOT NULL,
+    version_patch INTEGER NOT NULL,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    migration_file TEXT
+);
+    )";
+    char* errMsg = nullptr;
+    if (sqlite3_exec(db, version_table_sql, nullptr, nullptr, &errMsg) != SQLITE_OK) {
+        std::string error = errMsg ? errMsg : "Unknown error";
+        sqlite3_free(errMsg);
+        throw std::runtime_error("Failed to create version tracking table: " + error);
+    }
+
 {% for enum in enums %}
         create{{enum.identifierCamel}}Table();
 {% endfor %}
 {% for struct in structs %}
         create{{struct.identifierCamel}}Table();
+{% endfor %}
+
+    // Auto-apply migrations for each struct
+{% for struct in structs %}
+    {
+        // Check current version of {{struct.identifier}}
+        const char* check_version_sql = "SELECT version_major, version_minor, version_patch FROM _schema_versions WHERE table_name = '{{struct.identifier}}' LIMIT 1;";
+        sqlite3_stmt* stmt;
+        int current_major = 0, current_minor = 0, current_patch = 0;
+        bool has_version = false;
+        
+        if (sqlite3_prepare_v2(db, check_version_sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                current_major = sqlite3_column_int(stmt, 0);
+                current_minor = sqlite3_column_int(stmt, 1);
+                current_patch = sqlite3_column_int(stmt, 2);
+                has_version = true;
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // Schema version for {{struct.identifier}}
+        int schema_major = {{struct.version.major}};
+        int schema_minor = {{struct.version.minor}};
+        int schema_patch = {{struct.version.patch}};
+        
+        // Check if migration is needed
+        if (has_version) {
+            // Compare versions - only allow forward migrations
+            if (current_major > schema_major || 
+                (current_major == schema_major && current_minor > schema_minor) ||
+                (current_major == schema_major && current_minor == schema_minor && current_patch > schema_patch)) {
+                throw std::runtime_error("Database version for {{struct.identifier}} (" + 
+                    std::to_string(current_major) + "." + std::to_string(current_minor) + "." + std::to_string(current_patch) + 
+                    ") is newer than schema version (" + 
+                    std::to_string(schema_major) + "." + std::to_string(schema_minor) + "." + std::to_string(schema_patch) + 
+                    "). Downgrade migrations are not supported.");
+            }
+            
+            // Apply migration if versions don't match
+            if (current_major != schema_major || current_minor != schema_minor || current_patch != schema_patch) {
+                // Get embedded migration SQL by checking for matching migration function
+                std::string migration_sql;
+                {% for migration in migrations %}{% if migration.structName == struct.identifier %}
+                if (current_major == {{migration.fromVersion.major}} && current_minor == {{migration.fromVersion.minor}} && current_patch == {{migration.fromVersion.patch}} &&
+                    schema_major == {{migration.toVersion.major}} && schema_minor == {{migration.toVersion.minor}} && schema_patch == {{migration.toVersion.patch}}) {
+                    migration_sql = migrate_{{migration.structName}}_table_{{migration.fromVersion.major}}_{{migration.fromVersion.minor}}_{{migration.fromVersion.patch}}_to_{{migration.toVersion.major}}_{{migration.toVersion.minor}}_{{migration.toVersion.patch}}();
+                }{% endif %}{% endfor %}
+                
+                if (!migration_sql.empty()) {
+                    // Execute migration (already wrapped in transaction by generator)
+                    char* migration_err = nullptr;
+                    if (sqlite3_exec(db, migration_sql.c_str(), nullptr, nullptr, &migration_err) != SQLITE_OK) {
+                        std::string error = migration_err ? migration_err : "Unknown error";
+                        sqlite3_free(migration_err);
+                        throw std::runtime_error("Failed to apply migration for {{struct.identifier}} from " +
+                            std::to_string(current_major) + "." + std::to_string(current_minor) + "." + std::to_string(current_patch) +
+                            " to " + std::to_string(schema_major) + "." + std::to_string(schema_minor) + "." + std::to_string(schema_patch) +
+                            ": " + error);
+                    }
+                    
+                    printf("Applied migration for {{struct.identifier}}: %d.%d.%d -> %d.%d.%d\n",
+                           current_major, current_minor, current_patch,
+                           schema_major, schema_minor, schema_patch);
+                } else {
+                    printf("Warning: No migration function found for {{struct.identifier}} from %d.%d.%d to %d.%d.%d\n",
+                           current_major, current_minor, current_patch,
+                           schema_major, schema_minor, schema_patch);
+                }
+            }
+        } else {
+            // First time - insert initial version
+            const char* insert_version_sql = "INSERT OR REPLACE INTO _schema_versions (table_name, version_major, version_minor, version_patch) VALUES ('{{struct.identifier}}', ?, ?, ?);";
+            sqlite3_stmt* insert_stmt;
+            if (sqlite3_prepare_v2(db, insert_version_sql, -1, &insert_stmt, nullptr) == SQLITE_OK) {
+                sqlite3_bind_int(insert_stmt, 1, schema_major);
+                sqlite3_bind_int(insert_stmt, 2, schema_minor);
+                sqlite3_bind_int(insert_stmt, 3, schema_patch);
+                sqlite3_step(insert_stmt);
+                sqlite3_finalize(insert_stmt);
+            }
+        }
+    }
 {% endfor %}
 	}
 	catch (const std::exception& e) {
@@ -1559,3 +1660,28 @@ std::string SQLiteDB::formatForeignKeyError(const std::string& operation, const 
     
     return error_details;
 }
+
+// Migration functions
+{% for migration in migrations %}
+std::string SQLiteDB::migrate_{{migration.structName}}_table_{{migration.fromVersion.major}}_{{migration.fromVersion.minor}}_{{migration.fromVersion.patch}}_to_{{migration.toVersion.major}}_{{migration.toVersion.minor}}_{{migration.toVersion.patch}}() {
+    return R"SQL(
+-- Migration: {{migration.structName}} from {{migration.fromVersion.major}}.{{migration.fromVersion.minor}}.{{migration.fromVersion.patch}} to {{migration.toVersion.major}}.{{migration.toVersion.minor}}.{{migration.toVersion.patch}}
+-- Generated by SchemaLang Transpiler
+
+BEGIN TRANSACTION;
+
+{% for op in migration.operations %}{% if op.type == "AddField" %}ALTER TABLE {{migration.structName}} ADD COLUMN {{op.fieldName}} TEXT NOT NULL DEFAULT '';
+{% else %}{% if op.type == "RemoveField" %}-- WARNING: Dropping column {{op.fieldName}} will cause data loss
+ALTER TABLE {{migration.structName}} DROP COLUMN {{op.fieldName}};
+{% else %}{% if op.type == "RenameField" %}ALTER TABLE {{migration.structName}} RENAME COLUMN {{op.fieldName}} TO {{op.fieldName}};
+{% else %}{% if op.type == "ChangeType" %}-- WARNING: Changing column type requires table recreation in SQLite
+-- Manual migration required for type change on column: {{op.fieldName}}
+{% endif %}{% endif %}{% endif %}{% endif %}{% endfor %}
+-- Update schema version
+INSERT OR REPLACE INTO _schema_versions (table_name, version_major, version_minor, version_patch, applied_at) VALUES ('{{migration.structName}}', {{migration.toVersion.major}}, {{migration.toVersion.minor}}, {{migration.toVersion.patch}}, datetime('now'));
+
+COMMIT;
+)SQL";
+}
+
+{% endfor %}

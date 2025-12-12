@@ -283,6 +283,40 @@ public:
             }
         }
 
+        // Load migration files if migrations path is set
+        if(migrations && !migrationsPath.empty()){
+            if(std::filesystem::exists(migrationsPath)){
+                PLOGI << "Loading migration files from: " << migrationsPath.string() << std::endl;
+                if(recursive){
+                    for(const auto& entry : std::filesystem::recursive_directory_iterator(migrationsPath)){
+                        if(entry.is_regular_file() && entry.path().extension() == ".migration"){
+                            if(!program_structure_->readMigrationFile(entry.path().string())){
+                                PLOGE << "Failed to read migration file: " << entry.path().string() << std::endl;
+                                return false;
+                            }
+                            PLOGI << "Loaded migration file: " << entry.path().string() << std::endl;
+                        }
+                    }
+                } else {
+                    for(const auto& entry : std::filesystem::directory_iterator(migrationsPath)){
+                        if(entry.is_regular_file() && entry.path().extension() == ".migration"){
+                            if(!program_structure_->readMigrationFile(entry.path().string())){
+                                PLOGE << "Failed to read migration file: " << entry.path().string() << std::endl;
+                                return false;
+                            }
+                            PLOGI << "Loaded migration file: " << entry.path().string() << std::endl;
+                        }
+                    }
+                }
+            } else {
+                PLOGW << "Migrations path does not exist: " << migrationsPath.string() << std::endl;
+            }
+            
+            // Auto-generate new migrations if schema versions have changed
+            PLOGI << "Checking for schema version changes and auto-generating migrations..." << std::endl;
+            program_structure_->autoGenerateMigrations(migrationsPath.string());
+        }
+
         //Generate files for each generator
         for (auto &generator : generators)
         {
@@ -296,13 +330,10 @@ public:
                 return false;
             }
             if(migrations){
-                PLOGI << "Generating migration files" << std::endl;
-                std::fstream migration_file(outputDirectory / "migrations"/ generator.first /".json", std::ios::out);
-                if(!migration_file.is_open()){
-                    PLOGE << "Failed to open migration file for writing: " << (outputDirectory / "migrations.json").string() << std::endl;
-                    return false;
-                }
-                inja::json migration_json=program_structure_->to_json(generator.second);
+                PLOGI << "Generating migration files for generator '" << generator.first << "'" << std::endl;
+                // Note: generate_migration_files returns false if migrations are not supported by this generator
+                // This is not an error, so we don't fail the build
+                program_structure_->generate_migration_files(generator.second, (outputDirectory / "migrations" / generator.first).string());
             }
         }
 
@@ -314,10 +345,17 @@ public:
         debug_session_ = debug_session;
     }
 
+    void setMigrationsPath(std::filesystem::path migrations_dir)
+    {
+        migrationsPath = migrations_dir;
+        migrations = true;
+    }
+
 private:
     std::shared_ptr<session> debug_session_;
     std::filesystem::path schema;
     std::filesystem::path outputDirectory;
+    std::filesystem::path migrationsPath;
     bool EnableExponentialOperations = false;
     bool recursive = false;
     bool migrations = false;

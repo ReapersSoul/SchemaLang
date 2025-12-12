@@ -3,6 +3,7 @@
 #include <Generator.hpp>
 #include <StructDefinition.hpp>
 #include <EnumDefinition.hpp>
+#include <MigrationDefinition.hpp>
 #include <Debug.hpp>
 #include <unordered_map>
 #include <unordered_set>
@@ -65,6 +66,15 @@ struct ProgramStructure: std::enable_shared_from_this<ProgramStructure>
 	std::vector<StructDefinition> structs;
 	std::vector<EnumDefinition> enums;
 	std::vector<std::string> type_names;
+	std::vector<MigrationDefinition> migrations;
+
+	// Migration parsing
+	bool readMigration(std::vector<Token> tokens, int &i, MigrationDefinition &current_migration);
+	bool readMigrationFile(std::string file_path);
+	
+	// Migration chain resolution
+	std::vector<MigrationDefinition> resolveMigrationChain(const std::string& structName, const Version& fromVersion, const Version& toVersion);
+	MigrationDefinition generateBestEffortMigration(const std::string& structName, const Version& fromVersion, const Version& toVersion);
 
 	inja::json to_json(std::shared_ptr<Generator> generator);
 
@@ -86,10 +96,21 @@ public:
     bool readFile(std::string file_path, bool is_root=true);
 
 	bool generate_files(std::shared_ptr<Generator>gen, std::string out_path);
+	bool generate_migration_files(std::shared_ptr<Generator>gen, std::string out_path);
 
 	std::vector<StructDefinition> &getStructs();
 
 	std::vector<EnumDefinition> &getEnums();
+
+	std::vector<MigrationDefinition> &getMigrations() { return migrations; }
+
+	bool validateMigration(const MigrationDefinition& migration);
+	
+	Version getLatestMigrationVersion(const std::string& structName);
+	MigrationDefinition generateMigrationFromDiff(const std::string& structName, const Version& fromVersion, const Version& toVersion);
+	void reconstructStructAtVersion(const std::string& structName, const Version& version, StructDefinition& outStruct);
+	bool writeMigrationFile(const std::string& filePath, const MigrationDefinition& migration);
+	void autoGenerateMigrations(const std::string& migrationsPath);
 
 	int getUniqueSubsetCount() const
 	{

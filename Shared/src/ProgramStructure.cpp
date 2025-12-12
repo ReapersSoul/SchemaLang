@@ -6,6 +6,12 @@
 // Include debug_server for hooks
 #include <Networking/DebugServer.hpp>
 
+#include <queue>
+#include <filesystem>
+#include <fstream>
+#include <map>
+#include <algorithm>
+
 bool ProgramStructure::isInt(std::string str)
 {
 	std::regex int_regex("^[0-9]+$");
@@ -951,14 +957,35 @@ bool ProgramStructure::readStruct(std::vector<Token> tokens, int &i, StructDefin
 				if (debug_server && i < tokens.size())
 					debug_server->onTokenParsed(tokens[i]);
 
+				// Optional patch version
+				int patch = 0;
+				if (tokens[i] == ".")
+				{
+					i++;
+
+					if (debug_server && i < tokens.size())
+						debug_server->onTokenParsed(tokens[i]);
+
+					if (!isInt(tokens[i].value))
+					{
+						reportError("Expected integer for patch version number", tokens[i]);
+						return false;
+					}
+					patch = std::stoi(tokens[i].value);
+					i++;
+
+					if (debug_server && i < tokens.size())
+						debug_server->onTokenParsed(tokens[i]);
+				}
+
 				// Expect ')'
 				if (tokens[i] != ")")
 				{
-					reportError("Expected ')' after minor version", tokens[i]);
+					reportError("Expected ')' after version", tokens[i]);
 					return false;
 				}
 				i++;
-				current_struct.setVersion(Version{major, minor, 0});
+				current_struct.setVersion(Version{major, minor, patch});
 			}
 			else
 			{
@@ -1495,6 +1522,7 @@ inja::json ProgramStructure::to_json(std::shared_ptr<Generator> generator)
 	j["includes"] = inja::json::array();
 	j["structs"] = inja::json::array();
 	j["enums"] = inja::json::array();
+	j["migrations"] = inja::json::array();
 	j["file_versions"] = inja::json::object();
 	j["transpiler_versions"] = inja::json::object();
 	for (auto &s : structs)
@@ -1506,6 +1534,10 @@ inja::json ProgramStructure::to_json(std::shared_ptr<Generator> generator)
 	{
 		j["includes"].push_back(generator->format_include(e.identifier + "Schema.hpp"));
 		j["enums"].push_back(e.to_json(shared_from_this(), generator));
+	}
+	for (auto &m : migrations)
+	{
+		j["migrations"].push_back(m.to_json());
 	}
 
 	for (auto &pair : transpiler_versions)
@@ -1858,9 +1890,654 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 	return validate(is_root);
 }
 
+bool ProgramStructure::readMigration(std::vector<Token> tokens, int &i, MigrationDefinition &current_migration)
+{
+	if (debug_server)
+	{
+		debug_server->beginParseOperation("reading migration definition");
+	}
+
+	// Expected: migration struct <StructName> from <version> to <version> { operations }
+	if (tokens[i] != "migration")
+	{
+		reportError("Expected 'migration' keyword", tokens[i]);
+		return false;
+	}
+	i++;
+
+	if (tokens[i] != "struct")
+	{
+		reportError("Expected 'struct' after 'migration'", tokens[i]);
+		return false;
+	}
+	i++;
+
+	// Get struct name
+	current_migration.structName = tokens[i].value;
+	i++;
+
+	// Expect 'from'
+	if (tokens[i] != "from")
+	{
+		reportError("Expected 'from' after struct name", tokens[i]);
+		return false;
+	}
+	i++;
+
+	// Parse from version (major.minor.patch or major.minor)
+	if (!isInt(tokens[i].value))
+	{
+		reportError("Expected integer for major version", tokens[i]);
+		return false;
+	}
+	current_migration.fromVersion.major = std::stoi(tokens[i].value);
+	i++;
+
+	if (tokens[i] != ".")
+	{
+		reportError("Expected '.' after major version", tokens[i]);
+		return false;
+	}
+	i++;
+
+	if (!isInt(tokens[i].value))
+	{
+		reportError("Expected integer for minor version", tokens[i]);
+		return false;
+	}
+	current_migration.fromVersion.minor = std::stoi(tokens[i].value);
+	i++;
+
+	// Optional patch version
+	if (tokens[i] == ".")
+	{
+		i++;
+		if (!isInt(tokens[i].value))
+		{
+			reportError("Expected integer for patch version", tokens[i]);
+			return false;
+		}
+		current_migration.fromVersion.patch = std::stoi(tokens[i].value);
+		i++;
+	}
+
+	// Expect 'to'
+	if (tokens[i] != "to")
+	{
+		reportError("Expected 'to' after from version", tokens[i]);
+		return false;
+	}
+	i++;
+
+	// Parse to version
+	if (!isInt(tokens[i].value))
+	{
+		reportError("Expected integer for major version", tokens[i]);
+		return false;
+	}
+	current_migration.toVersion.major = std::stoi(tokens[i].value);
+	i++;
+
+	if (tokens[i] != ".")
+	{
+		reportError("Expected '.' after major version", tokens[i]);
+		return false;
+	}
+	i++;
+
+	if (!isInt(tokens[i].value))
+	{
+		reportError("Expected integer for minor version", tokens[i]);
+		return false;
+	}
+	current_migration.toVersion.minor = std::stoi(tokens[i].value);
+	i++;
+
+	// Optional patch version
+	if (tokens[i] == ".")
+	{
+		i++;
+		if (!isInt(tokens[i].value))
+		{
+			reportError("Expected integer for patch version", tokens[i]);
+			return false;
+		}
+		current_migration.toVersion.patch = std::stoi(tokens[i].value);
+		i++;
+	}
+
+	// Expect '{'
+	if (tokens[i] != "{")
+	{
+		reportError("Expected '{' after migration declaration", tokens[i]);
+		return false;
+	}
+	i++;
+
+	// Parse migration operations
+	while (tokens[i] != "}")
+	{
+		MigrationOperation op;
+
+		// Parse operation type
+		if (tokens[i] == "add")
+		{
+			i++;
+			if (tokens[i] != "field")
+			{
+				reportError("Expected 'field' after 'add'", tokens[i]);
+				return false;
+			}
+			i++;
+
+			op.type = MigrationOperation::Type::AddField;
+			op.fieldName = tokens[i].value;
+			i++;
+
+			// Parse field type and modifiers (simplified - parse until semicolon)
+			while (tokens[i] != ";")
+			{
+				i++;
+			}
+			i++; // Skip semicolon
+		}
+		else if (tokens[i] == "remove")
+		{
+			i++;
+			if (tokens[i] != "field")
+			{
+				reportError("Expected 'field' after 'remove'", tokens[i]);
+				return false;
+			}
+			i++;
+
+			op.type = MigrationOperation::Type::RemoveField;
+			op.fieldName = tokens[i].value;
+			i++;
+
+			if (tokens[i] != ";")
+			{
+				reportError("Expected ';' after field name", tokens[i]);
+				return false;
+			}
+			i++;
+		}
+		else if (tokens[i] == "rename")
+		{
+			i++;
+			if (tokens[i] != "field")
+			{
+				reportError("Expected 'field' after 'rename'", tokens[i]);
+				return false;
+			}
+			i++;
+
+			op.type = MigrationOperation::Type::RenameField;
+			op.fieldName = tokens[i].value;
+			i++;
+
+			if (tokens[i] != "to")
+			{
+				reportError("Expected 'to' after field name", tokens[i]);
+				return false;
+			}
+			i++;
+
+			op.newFieldName = tokens[i].value;
+			i++;
+
+			if (tokens[i] != ";")
+			{
+				reportError("Expected ';' after new field name", tokens[i]);
+				return false;
+			}
+			i++;
+		}
+		else if (tokens[i] == "change")
+		{
+			i++;
+			if (tokens[i] != "field")
+			{
+				reportError("Expected 'field' after 'change'", tokens[i]);
+				return false;
+			}
+			i++;
+
+			op.fieldName = tokens[i].value;
+			i++;
+
+			if (tokens[i] == "type")
+			{
+				i++;
+				op.type = MigrationOperation::Type::ChangeType;
+
+				if (tokens[i] != "from")
+				{
+					reportError("Expected 'from' after 'type'", tokens[i]);
+					return false;
+				}
+				i++;
+
+				op.oldType = tokens[i].value;
+				i++;
+
+				if (tokens[i] != "to")
+				{
+					reportError("Expected 'to' after old type", tokens[i]);
+					return false;
+				}
+				i++;
+
+				op.newType = tokens[i].value;
+				i++;
+			}
+			else if (tokens[i] == "modifier")
+			{
+				i++;
+
+				if (tokens[i] == "from")
+				{
+					op.type = MigrationOperation::Type::ChangeModifier;
+					i++;
+					op.oldModifierValue = tokens[i].value;
+					i++;
+
+					if (tokens[i] != "to")
+					{
+						reportError("Expected 'to' after old modifier", tokens[i]);
+						return false;
+					}
+					i++;
+
+					op.newModifierValue = tokens[i].value;
+					i++;
+				}
+				else if (tokens[i] == "add")
+				{
+					op.type = MigrationOperation::Type::SetModifier;
+					i++;
+					op.newModifierValue = tokens[i].value;
+					i++;
+				}
+				else if (tokens[i] == "remove")
+				{
+					op.type = MigrationOperation::Type::RemoveModifier;
+					i++;
+					op.oldModifierValue = tokens[i].value;
+					i++;
+				}
+				else if (tokens[i] == "set")
+				{
+					i++;
+					if (tokens[i] == "description")
+					{
+						op.type = MigrationOperation::Type::SetDescription;
+						i++;
+
+						if (tokens[i] != "(")
+						{
+							reportError("Expected '(' after description", tokens[i]);
+							return false;
+						}
+						i++;
+
+						op.description = tokens[i].value;
+						i++;
+
+						if (tokens[i] != ")")
+						{
+							reportError("Expected ')' after description", tokens[i]);
+							return false;
+						}
+						i++;
+					}
+					else
+					{
+						reportError("Expected 'description' after 'set'", tokens[i]);
+						return false;
+					}
+				}
+				else
+				{
+					reportError("Expected 'from', 'add', 'remove', or 'set' after 'modifier'", tokens[i]);
+					return false;
+				}
+			}
+			else
+			{
+				reportError("Expected 'type' or 'modifier' after field name", tokens[i]);
+				return false;
+			}
+
+			if (tokens[i] != ";")
+			{
+				reportError("Expected ';' after migration operation", tokens[i]);
+				return false;
+			}
+			i++;
+		}
+		else
+		{
+			reportError("Expected migration operation (add, remove, rename, change)", tokens[i]);
+			return false;
+		}
+
+		current_migration.operations.push_back(op);
+	}
+
+	if (debug_server)
+		debug_server->endParseOperation();
+
+	return true;
+}
+
+bool ProgramStructure::readMigrationFile(std::string file_path)
+{
+	if (debug_server)
+	{
+		debug_server->beginParseOperation("reading migration file");
+	}
+
+	std::fstream file;
+	file.open(file_path, std::ios::in);
+	if (!file.is_open())
+	{
+		current_position.file_path = file_path;
+		reportError("Failed to open migration file " + file_path);
+		return false;
+	}
+
+	current_file = file_path;
+	current_position = SourcePosition(file_path, 1, 1);
+
+	std::string whole_file;
+	file.seekg(0, std::ios::end);
+	whole_file.reserve(file.tellg());
+	file.seekg(0, std::ios::beg);
+	whole_file.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+	file.close();
+
+	std::vector<Token> tokens = tokenizeWithPosition(whole_file, file_path);
+
+	if (tokens.empty())
+	{
+		reportError("Empty migration file: " + file_path);
+		return false;
+	}
+
+	for (int i = 0; i < tokens.size(); i++)
+	{
+		current_position = tokens[i].position;
+
+		if (debug_server)
+		{
+			debug_server->onTokenParsed(tokens[i]);
+		}
+
+		if (tokens[i] == "migration")
+		{
+			MigrationDefinition current_migration;
+			if (!readMigration(tokens, i, current_migration))
+			{
+				reportError("Failed to read migration", tokens[i]);
+				return false;
+			}
+
+			// Validate struct exists
+			if (!tokenIsStruct(current_migration.structName))
+			{
+				reportError("Migration references unknown struct: " + current_migration.structName, tokens[i]);
+				return false;
+			}
+
+			// Validate migration operations
+			if (!validateMigration(current_migration))
+			{
+				reportError("Migration validation failed for " + current_migration.structName, tokens[i]);
+				return false;
+			}
+
+			migrations.push_back(current_migration);
+			PLOGI << "Loaded migration for " << current_migration.structName 
+				  << " from " << current_migration.fromVersion.major << "." << current_migration.fromVersion.minor << "." << current_migration.fromVersion.patch
+				  << " to " << current_migration.toVersion.major << "." << current_migration.toVersion.minor << "." << current_migration.toVersion.patch << std::endl;
+		}
+	}
+
+	if (debug_server)
+		debug_server->endParseOperation();
+
+	return true;
+}
+
+std::vector<MigrationDefinition> ProgramStructure::resolveMigrationChain(const std::string& structName, const Version& fromVersion, const Version& toVersion)
+{
+	std::vector<MigrationDefinition> chain;
+	
+	// Build adjacency list for migration graph
+	std::map<std::string, std::vector<MigrationDefinition>> migrationGraph;
+	for (const auto& migration : migrations)
+	{
+		if (migration.structName == structName)
+		{
+			std::string versionKey = std::to_string(migration.fromVersion.major) + "." + 
+									 std::to_string(migration.fromVersion.minor) + "." + 
+									 std::to_string(migration.fromVersion.patch);
+			migrationGraph[versionKey].push_back(migration);
+		}
+	}
+
+	// BFS to find shortest path
+	std::string startKey = std::to_string(fromVersion.major) + "." + 
+						   std::to_string(fromVersion.minor) + "." + 
+						   std::to_string(fromVersion.patch);
+	std::string targetKey = std::to_string(toVersion.major) + "." + 
+							std::to_string(toVersion.minor) + "." + 
+							std::to_string(toVersion.patch);
+
+	std::queue<std::pair<std::string, std::vector<MigrationDefinition>>> queue;
+	std::set<std::string> visited;
+
+	queue.push({startKey, {}});
+	visited.insert(startKey);
+
+	while (!queue.empty())
+	{
+		auto [currentKey, currentChain] = queue.front();
+		queue.pop();
+
+		if (currentKey == targetKey)
+		{
+			return currentChain;
+		}
+
+		if (migrationGraph.find(currentKey) != migrationGraph.end())
+		{
+			for (const auto& migration : migrationGraph[currentKey])
+			{
+				std::string nextKey = std::to_string(migration.toVersion.major) + "." + 
+									  std::to_string(migration.toVersion.minor) + "." + 
+									  std::to_string(migration.toVersion.patch);
+
+				if (visited.find(nextKey) == visited.end())
+				{
+					visited.insert(nextKey);
+					auto newChain = currentChain;
+					newChain.push_back(migration);
+					queue.push({nextKey, newChain});
+				}
+			}
+		}
+	}
+
+	// No path found - return empty vector (caller will use best-effort)
+	return {};
+}
+
+MigrationDefinition ProgramStructure::generateBestEffortMigration(const std::string& structName, const Version& fromVersion, const Version& toVersion)
+{
+	MigrationDefinition migration;
+	migration.structName = structName;
+	migration.fromVersion = fromVersion;
+	migration.toVersion = toVersion;
+
+	// Get the current struct definition (this is the target version)
+	StructDefinition& currentStruct = getStruct(structName);
+	
+	PLOGW << "No migration path found from " << fromVersion.major << "." << fromVersion.minor << "." << fromVersion.patch
+		  << " to " << toVersion.major << "." << toVersion.minor << "." << toVersion.patch 
+		  << " for struct " << structName << ". Generating best-effort migration based on current struct definition." << std::endl;
+
+	// For best-effort, we assume all fields in current struct are new fields that need to be added
+	// This is a simple heuristic - in production, you'd want to compare against actual old version
+	for (const auto& mv : currentStruct.getMemberVariables())
+	{
+		// Skip the auto-generated id field
+		if (mv.identifier == "id") continue;
+
+		MigrationOperation op;
+		op.type = MigrationOperation::Type::AddField;
+		op.fieldName = mv.identifier;
+		op.newType = mv.type.identifier();
+		
+		migration.operations.push_back(op);
+		
+		PLOGW << "Best-effort migration: Adding field '" << mv.identifier << "' of type '" << mv.type.identifier() << "'" << std::endl;
+	}
+
+	return migration;
+}
+
 bool ProgramStructure::generate_files(std::shared_ptr<Generator> gen, std::string out_path)
 {
 	return gen->generate_files(shared_from_this(), out_path);
+}
+
+bool ProgramStructure::generate_migration_files(std::shared_ptr<Generator> gen, std::string out_path)
+{
+	// Default implementation - generators override if they support migrations
+	return gen->generate_migration_files(shared_from_this(), out_path);
+}
+
+bool ProgramStructure::validateMigration(const MigrationDefinition& migration)
+{
+	// Find the target struct
+	StructDefinition* targetStruct = nullptr;
+	for (auto& s : structs)
+	{
+		if (s.getIdentifier() == migration.structName)
+		{
+			targetStruct = &s;
+			break;
+		}
+	}
+
+	if (!targetStruct)
+	{
+		PLOGE << "Migration validation failed: struct '" << migration.structName << "' not found" << std::endl;
+		return false;
+	}
+
+	// Validate that fromVersion matches one of the struct's historical versions
+	// (In a full implementation, you'd track version history)
+	// For now, we just warn if fromVersion doesn't match current version
+
+	// Validate each operation
+	for (const auto& op : migration.operations)
+	{
+		switch (op.type)
+		{
+			case MigrationOperation::Type::RemoveField:
+			case MigrationOperation::Type::RenameField:
+			{
+				// Verify field exists in current struct (or at fromVersion in full implementation)
+				bool fieldExists = false;
+				for (const auto& mv : targetStruct->getMemberVariables())
+				{
+					if (mv.identifier == op.fieldName)
+					{
+						fieldExists = true;
+						break;
+					}
+				}
+
+				if (!fieldExists)
+				{
+					PLOGW << "Migration warning: field '" << op.fieldName 
+						  << "' not found in current struct '" << migration.structName 
+						  << "' (may be valid if removing from older version)" << std::endl;
+				}
+
+				// Warn on destructive operations
+				if (op.type == MigrationOperation::Type::RemoveField)
+				{
+					PLOGW << "Migration contains destructive operation: removing field '" 
+						  << op.fieldName << "' from '" << migration.structName << "'" << std::endl;
+				}
+				break;
+			}
+
+			case MigrationOperation::Type::ChangeType:
+			{
+				// Verify field exists
+				bool fieldExists = false;
+				for (const auto& mv : targetStruct->getMemberVariables())
+				{
+					if (mv.identifier == op.fieldName)
+					{
+						fieldExists = true;
+						break;
+					}
+				}
+
+				if (!fieldExists)
+				{
+					PLOGW << "Migration warning: field '" << op.fieldName 
+						  << "' not found in current struct '" << migration.structName << "'" << std::endl;
+				}
+
+				// Warn about potential data loss
+				if (op.oldType.has_value() && op.newType.has_value())
+				{
+					PLOGW << "Migration changes type of field '" << op.fieldName 
+						  << "' from '" << op.oldType.value() << "' to '" << op.newType.value() 
+						  << "' - verify data compatibility" << std::endl;
+				}
+				break;
+			}
+
+			case MigrationOperation::Type::AddField:
+			{
+				// Adding fields is generally safe
+				// Could check if field already exists in current version
+				for (const auto& mv : targetStruct->getMemberVariables())
+				{
+					if (mv.identifier == op.fieldName)
+					{
+						PLOGW << "Migration adds field '" << op.fieldName 
+							  << "' which already exists in current struct '" << migration.structName << "'" << std::endl;
+						break;
+					}
+				}
+				break;
+			}
+
+			case MigrationOperation::Type::ChangeModifier:
+			case MigrationOperation::Type::SetModifier:
+			case MigrationOperation::Type::RemoveModifier:
+			case MigrationOperation::Type::SetDescription:
+			{
+				// These are metadata changes, generally safe
+				break;
+			}
+
+			default:
+				PLOGW << "Unknown migration operation type in migration for '" << migration.structName << "'" << std::endl;
+				break;
+		}
+	}
+
+	return true;
 }
 
 std::vector<StructDefinition> &ProgramStructure::getStructs()
@@ -1871,4 +2548,364 @@ std::vector<StructDefinition> &ProgramStructure::getStructs()
 std::vector<EnumDefinition> &ProgramStructure::getEnums()
 {
 	return enums;
+}
+
+Version ProgramStructure::getLatestMigrationVersion(const std::string& structName)
+{
+	Version latest{0, 0, 0};
+	
+	for (const auto& migration : migrations)
+	{
+		if (migration.structName == structName)
+		{
+			// Check if toVersion is newer than current latest
+			if (migration.toVersion.major > latest.major ||
+				(migration.toVersion.major == latest.major && migration.toVersion.minor > latest.minor) ||
+				(migration.toVersion.major == latest.major && migration.toVersion.minor == latest.minor && migration.toVersion.patch > latest.patch))
+			{
+				latest = migration.toVersion;
+			}
+		}
+	}
+	
+	return latest;
+}
+
+void ProgramStructure::reconstructStructAtVersion(const std::string& structName, const Version& version, StructDefinition& outStruct)
+{
+	// Find current struct as starting point
+	StructDefinition* currentStruct = nullptr;
+	for (auto& s : structs)
+	{
+		if (s.getIdentifier() == structName)
+		{
+			currentStruct = &s;
+			break;
+		}
+	}
+	
+	if (!currentStruct)
+	{
+		PLOGE << "Cannot reconstruct struct: '" << structName << "' not found" << std::endl;
+		return;
+	}
+	
+	// Start with current struct
+	outStruct = *currentStruct;
+	
+	// Apply migrations in reverse to go back to target version
+	// This is a simplified approach - in production you'd want to store historical versions
+	// For now, we'll just work forward from version 0.0.0
+	outStruct.getMemberVariables().clear();
+	
+	// Apply all migrations up to target version
+	std::vector<MigrationDefinition> applicableMigrations;
+	for (const auto& migration : migrations)
+	{
+		if (migration.structName == structName)
+		{
+			// Check if this migration's toVersion <= target version
+			if (migration.toVersion.major < version.major ||
+				(migration.toVersion.major == version.major && migration.toVersion.minor < version.minor) ||
+				(migration.toVersion.major == version.major && migration.toVersion.minor == version.minor && migration.toVersion.patch <= version.patch))
+			{
+				applicableMigrations.push_back(migration);
+			}
+		}
+	}
+	
+	// Apply migrations in order
+	for (const auto& migration : applicableMigrations)
+	{
+		for (const auto& op : migration.operations)
+		{
+			switch (op.type)
+			{
+				case MigrationOperation::Type::AddField:
+				{
+					MemberVariableDefinition newField;
+					newField.identifier = op.fieldName;
+					if (op.newType.has_value())
+					{
+						newField.type = TypeDefinition(op.newType.value());
+					}
+					outStruct.add_member_variable(newField);
+					break;
+				}
+				case MigrationOperation::Type::RemoveField:
+				{
+					auto& vars = outStruct.getMemberVariables();
+					vars.erase(std::remove_if(vars.begin(), vars.end(),
+						[&](const MemberVariableDefinition& v) { return v.identifier == op.fieldName; }),
+						vars.end());
+					break;
+				}
+				case MigrationOperation::Type::RenameField:
+				{
+					if (op.newFieldName.has_value())
+					{
+						for (auto& var : outStruct.getMemberVariables())
+						{
+							if (var.identifier == op.fieldName)
+							{
+								var.identifier = op.newFieldName.value();
+								break;
+							}
+						}
+					}
+					break;
+				}
+				default:
+					break;
+			}
+		}
+	}
+}
+
+MigrationDefinition ProgramStructure::generateMigrationFromDiff(const std::string& structName, const Version& fromVersion, const Version& toVersion)
+{
+	MigrationDefinition migration;
+	migration.structName = structName;
+	migration.fromVersion = fromVersion;
+	migration.toVersion = toVersion;
+	
+	// Find current struct
+	StructDefinition* currentStruct = nullptr;
+	for (auto& s : structs)
+	{
+		if (s.getIdentifier() == structName)
+		{
+			currentStruct = &s;
+			break;
+		}
+	}
+	
+	if (!currentStruct)
+	{
+		PLOGE << "Cannot generate migration: struct '" << structName << "' not found" << std::endl;
+		return migration;
+	}
+	
+	// Reconstruct old version
+	StructDefinition oldStruct;
+	reconstructStructAtVersion(structName, fromVersion, oldStruct);
+	
+	// Build field maps for comparison
+	std::map<std::string, MemberVariableDefinition> oldFields;
+	for (const auto& field : oldStruct.getMemberVariables())
+	{
+		oldFields[field.identifier] = field;
+	}
+	
+	std::map<std::string, MemberVariableDefinition> newFields;
+	for (const auto& field : currentStruct->getMemberVariables())
+	{
+		newFields[field.identifier] = field;
+	}
+	
+	// Detect added fields
+	for (const auto& [name, field] : newFields)
+	{
+		if (oldFields.find(name) == oldFields.end())
+		{
+			MigrationOperation op;
+			op.type = MigrationOperation::Type::AddField;
+			op.fieldName = name;
+			op.newType = field.type.identifier();
+			migration.operations.push_back(op);
+			
+			PLOGI << "Auto-generated migration: Add field '" << name << "' to " << structName << std::endl;
+		}
+	}
+	
+	// Detect removed fields
+	for (const auto& [name, field] : oldFields)
+	{
+		if (newFields.find(name) == newFields.end())
+		{
+			MigrationOperation op;
+			op.type = MigrationOperation::Type::RemoveField;
+			op.fieldName = name;
+			migration.operations.push_back(op);
+			
+			PLOGW << "Auto-generated migration: Remove field '" << name << "' from " << structName << " (destructive)" << std::endl;
+		}
+	}
+	
+	// Detect type changes
+	for (const auto& [name, newField] : newFields)
+	{
+		auto it = oldFields.find(name);
+		if (it != oldFields.end())
+		{
+			const auto& oldField = it->second;
+			if (oldField.type.identifier() != newField.type.identifier())
+			{
+				MigrationOperation op;
+				op.type = MigrationOperation::Type::ChangeType;
+				op.fieldName = name;
+				op.oldType = oldField.type.identifier();
+				op.newType = newField.type.identifier();
+				migration.operations.push_back(op);
+				
+				PLOGW << "Auto-generated migration: Change field '" << name << "' type from " 
+					  << oldField.type.identifier() << " to " << newField.type.identifier() << std::endl;
+			}
+		}
+	}
+	
+	return migration;
+}
+
+bool ProgramStructure::writeMigrationFile(const std::string& filePath, const MigrationDefinition& migration)
+{
+	std::ofstream file(filePath);
+	if (!file.is_open())
+	{
+		PLOGE << "Failed to create migration file: " << filePath << std::endl;
+		return false;
+	}
+	
+	file << "migration struct " << migration.structName 
+		 << " from " << migration.fromVersion.major << "." << migration.fromVersion.minor << "." << migration.fromVersion.patch
+		 << " to " << migration.toVersion.major << "." << migration.toVersion.minor << "." << migration.toVersion.patch << " {\n";
+	
+	for (const auto& op : migration.operations)
+	{
+		file << "    ";
+		
+		switch (op.type)
+		{
+			case MigrationOperation::Type::AddField:
+				file << "add field " << op.fieldName;
+				if (op.newType.has_value())
+					file << " " << op.newType.value();
+				file << " required";
+				break;
+				
+			case MigrationOperation::Type::RemoveField:
+				file << "remove field " << op.fieldName;
+				break;
+				
+			case MigrationOperation::Type::RenameField:
+				file << "rename field " << op.fieldName << " to " << op.newFieldName.value();
+				break;
+				
+			case MigrationOperation::Type::ChangeType:
+				file << "change field " << op.fieldName << " type from " 
+					 << op.oldType.value() << " to " << op.newType.value();
+				break;
+				
+			default:
+				file << "// Unknown operation";
+				break;
+		}
+		
+		file << ";\n";
+	}
+	
+	file << "}\n";
+	file.close();
+	
+	PLOGI << "Created migration file: " << filePath << std::endl;
+	return true;
+}
+
+void ProgramStructure::autoGenerateMigrations(const std::string& migrationsPath)
+{
+	if (migrationsPath.empty())
+	{
+		return; // No migrations path specified
+	}
+	
+	// Ensure migrations directory exists
+	if (!std::filesystem::exists(migrationsPath))
+	{
+		std::filesystem::create_directories(migrationsPath);
+	}
+	
+	// For each struct, check if we need to generate a new migration
+	for (auto& currentStruct : structs)
+	{
+		std::string structName = currentStruct.getIdentifier();
+		Version currentVersion = currentStruct.getVersion();
+		Version latestMigrationVersion = getLatestMigrationVersion(structName);
+		
+		// Check if current version is newer than latest migration
+		bool needsNewMigration = false;
+		if (currentVersion.major > latestMigrationVersion.major ||
+			(currentVersion.major == latestMigrationVersion.major && currentVersion.minor > latestMigrationVersion.minor) ||
+			(currentVersion.major == latestMigrationVersion.major && currentVersion.minor == latestMigrationVersion.minor && currentVersion.patch > latestMigrationVersion.patch))
+		{
+			needsNewMigration = true;
+		}
+		
+		if (needsNewMigration)
+		{
+			// If no migrations exist yet, create initial migration from 0.0.0
+			if (latestMigrationVersion.major == 0 && latestMigrationVersion.minor == 0 && latestMigrationVersion.patch == 0)
+			{
+				PLOGI << "Generating initial migration for " << structName << " from 0.0.0 to " 
+					  << currentVersion.major << "." << currentVersion.minor << "." << currentVersion.patch << std::endl;
+				
+				// Create initial migration with all current fields as "add field"
+				MigrationDefinition initialMigration;
+				initialMigration.structName = structName;
+				initialMigration.fromVersion = {0, 0, 0};
+				initialMigration.toVersion = currentVersion;
+				
+				// Add all current fields
+				for (const auto& field : currentStruct.getMemberVariables())
+				{
+					MigrationOperation op;
+					op.type = MigrationOperation::Type::AddField;
+					op.fieldName = field.identifier;
+					op.newType = field.type.identifier();
+					initialMigration.operations.push_back(op);
+					
+					PLOGI << "  - Add field '" << field.identifier << "' (" << field.type.identifier() << ")" << std::endl;
+				}
+				
+				// Write migration file
+				std::string filename = structName + "_0_0_0_to_" + 
+									   std::to_string(currentVersion.major) + "_" + 
+									   std::to_string(currentVersion.minor) + "_" + 
+									   std::to_string(currentVersion.patch) + ".schema.migration";
+				
+				std::filesystem::path migrationFilePath = std::filesystem::path(migrationsPath) / filename;
+				
+				if (writeMigrationFile(migrationFilePath.string(), initialMigration))
+				{
+					// Add to migrations list
+					migrations.push_back(initialMigration);
+				}
+			}
+			else
+			{
+				// Generate incremental migration from latest to current version
+				PLOGI << "Generating new migration for " << structName << " from " 
+					  << latestMigrationVersion.major << "." << latestMigrationVersion.minor << "." << latestMigrationVersion.patch
+					  << " to " << currentVersion.major << "." << currentVersion.minor << "." << currentVersion.patch << std::endl;
+				
+				MigrationDefinition newMigration = generateMigrationFromDiff(structName, latestMigrationVersion, currentVersion);
+				
+				// Write migration file
+				std::string filename = structName + "_" + 
+									   std::to_string(latestMigrationVersion.major) + "_" + 
+									   std::to_string(latestMigrationVersion.minor) + "_" + 
+									   std::to_string(latestMigrationVersion.patch) + "_to_" + 
+									   std::to_string(currentVersion.major) + "_" + 
+									   std::to_string(currentVersion.minor) + "_" + 
+									   std::to_string(currentVersion.patch) + ".schema.migration";
+				
+				std::filesystem::path migrationFilePath = std::filesystem::path(migrationsPath) / filename;
+				
+				if (writeMigrationFile(migrationFilePath.string(), newMigration))
+				{
+					// Add to migrations list
+					migrations.push_back(newMigration);
+				}
+			}
+		}
+	}
 }

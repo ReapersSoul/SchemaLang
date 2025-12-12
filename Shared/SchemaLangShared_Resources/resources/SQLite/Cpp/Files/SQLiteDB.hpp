@@ -186,6 +186,11 @@ public:
     virtual std::vector<ForeignKeyInfo> getForeignKeyList(const std::string& table_name);
     virtual std::string formatForeignKeyError(const std::string& operation, const std::string& table, int64_t id);
 
+    // Migration functions
+{% for migration in migrations %}
+    virtual std::string migrate_{{migration.structName}}_table_{{migration.fromVersion.major}}_{{migration.fromVersion.minor}}_{{migration.fromVersion.patch}}_to_{{migration.toVersion.major}}_{{migration.toVersion.minor}}_{{migration.toVersion.patch}}();
+{% endfor %}
+
 private:
     std::filesystem::path db_path;
     sqlite3* db;

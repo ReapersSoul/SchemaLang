@@ -33,6 +33,8 @@ struct Generator : std::enable_shared_from_this<Generator>
 
 	virtual bool generate_files(std::shared_ptr<ProgramStructure> ps, std::string out_path) = 0;
 
+	virtual bool generate_migration_files(std::shared_ptr<ProgramStructure> ps, std::string out_path) { return false; } // Default: no migration support
+
 	virtual bool fetch_additions(std::shared_ptr<ProgramStructure>ps, std::shared_ptr<Generator>gen, Additions &additions, inja::json data)
 	{
 

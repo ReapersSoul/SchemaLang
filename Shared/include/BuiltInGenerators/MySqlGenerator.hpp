@@ -65,6 +65,8 @@ public:
 	void set_generate_insert_files(bool value) { gen_insert_files = value; }
 	void set_generate_update_files(bool value) { gen_update_files = value; }
 	void set_generate_delete_files(bool value) { gen_delete_files = value; }
+	
+	bool generate_migration_files(std::shared_ptr<ProgramStructure> ps, std::string out_path) override;
 
 private:
 	const std::string mysql_connection = "mysqlx::Session";

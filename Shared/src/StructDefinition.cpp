@@ -239,7 +239,9 @@ void StructDefinition::update(StructDefinition def)
 inja::json StructDefinition::to_json(std::shared_ptr<ProgramStructure> ps, std::shared_ptr<Generator> generator)
 {
     inja::json j;
-	j["version"] = {version.major,version.minor,version.patch};
+	j["version"]["major"] = version.major;
+	j["version"]["minor"] = version.minor;
+	j["version"]["patch"] = version.patch;
     j["identifier"] = identifier;
 	std::string identifierCamel = identifier;
 	identifierCamel[0] = toupper(identifierCamel[0]);

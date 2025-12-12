@@ -139,7 +139,9 @@ int main(int argc, char *argv[])
 	Parameter outputDirectoryParameter("outputDirectory", false, [&](std::string value)
 									   { builder.setOutputDirectory(value + "/Schemas"); });
 	ap.addParameter(&outputDirectoryParameter);
-
+	Parameter migrationsPathParameter("migrationsPath", false, [&](std::string value)
+								   { builder.setMigrationsPath(value); });
+	ap.addParameter(&migrationsPathParameter);
 	// flags for exponentiall opperations
 	Flag enableExponentialOperationsFlag("enableExponentialOperations", false, [&]()
 										 { builder.enableExponentialOperations(true); }, 5);

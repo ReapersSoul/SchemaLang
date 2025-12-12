@@ -3,3 +3,4 @@ bin
 settings.json
 tasks.json
 .cache
+build-debug

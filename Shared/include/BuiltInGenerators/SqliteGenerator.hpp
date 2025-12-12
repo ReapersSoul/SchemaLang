@@ -58,4 +58,6 @@ public:
 	bool add_generator_specific_content_to_struct(std::shared_ptr<Generator>gen, std::shared_ptr<ProgramStructure>ps, StructDefinition &s);
 
 	bool generate_files(std::shared_ptr<ProgramStructure> ps, std::string out_path);
+	
+	bool generate_migration_files(std::shared_ptr<ProgramStructure> ps, std::string out_path) override;
 };
