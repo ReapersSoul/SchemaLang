@@ -1,7 +1,7 @@
 {% if header %}
-bool SQLiteDelete(SQLiteDB* db);
+bool SQLiteDelete(std::shared_ptr<SQLiteDB> db);
 {% else %}
-bool {{identifier}}Schema::SQLiteDelete(SQLiteDB* db)
+bool {{identifier}}Schema::SQLiteDelete(std::shared_ptr<SQLiteDB> db)
 {
     return db->delete{{identifierCamel}}ById(this->getId());
 }

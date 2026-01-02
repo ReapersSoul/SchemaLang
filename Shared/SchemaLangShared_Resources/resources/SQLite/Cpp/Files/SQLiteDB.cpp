@@ -726,6 +726,7 @@ std::shared_ptr<{{struct.identifier}}Schema> SQLiteDB::select{{struct.identifier
         result = std::make_shared<{{struct.identifier}}Schema>();
         int col = 0;
 {% for field in struct.member_variables %}
+{% if not field.type.is_array %}
         // Set {{field.identifier}}
 {% if field.type.is_string %}
         const char* {{field.identifier}}_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, col++));
@@ -749,6 +750,7 @@ std::shared_ptr<{{struct.identifier}}Schema> SQLiteDB::select{{struct.identifier
         // Need to handle type {{field.type.identifier}} here in generated code
         // For now, just skip it
         col++;
+{% endif %}
 {% endif %}
 {% endfor %}
     }
@@ -1023,11 +1025,11 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::select{{stru
 
 // Fluent query builder - now creates builder and calls From() automatically
 SQLiteQueryBuilder SQLiteDB::Select{{struct.identifierCamel}}() {
-    return SQLiteQueryBuilder(this).From("{{struct.identifier}}");
+    return SQLiteQueryBuilder(shared_from_this()).From("{{struct.identifier}}");
 }
 
 SQLiteQueryBuilder SQLiteDB::Query{{struct.identifierCamel}}(){
-    return SQLiteQueryBuilder(this);
+    return SQLiteQueryBuilder(shared_from_this());
 }
 
 //updateInsert
@@ -1483,7 +1485,7 @@ bool SQLiteDB::update{{struct.identifierCamel}}{{mv.identifierCamel}}(int64_t pa
 
 // Generic query builder factory
 GenericSQLiteQueryBuilder SQLiteDB::Query() {
-    return GenericSQLiteQueryBuilder(this);
+    return GenericSQLiteQueryBuilder(shared_from_this());
 }
 
 // SQLite callback hook implementations

@@ -134,7 +134,7 @@ public:
 
 class SQLiteQueryBuilder {
 private:
-    SQLiteDB* db;
+    std::shared_ptr<SQLiteDB> db;
     std::string table_name;
     std::vector<std::string> where_clauses;
     std::vector<std::string> order_clauses;
@@ -148,7 +148,7 @@ private:
     bool custom_select = false;
 
 public:
-    SQLiteQueryBuilder(SQLiteDB* database) 
+    SQLiteQueryBuilder(std::shared_ptr<SQLiteDB> database) 
         : db(database) {}
 
     SQLiteQueryBuilder& Select(const std::string& columns) {
@@ -337,7 +337,7 @@ std::shared_ptr<{{struct.identifier}}Schema> SQLiteQueryBuilder::First<{{struct.
 // Generic query builder for custom queries without schema types
 class GenericSQLiteQueryBuilder {
 private:
-    SQLiteDB* db;
+    std::shared_ptr<SQLiteDB> db;
     std::string table_name;
     std::vector<std::string> where_clauses;
     std::vector<std::string> order_clauses;
@@ -350,7 +350,7 @@ private:
     std::vector<std::string> select_columns;
 
 public:
-    GenericSQLiteQueryBuilder(SQLiteDB* database) 
+    GenericSQLiteQueryBuilder(std::shared_ptr<SQLiteDB> database) 
         : db(database) {}
 
     GenericSQLiteQueryBuilder& Select(const std::string& columns) {

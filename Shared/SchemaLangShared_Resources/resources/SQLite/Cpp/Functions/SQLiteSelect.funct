@@ -1,7 +1,7 @@
 {% if header %}
-void SQLiteSelect(SQLiteDB* db);
+void SQLiteSelect(std::shared_ptr<SQLiteDB> db);
 {% else %}
-void {{identifier}}Schema::SQLiteSelect(SQLiteDB* db) {
+void {{identifier}}Schema::SQLiteSelect(std::shared_ptr<SQLiteDB> db) {
     const char* sql = R"(
         SELECT 
     )";

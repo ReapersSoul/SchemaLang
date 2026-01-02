@@ -16,7 +16,7 @@ enum class {{enum.identifier}}Schema;
 {% endfor %} #}
 
 
-class SQLiteDB
+class SQLiteDB : public std::enable_shared_from_this<SQLiteDB>
 {
 public:
     virtual ~SQLiteDB();
