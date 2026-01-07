@@ -401,9 +401,9 @@ CREATE TABLE IF NOT EXISTS {{struct.identifier}} (
 
     {% if field.type.is_array %}
     {% else if field.type.is_struct %}
-        {{field.type.identifier}}_id INTEGER
+        {{field.type.identifier}}_id_{{field.identifier}} INTEGER
     {% else if field.type.is_enum %}
-        {{field.type.identifier}}_id INTEGER
+        {{field.type.identifier}}_id_{{field.identifier}} INTEGER
     {% else %}
         {{ field.identifier }} {{ SQLite_convert_to_local_type(field.type) }} 
     {% endif %}
@@ -589,7 +589,7 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::selectAll{{s
     
     std::vector<std::shared_ptr<{{struct.identifier}}Schema>> results;
     const char* sql = R"(SELECT 
-    {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set additional_field_count = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set additional_field_count = additional_field_count + 1 %}{% endif %}{% endfor %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}{{inner_struct.identifier}}_id{% if current_field < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %}
+    {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set additional_field_count = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set additional_field_count = additional_field_count + 1 %}{% endif %}{% endfor %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id_{{field.identifier}}{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}{{inner_struct.identifier}}_id{% if current_field < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %}
     
     FROM {{struct.identifier}};)";
     
@@ -703,7 +703,7 @@ std::shared_ptr<{{struct.identifier}}Schema> SQLiteDB::select{{struct.identifier
 
     const char* sql = R"(
     SELECT
-   {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
+   {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id_{{field.identifier}}{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
     
     FROM {{struct.identifier}} WHERE id = ?;
     )";
@@ -815,7 +815,7 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::select{{stru
     
     std::vector<std::shared_ptr<{{struct.identifier}}Schema>> results;
     const char* sql = R"(    SELECT
-        {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
+        {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id_{{field.identifier}}{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
 
 FROM {{struct.identifier}} WHERE {{mv.identifier}} = ?;)";
     
@@ -936,7 +936,7 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::select{{stru
     std::vector<std::shared_ptr<{{struct.identifier}}Schema>> results;
     const char * sql = R"(
     SELECT
-        {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
+        {% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id_{{field.identifier}}{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count %}, {% endif %}{% endif %}{% endfor %}
         
         FROM {{struct.identifier}} WHERE {{other_struct.identifier}}_id = ?;
     )";
@@ -1043,8 +1043,8 @@ int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{str
     }
     
     // Use INSERT OR REPLACE to handle both insert and update in one statement
-    const char* sql_filter_id = "INSERT OR REPLACE INTO {{struct.identifier}} ({% set field_count = 0 %}{% for field in struct.member_variables %}{% if field.identifier != "id" and not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set additional_field_count = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set additional_field_count = additional_field_count + 1 %}{% endif %}{% endfor %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if field.identifier != "id" and not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}{{inner_struct.identifier}}_id{% if current_field < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %}) VALUES ({% set current_param = 0 %}{% for field in struct.member_variables %}{% if field.identifier != "id" and not field.type.is_array %}{% set current_param = current_param + 1 %}?{% if current_param < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_param = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_param = current_param + 1 %}?{% if current_param < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %})";
-    const char* sql = "INSERT OR REPLACE INTO {{struct.identifier}} ({% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set additional_field_count = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set additional_field_count = additional_field_count + 1 %}{% endif %}{% endfor %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}{{inner_struct.identifier}}_id{% if current_field < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %}) VALUES ({% set current_param = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_param = current_param + 1 %}?{% if current_param < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_param = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_param = current_param + 1 %}?{% if current_param < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %})";
+    const char* sql_filter_id = "INSERT OR REPLACE INTO {{struct.identifier}} ({% set field_count = 0 %}{% for field in struct.member_variables %}{% if field.identifier != "id" and not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set additional_field_count = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set additional_field_count = additional_field_count + 1 %}{% endif %}{% endfor %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if field.identifier != "id" and not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id_{{field.identifier}}{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}{{inner_struct.identifier}}_id{% if current_field < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %}) VALUES ({% set current_param = 0 %}{% for field in struct.member_variables %}{% if field.identifier != "id" and not field.type.is_array %}{% set current_param = current_param + 1 %}?{% if current_param < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_param = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_param = current_param + 1 %}?{% if current_param < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %})";
+    const char* sql = "INSERT OR REPLACE INTO {{struct.identifier}} ({% set field_count = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set field_count = field_count + 1 %}{% endif %}{% endfor %}{% set additional_field_count = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set additional_field_count = additional_field_count + 1 %}{% endif %}{% endfor %}{% endfor %}{% set current_field = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_field = current_field + 1 %}{% if field.type.is_struct or field.type.is_enum %}{{field.type.identifier}}_id_{{field.identifier}}{% else %}{{field.identifier}}{% endif %}{% if current_field < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_field = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_field = current_field + 1 %}{{inner_struct.identifier}}_id{% if current_field < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %}) VALUES ({% set current_param = 0 %}{% for field in struct.member_variables %}{% if not field.type.is_array %}{% set current_param = current_param + 1 %}?{% if current_param < field_count or additional_field_count > 0 %}, {% endif %}{% endif %}{% endfor %}{% set current_param = 0 %}{% for inner_struct in structs %}{% for mv in inner_struct.member_variables %}{% if mv.type.is_array and mv.type.elem_type.is_struct and mv.type.elem_type.identifier == struct.identifier %}{% set current_param = current_param + 1 %}?{% if current_param < additional_field_count %}, {% endif %}{% endif %}{% endfor %}{% endfor %})";
     
     if (obj->getId() <= 0&& !force_id) {
         sql = sql_filter_id;
@@ -1075,7 +1075,19 @@ int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{str
 {% else if field.type.is_bool %}
     sqlite3_bind_int(stmt, param++, obj->get{{field.identifierCamel}}() ? 1 : 0);
 {% else if field.type.is_enum %}
-    sqlite3_bind_int(stmt, param++, static_cast<int>(obj->get{{field.identifierCamel}}()));
+    {
+        // Map enum value to {{field.type.identifier}} table id
+        int enum_value = static_cast<int>(obj->get{{field.identifierCamel}}());
+        int64_t enum_id = get{{field.type.identifier}}IdByValue(enum_value);
+        if (enum_id <= 0) {
+            enum_id = get{{field.type.identifier}}IdByValue(-1); // Unknown fallback
+            if (enum_id <= 0) {
+                sqlite3_finalize(stmt);
+                throw std::runtime_error("SQLiteDB::insertOrUpdate{{struct.identifierCamel}}() - {{field.type.identifier}} value not found and no Unknown entry exists.");
+            }
+        }
+        sqlite3_bind_int64(stmt, param++, enum_id);
+    }
 {% else if field.type.is_struct %}
     if(obj->get{{field.identifierCamel}}()) {
         sqlite3_bind_int64(stmt, param++, obj->get{{field.identifierCamel}}()->getId());
@@ -1121,7 +1133,16 @@ int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{str
     }
 {% else if field.type.is_enum %}
     if (obj->get{{field.identifierCamel}}().has_value()) {
-        sqlite3_bind_int(stmt, param++, static_cast<int>(obj->get{{field.identifierCamel}}().value()));
+        int enum_value = static_cast<int>(obj->get{{field.identifierCamel}}().value());
+        int64_t enum_id = get{{field.type.identifier}}IdByValue(enum_value);
+        if (enum_id <= 0) {
+            enum_id = get{{field.type.identifier}}IdByValue(-1); // Unknown fallback
+            if (enum_id <= 0) {
+                sqlite3_finalize(stmt);
+                throw std::runtime_error("SQLiteDB::insertOrUpdate{{struct.identifierCamel}}() - {{field.type.identifier}} value not found and no Unknown entry exists.");
+            }
+        }
+        sqlite3_bind_int64(stmt, param++, enum_id);
     } else {
         sqlite3_bind_null(stmt, param++);
     }
@@ -1518,13 +1539,11 @@ void SQLiteDB::traceHook(unsigned int traceType, void* pCtx, void* p, void* x) {
         sqlite3_stmt* stmt = static_cast<sqlite3_stmt*>(p);
         char* sql = sqlite3_expanded_sql(stmt);
         if (sql) {
-            printf("SQL: %s\n", sql);
             sqlite3_free(sql);
         }
     } else if (traceType == SQLITE_TRACE_PROFILE) {
         sqlite3_stmt* stmt = static_cast<sqlite3_stmt*>(p);
         sqlite3_int64* nanoseconds = static_cast<sqlite3_int64*>(x);
-        printf("Profile: %lld ns\n", *nanoseconds);
     }
 }
 

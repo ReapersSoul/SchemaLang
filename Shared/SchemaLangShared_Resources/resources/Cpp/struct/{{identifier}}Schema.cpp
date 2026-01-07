@@ -59,6 +59,8 @@ void {{identifier}}Schema::clear{{mv.identifierCamel}}() {
 std::shared_ptr<{{identifier}}Schema> {{identifier}}Schema::clone() const {
     auto cloned = std::make_shared<{{identifier}}Schema>();
     
+    cloned->setId(-1);
+
 {% for mv in member_variables %}{% if not mv.type.required %}
     if (this->{{mv.identifier}}.has_value()) {
         cloned->{{mv.identifier}} = this->{{mv.identifier}}.value();
@@ -73,15 +75,59 @@ std::shared_ptr<{{identifier}}Schema> {{identifier}}Schema::clone() const {
 std::shared_ptr<{{identifier}}Schema> {{identifier}}Schema::deepClone() const {
     auto cloned = std::make_shared<{{identifier}}Schema>();
     
-{% for mv in member_variables %}{% if not mv.type.required %}
+    // Reset ID to -1 for new insertion
+    cloned->setId(-1);
+    
+{% for mv in member_variables %}
+{% if mv.identifier == "id" %}
+    // ID is already set to -1 above
+{% else %}
+{% if not mv.type.required %}
+    // Optional field: {{mv.identifier}}
     if (this->{{mv.identifier}}.has_value()) {
-        // TODO: Add deep cloning logic for {{mv.identifier}} if it contains schema objects
+{% if mv.type.is_struct %}
+        // Deep clone optional struct
+        if (this->{{mv.identifier}}.value() != nullptr) {
+            cloned->{{mv.identifier}} = this->{{mv.identifier}}.value()->deepClone();
+        }
+{% else %}
+{% if mv.type.is_array and mv.type.elem_type.is_struct %}
+        // Deep clone optional array of structs
+        cloned->{{mv.identifier}} = std::vector<{{mv.type.elem_type.estimated}}>();
+        for (const auto& item : this->{{mv.identifier}}.value()) {
+            if (item != nullptr) {
+                cloned->{{mv.identifier}}.value().push_back(item->deepClone());
+            }
+        }
+{% else %}
+        // Copy primitive or array of primitives
         cloned->{{mv.identifier}} = this->{{mv.identifier}}.value();
+{% endif %}
+{% endif %}
     }
 {% else %}
-    // TODO: Add deep cloning logic for {{mv.identifier}} if it contains schema objects
+    // Required field: {{mv.identifier}}
+{% if mv.type.is_struct %}
+    // Deep clone required struct
+    if (this->{{mv.identifier}} != nullptr) {
+        cloned->{{mv.identifier}} = this->{{mv.identifier}}->deepClone();
+    }
+{% else %}
+{% if mv.type.is_array and mv.type.elem_type.is_struct %}
+    // Deep clone required array of structs
+    for (const auto& item : this->{{mv.identifier}}) {
+        if (item != nullptr) {
+            cloned->{{mv.identifier}}.push_back(item->deepClone());
+        }
+    }
+{% else %}
+    // Copy primitive or array of primitives
     cloned->{{mv.identifier}} = this->{{mv.identifier}};
-{% endif %}{% endfor %}
+{% endif %}
+{% endif %}
+{% endif %}
+{% endif %}
+{% endfor %}
     
     return cloned;
 }

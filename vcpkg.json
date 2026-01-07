@@ -6,6 +6,7 @@
 		"zstd",
 		"inja",
 		"gtest",
-		"plog"
+		"plog",
+		"boost-beast"
 	]
 }
