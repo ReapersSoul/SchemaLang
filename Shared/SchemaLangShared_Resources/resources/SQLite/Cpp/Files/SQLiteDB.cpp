@@ -609,6 +609,15 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::selectAll{{s
         if ({{field.identifier}}_text) {
             obj->set{{field.identifierCamel}}(std::string({{field.identifier}}_text));
         }
+{% else if field.type.is_blob %}
+        {
+            const void* {{field.identifier}}_blob = sqlite3_column_blob(stmt, col);
+            int {{field.identifier}}_size = sqlite3_column_bytes(stmt, col);
+            col++;
+            if ({{field.identifier}}_blob && {{field.identifier}}_size > 0) {
+                obj->set{{field.identifierCamel}}(std::vector<uint8_t>(static_cast<const uint8_t*>({{field.identifier}}_blob), static_cast<const uint8_t*>({{field.identifier}}_blob) + {{field.identifier}}_size));
+            }
+        }
 {% else if field.type.is_integer %}
         obj->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++));
 {% else if field.type.is_real %}
@@ -733,6 +742,15 @@ std::shared_ptr<{{struct.identifier}}Schema> SQLiteDB::select{{struct.identifier
         if ({{field.identifier}}_text) {
             result->set{{field.identifierCamel}}(std::string({{field.identifier}}_text));
         }
+{% else if field.type.is_blob %}
+        {
+            const void* {{field.identifier}}_blob = sqlite3_column_blob(stmt, col);
+            int {{field.identifier}}_size = sqlite3_column_bytes(stmt, col);
+            col++;
+            if ({{field.identifier}}_blob && {{field.identifier}}_size > 0) {
+                result->set{{field.identifierCamel}}(std::vector<uint8_t>(static_cast<const uint8_t*>({{field.identifier}}_blob), static_cast<const uint8_t*>({{field.identifier}}_blob) + {{field.identifier}}_size));
+            }
+        }
 {% else if field.type.is_integer %}
         result->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++));
 {% else if field.type.is_real %}
@@ -827,6 +845,8 @@ FROM {{struct.identifier}} WHERE {{mv.identifier}} = ?;)";
     // Bind the parameter
     {% if mv.type.is_string %}
     sqlite3_bind_text(stmt, 1, value.c_str(), -1, SQLITE_STATIC);
+    {% else if mv.type.is_blob %}
+    sqlite3_bind_blob(stmt, 1, value.data(), (int)value.size(), SQLITE_STATIC);
     {% else if mv.type.is_integer %}
     sqlite3_bind_int(stmt, 1, value);
     {% else if mv.type.is_real %}
@@ -849,6 +869,15 @@ FROM {{struct.identifier}} WHERE {{mv.identifier}} = ?;)";
         const char* {{field.identifier}}_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, col++));
         if ({{field.identifier}}_text) {
             obj->set{{field.identifierCamel}}(std::string({{field.identifier}}_text));
+        }
+{% else if field.type.is_blob %}
+        {
+            const void* {{field.identifier}}_blob = sqlite3_column_blob(stmt, col);
+            int {{field.identifier}}_size = sqlite3_column_bytes(stmt, col);
+            col++;
+            if ({{field.identifier}}_blob && {{field.identifier}}_size > 0) {
+                obj->set{{field.identifierCamel}}(std::vector<uint8_t>(static_cast<const uint8_t*>({{field.identifier}}_blob), static_cast<const uint8_t*>({{field.identifier}}_blob) + {{field.identifier}}_size));
+            }
         }
 {% else if field.type.is_integer %}
         obj->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++));
@@ -956,6 +985,15 @@ std::vector<std::shared_ptr<{{struct.identifier}}Schema>> SQLiteDB::select{{stru
         const char* {{field.identifier}}_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, col++));
         if ({{field.identifier}}_text) {
             obj->set{{field.identifierCamel}}(std::string({{field.identifier}}_text));
+        }
+{% else if field.type.is_blob %}
+        {
+            const void* {{field.identifier}}_blob = sqlite3_column_blob(stmt, col);
+            int {{field.identifier}}_size = sqlite3_column_bytes(stmt, col);
+            col++;
+            if ({{field.identifier}}_blob && {{field.identifier}}_size > 0) {
+                obj->set{{field.identifierCamel}}(std::vector<uint8_t>(static_cast<const uint8_t*>({{field.identifier}}_blob), static_cast<const uint8_t*>({{field.identifier}}_blob) + {{field.identifier}}_size));
+            }
         }
 {% else if field.type.is_integer %}
         obj->set{{field.identifierCamel}}(sqlite3_column_int(stmt, col++));
@@ -1066,6 +1104,8 @@ int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{str
 {% if field.type.required %}
 {% if field.type.is_string %}
     sqlite3_bind_text(stmt, param++, obj->get{{field.identifierCamel}}().c_str(), -1, SQLITE_STATIC);
+{% else if field.type.is_blob %}
+    sqlite3_bind_blob(stmt, param++, obj->get{{field.identifierCamel}}().data(), (int)obj->get{{field.identifierCamel}}().size(), SQLITE_STATIC);
 {% else if field.type.identifier == "int64_t" or field.type.identifier == "long" %}
     sqlite3_bind_int64(stmt, param++, obj->get{{field.identifierCamel}}());
 {% else if field.type.is_integer %}
@@ -1104,6 +1144,12 @@ int64_t SQLiteDB::insertOrUpdate{{struct.identifierCamel}}(std::shared_ptr<{{str
 {% if field.type.is_string %}
     if (obj->get{{field.identifierCamel}}().has_value()) {
         sqlite3_bind_text(stmt, param++, obj->get{{field.identifierCamel}}().value().c_str(), -1, SQLITE_STATIC);
+    } else {
+        sqlite3_bind_null(stmt, param++);
+    }
+{% else if field.type.is_blob %}
+    if (obj->get{{field.identifierCamel}}().has_value()) {
+        sqlite3_bind_blob(stmt, param++, obj->get{{field.identifierCamel}}().value().data(), (int)obj->get{{field.identifierCamel}}().value().size(), SQLITE_STATIC);
     } else {
         sqlite3_bind_null(stmt, param++);
     }
@@ -1367,6 +1413,8 @@ bool SQLiteDB::has{{struct.identifierCamel}}By{{mv.identifierCamel}}({{mv.type.e
     // Bind the parameter
     {% if mv.type.is_string %}
     sqlite3_bind_text(stmt, 1, value.c_str(), -1, SQLITE_STATIC);
+    {% else if mv.type.is_blob %}
+    sqlite3_bind_blob(stmt, 1, value.data(), (int)value.size(), SQLITE_STATIC);
     {% else if mv.type.is_integer %}
     sqlite3_bind_int(stmt, 1, value);
     {% else if mv.type.is_real %}

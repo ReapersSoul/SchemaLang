@@ -1549,7 +1549,7 @@ inja::json ProgramStructure::to_json(std::shared_ptr<Generator> generator)
 
 bool ProgramStructure::tokenIsType(std::string token)
 {
-	if (token == "int8" || token == "int16" || token == "int32" || token == "int64" || token == "uint8" || token == "uint16" || token == "uint32" || token == "uint64" || token == "float" || token == "double" || token == "bool" || token == "string" || token == "char" || token == "array")
+	if (token == "int8" || token == "int16" || token == "int32" || token == "int64" || token == "uint8" || token == "uint16" || token == "uint32" || token == "uint64" || token == "float" || token == "double" || token == "bool" || token == "string" || token == "char" || token == "array" || token == "blob")
 	{
 		return true;
 	}
@@ -1733,6 +1733,10 @@ bool ProgramStructure::readFile(std::string file_path, bool is_root)
 			{
 				// get the path of the current file
 				std::string current_file_path = std::filesystem::path(file_path).parent_path().string();
+				if (current_file_path.empty())
+				{
+					current_file_path = ".";
+				}
 				// if the include_file starts with './'
 				if (include_file.substr(0, 2) == "./")
 				{

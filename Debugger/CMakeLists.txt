@@ -37,6 +37,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAK
 if(SCHEMALANG_DEBUGGER_BUILD_TESTS)
     enable_testing()
     set(SCHEMALANG_DEBUG_ENABLED ON CACHE BOOL "Enable SchemaLang debug hooks" FORCE)
+    find_package(Threads REQUIRED)
     find_package(GTest CONFIG REQUIRED)
 
     add_executable(SchemaLangDebuggerTests

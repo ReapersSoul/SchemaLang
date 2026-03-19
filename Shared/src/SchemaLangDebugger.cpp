@@ -702,6 +702,188 @@ void SchemaLangDebugger::printEnums() {
     }
 }
 
+void SchemaLangDebugger::printStructDetail(const std::string& name) {
+    if (!program_structure) {
+        std::cout << "No program structure loaded." << std::endl;
+        return;
+    }
+    
+    auto& structs = program_structure->getStructs();
+    for (auto& s : structs) {
+        if (s.getIdentifier() == name) {
+            std::cout << "\nstruct " << s.getIdentifier();
+            Version v = s.getVersion();
+            if (v.major >= 0) {
+                std::cout << " : version(" << v.major << "." << v.minor << "." << v.patch << ")";
+            }
+            std::cout << " {" << std::endl;
+            
+            for (auto& mv : s.getMemberVariables()) {
+                std::cout << "  " << mv.type.identifier();
+                if (mv.type.is_array()) {
+                    std::cout << "<" << mv.type.element_type().identifier() << ">";
+                }
+                std::cout << " : " << mv.identifier << " :";
+                
+                if (mv.type.is_required()) std::cout << " required";
+                if (mv.primary_key) std::cout << " primary_key";
+                if (mv.auto_increment) std::cout << " auto_increment";
+                if (mv.unique) std::cout << " unique";
+                if (!mv.reference.struct_name.empty()) {
+                    std::cout << " reference(" << mv.reference.struct_name;
+                    if (!mv.reference.variable_name.empty()) {
+                        std::cout << "." << mv.reference.variable_name;
+                    }
+                    std::cout << ")";
+                }
+                if (!mv.description.empty()) {
+                    std::cout << " description(\"" << mv.description << "\")";
+                }
+                if (mv.min_items > 0) std::cout << " min_items(" << mv.min_items << ")";
+                if (mv.max_items > 0) std::cout << " max_items(" << mv.max_items << ")";
+                if (!mv.default_value.empty()) std::cout << " default(" << mv.default_value << ")";
+                if (!mv.enabled_for_generators.empty()) {
+                    std::cout << " gens_enabled(";
+                    bool first = true;
+                    for (const auto& g : mv.enabled_for_generators) {
+                        if (!first) std::cout << ",";
+                        std::cout << g;
+                        first = false;
+                    }
+                    std::cout << ")";
+                }
+                if (!mv.disabled_for_generators.empty()) {
+                    std::cout << " gens_disabled(";
+                    bool first = true;
+                    for (const auto& g : mv.disabled_for_generators) {
+                        if (!first) std::cout << ",";
+                        std::cout << g;
+                        first = false;
+                    }
+                    std::cout << ")";
+                }
+                std::cout << ";" << std::endl;
+            }
+            std::cout << "}" << std::endl;
+            return;
+        }
+    }
+    std::cout << "Struct '" << name << "' not found." << std::endl;
+}
+
+void SchemaLangDebugger::printEnumDetail(const std::string& name) {
+    if (!program_structure) {
+        std::cout << "No program structure loaded." << std::endl;
+        return;
+    }
+    
+    auto& enums = program_structure->getEnums();
+    for (const auto& e : enums) {
+        if (e.identifier == name) {
+            std::cout << "\nenum " << e.identifier << " {" << std::endl;
+            for (const auto& [vname, vval] : e.values) {
+                std::cout << "  " << vname << " = " << vval << std::endl;
+            }
+            std::cout << "}" << std::endl;
+            return;
+        }
+    }
+    std::cout << "Enum '" << name << "' not found." << std::endl;
+}
+
+void SchemaLangDebugger::printMemberDetail(const std::string& struct_name, const std::string& member_name) {
+    if (!program_structure) {
+        std::cout << "No program structure loaded." << std::endl;
+        return;
+    }
+    
+    auto& structs = program_structure->getStructs();
+    for (auto& s : structs) {
+        if (s.getIdentifier() == struct_name) {
+            for (auto& mv : s.getMemberVariables()) {
+                if (mv.identifier == member_name) {
+                    std::cout << "\n" << struct_name << "." << member_name << ":" << std::endl;
+                    std::cout << "  type = " << mv.type.identifier();
+                    if (mv.type.is_array()) std::cout << "<" << mv.type.element_type().identifier() << ">";
+                    std::cout << std::endl;
+                    std::cout << "  required = " << (mv.type.is_required() ? "true" : "false") << std::endl;
+                    std::cout << "  primary_key = " << (mv.primary_key ? "true" : "false") << std::endl;
+                    std::cout << "  auto_increment = " << (mv.auto_increment ? "true" : "false") << std::endl;
+                    std::cout << "  unique = " << (mv.unique ? "true" : "false") << std::endl;
+                    std::cout << "  description = \"" << mv.description << "\"" << std::endl;
+                    std::cout << "  default_value = \"" << mv.default_value << "\"" << std::endl;
+                    if (!mv.reference.struct_name.empty()) {
+                        std::cout << "  reference = " << mv.reference.struct_name << "." << mv.reference.variable_name << std::endl;
+                    }
+                    std::cout << "  min_items = " << mv.min_items << std::endl;
+                    std::cout << "  max_items = " << mv.max_items << std::endl;
+                    std::cout << "  is_base_type = " << (mv.type.is_base_type() ? "true" : "false") << std::endl;
+                    std::cout << "  is_number = " << (mv.type.is_number() ? "true" : "false") << std::endl;
+                    std::cout << "  is_blob = " << (mv.type.is_blob() ? "true" : "false") << std::endl;
+                    if (!mv.enabled_for_generators.empty()) {
+                        std::cout << "  enabled_for_generators = ";
+                        for (const auto& g : mv.enabled_for_generators) std::cout << g << " ";
+                        std::cout << std::endl;
+                    }
+                    if (!mv.disabled_for_generators.empty()) {
+                        std::cout << "  disabled_for_generators = ";
+                        for (const auto& g : mv.disabled_for_generators) std::cout << g << " ";
+                        std::cout << std::endl;
+                    }
+                    return;
+                }
+            }
+            std::cout << "Member '" << member_name << "' not found in struct '" << struct_name << "'." << std::endl;
+            return;
+        }
+    }
+    std::cout << "Struct '" << struct_name << "' not found." << std::endl;
+}
+
+void SchemaLangDebugger::printAST() {
+    if (!program_structure) {
+        std::cout << "No program structure loaded." << std::endl;
+        return;
+    }
+    
+    auto& structs = program_structure->getStructs();
+    auto& enums = program_structure->getEnums();
+    
+    std::cout << "\n=== AST Summary ===" << std::endl;
+    std::cout << "Structs: " << structs.size() << std::endl;
+    std::cout << "Enums: " << enums.size() << std::endl;
+    std::cout << "Type names pending: " << program_structure->type_names.size() << std::endl;
+    std::cout << std::endl;
+    
+    for (auto& s : structs) {
+        std::cout << "struct " << s.getIdentifier();
+        Version v = s.getVersion();
+        if (v.major >= 0) {
+            std::cout << " v" << v.major << "." << v.minor << "." << v.patch;
+        }
+        std::cout << " (" << s.getMemberVariables().size() << " members)" << std::endl;
+        for (auto& mv : s.getMemberVariables()) {
+            std::cout << "  " << mv.type.identifier();
+            if (mv.type.is_array()) std::cout << "<" << mv.type.element_type().identifier() << ">";
+            std::cout << " " << mv.identifier;
+            if (mv.primary_key) std::cout << " [PK]";
+            if (mv.type.is_required()) std::cout << " [REQ]";
+            if (mv.unique) std::cout << " [UNQ]";
+            if (!mv.reference.struct_name.empty()) std::cout << " [REF:" << mv.reference.struct_name << "]";
+            std::cout << std::endl;
+        }
+    }
+    
+    for (const auto& e : enums) {
+        std::cout << "enum " << e.identifier << " (" << e.values.size() << " values)" << std::endl;
+        for (const auto& [vname, vval] : e.values) {
+            std::cout << "  " << vname << " = " << vval << std::endl;
+        }
+    }
+    
+    std::cout << "==================\n" << std::endl;
+}
+
 void SchemaLangDebugger::printCurrentContext() {
     std::cout << "\n=== Current Context ===" << std::endl;
     std::cout << "File: " << context.current_file << std::endl;
@@ -789,6 +971,20 @@ std::string SchemaLangDebugger::evaluateExpression(const std::string& expr) {
     }
     if (expr == "enum_count" && program_structure) {
         return std::to_string(program_structure->getEnums().size());
+    }
+    if (expr == "type_names" && program_structure) {
+        std::string result;
+        for (const auto& tn : program_structure->type_names) {
+            if (!result.empty()) result += ", ";
+            result += tn;
+        }
+        return result.empty() ? "<none>" : result;
+    }
+    if (expr == "stack_depth") {
+        return std::to_string(context.parse_stack.size());
+    }
+    if (expr == "token_count") {
+        return std::to_string(context.current_tokens.size());
     }
     
     return "<unknown>";
@@ -999,6 +1195,40 @@ bool SchemaLangDebugger::processCommand(const std::string& cmd) {
             printStructs();
         } else if (what == "enums") {
             printEnums();
+        } else if (what == "ast") {
+            printAST();
+        } else if (what == "struct") {
+            std::string name;
+            iss >> name;
+            if (!name.empty()) {
+                printStructDetail(name);
+            } else {
+                printStructs();
+            }
+        } else if (what == "enum") {
+            std::string name;
+            iss >> name;
+            if (!name.empty()) {
+                printEnumDetail(name);
+            } else {
+                printEnums();
+            }
+        } else if (what == "member") {
+            std::string struct_name, member_name;
+            iss >> struct_name >> member_name;
+            if (!struct_name.empty() && !member_name.empty()) {
+                printMemberDetail(struct_name, member_name);
+            } else if (!struct_name.empty()) {
+                // try to parse dotted notation: Struct.member
+                size_t dotPos = struct_name.find('.');
+                if (dotPos != std::string::npos) {
+                    printMemberDetail(struct_name.substr(0, dotPos), struct_name.substr(dotPos + 1));
+                } else {
+                    std::cout << "Usage: info member <struct> <member> or info member <struct.member>" << std::endl;
+                }
+            } else {
+                std::cout << "Usage: info member <struct> <member>" << std::endl;
+            }
         } else {
             printCurrentContext();
         }
@@ -1054,6 +1284,31 @@ bool SchemaLangDebugger::processCommand(const std::string& cmd) {
         std::string var;
         std::getline(iss, var);
         if (!var.empty() && var[0] == ' ') var = var.substr(1);
+        
+        // Handle "print struct <name>" and "print enum <name>"
+        if (var.substr(0, 7) == "struct ") {
+            printStructDetail(var.substr(7));
+            return true;
+        }
+        if (var.substr(0, 5) == "enum ") {
+            printEnumDetail(var.substr(5));
+            return true;
+        }
+        if (var.substr(0, 7) == "member ") {
+            std::string rest = var.substr(7);
+            size_t dotPos = rest.find('.');
+            if (dotPos != std::string::npos) {
+                printMemberDetail(rest.substr(0, dotPos), rest.substr(dotPos + 1));
+            } else {
+                std::cout << "Usage: print member <struct.member>" << std::endl;
+            }
+            return true;
+        }
+        if (var == "ast") {
+            printAST();
+            return true;
+        }
+        
         printVariable(var);
         return true;
     }
@@ -1138,14 +1393,35 @@ INSPECTION:
   list [lines]                 Show source context (l)
   tokens [count]               Show tokens around current position
   print <expression>           Print expression value
+  print struct <name>          Print full struct definition with all members
+  print enum <name>            Print full enum definition with all values
+  print member <struct.member> Print detailed member variable info
+  print ast                    Print full AST summary
   info stack                   Show parse stack (info s)
   info structs                 Show defined structs
   info enums                   Show defined enums
+  info struct <name>           Show detailed struct definition
+  info enum <name>             Show detailed enum definition
+  info member <s> <m>          Show detailed member info (or <s.m>)
+  info ast                     Show complete AST summary
   context                      Show complete current context
   where                        Show parse stack (backtrace, bt)
   history [count]              Show command history (default 20)
   !<number>                    Recall command by history number (e.g., !5)
   !!                           Repeat last command
+
+EXPRESSIONS (for print/watch):
+  file, current_file           Current source file path
+  line, current_line           Current line number
+  column, current_column       Current column number
+  token, current_token         Current token value
+  token_index                  Current token index
+  token_count                  Total token count
+  operation                    Current parse operation
+  struct_count                 Number of defined structs
+  enum_count                   Number of defined enums
+  type_names                   Pending type names
+  stack_depth                  Parse stack depth
 
 SETTINGS:
   set verbose on|off           Enable/disable verbose output

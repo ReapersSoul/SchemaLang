@@ -28,6 +28,7 @@ public:
 	bool is_bool() const;
 	bool is_string() const;
 	bool is_char() const;
+	bool is_blob() const;
 	bool is_array_of_struct(std::shared_ptr<ProgramStructure>ps);
 	bool is_array_of_enum(std::shared_ptr<ProgramStructure>ps);
 	bool is_array_of_base_type();

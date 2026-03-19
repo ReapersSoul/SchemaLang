@@ -127,6 +127,17 @@ std::string generate_bind(std::shared_ptr<Generator>gen, std::shared_ptr<Program
 			ret += "text(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".has_value() ? std::string(1, " + mv.identifier + ".value()).c_str() : nullptr, -1, SQLITE_STATIC);\n";
 		}
 	}
+	else if (mv.type.is_blob())
+	{
+		if (mv.type.is_required())
+		{
+			ret += "blob(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".data(), (int)" + mv.identifier + ".size(), SQLITE_STATIC);\n";
+		}
+		else
+		{
+			ret += "blob(stmt, " + std::to_string(i + 1) + ", " + mv.identifier + ".has_value() ? " + mv.identifier + ".value().data() : nullptr, " + mv.identifier + ".has_value() ? (int)" + mv.identifier + ".value().size() : 0, SQLITE_STATIC);\n";
+		}
+	}
 	else if (mv.type.is_array())
 	{
 		if (mv.type.is_required())
@@ -208,6 +219,11 @@ std::string SqliteGenerator::convert_to_local_type(std::shared_ptr<ProgramStruct
 	if (type.is_char())
 	{
 		return "CHAR";
+	}
+	// convert blob to "BLOB"
+	if (type.is_blob())
+	{
+		return "BLOB";
 	}
 	// convert array to foreign key relationship - arrays don't create columns in the parent table
 	if (type.is_array())

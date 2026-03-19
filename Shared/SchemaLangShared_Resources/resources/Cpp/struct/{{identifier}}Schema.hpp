@@ -3,6 +3,7 @@
 #include <optional>
 #include <memory>
 #include <concepts>
+#include <cstdint>
 {% for include in includes %}
 #include {{include}}
 {% endfor %}

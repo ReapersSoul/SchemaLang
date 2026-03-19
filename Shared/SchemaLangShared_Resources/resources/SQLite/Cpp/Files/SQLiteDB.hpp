@@ -5,6 +5,7 @@
 #include <set>
 #include <map>
 #include <stdexcept>
+#include <cstdint>
 #include <sqlite3.h>
 #include <filesystem>
 #include {{format_include("SQLiteQueryBuilder.hpp")}}

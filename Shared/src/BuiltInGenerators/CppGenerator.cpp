@@ -109,6 +109,11 @@ std::string CppGenerator::convert_to_local_type(std::shared_ptr<ProgramStructure
 	{
 		return "char";
 	}
+	// convert blob to "std::vector<uint8_t>"
+	if (type.identifier() == BLOB)
+	{
+		return "std::vector<uint8_t>";
+	}
 	// convert array to "std::vector"f.parameters[i].first
 	if (type.identifier() == ARRAY)
 	{
@@ -151,6 +156,10 @@ std::string CppGenerator::get_default_of_type(std::shared_ptr<ProgramStructure>p
 	else if (type.is_char())
 	{
 		return "'\\0'";
+	}
+	else if (type.is_blob())
+	{
+		return "std::vector<uint8_t>()";
 	}
 	else if (type.is_array())
 	{

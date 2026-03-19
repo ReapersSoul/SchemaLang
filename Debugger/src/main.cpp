@@ -2,10 +2,11 @@
 #include <ProgramStructure.hpp>
 #include <iostream>
 #include <fstream>
+#include <memory>
 
 int main(int argc, char* argv[]) {
-    ProgramStructure ps;
-    SchemaLangDebugger debugger(&ps);
+    auto ps = std::make_shared<ProgramStructure>();
+    SchemaLangDebugger debugger(ps);
     
     std::cout << "SchemaLang Interactive Debugger" << std::endl;
     std::cout << "================================" << std::endl;

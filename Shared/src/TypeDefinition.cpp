@@ -122,6 +122,10 @@ bool TypeDefinition::is_base_type()
 	{
 		is_base=true;
 	}
+	else if (ident == BLOB)
+	{
+		is_base=true;
+	}
 	return is_base;
 }
 
@@ -238,6 +242,11 @@ bool TypeDefinition::is_char() const
 	return ident == CHAR;
 }
 
+bool TypeDefinition::is_blob() const
+{
+	return ident == BLOB;
+}
+
 bool TypeDefinition::is_array_of_struct(std::shared_ptr<ProgramStructure>ps)
 {
 	return elem_type != nullptr && elem_type->is_struct(ps);
@@ -331,6 +340,7 @@ inja::json TypeDefinition::to_json(std::shared_ptr<ProgramStructure>ps, std::sha
 	j["is_bool"]=is_bool();
 	j["is_string"]=is_string();
 	j["is_char"]=is_char();
+	j["is_blob"]=is_blob();
 	j["is_array_of_struct"]=is_array_of_struct(ps);
 	j["is_array_of_enum"]=is_array_of_enum(ps);
 	j["is_array_of_base_type"]=is_array_of_base_type();

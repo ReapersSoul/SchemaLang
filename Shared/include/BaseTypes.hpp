@@ -17,3 +17,4 @@
 #define UCHAR "uchar"
 #define POINTER "pointer"
 #define ARRAY "array"
+#define BLOB "blob"

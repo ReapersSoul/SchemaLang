@@ -1347,6 +1347,10 @@ std::string MysqlGenerator::convert_to_local_type(std::shared_ptr<ProgramStructu
 	{
 		return "CHAR(1)";
 	}
+	if (type.identifier() == BLOB)
+	{
+		return "LONGBLOB";
+	}
 	if (type.identifier() == ARRAY)
 	{
 		// Arrays are handled by adding foreign key columns to the child table

@@ -96,6 +96,10 @@ public:
     void printStack();
     void printStructs();
     void printEnums();
+    void printStructDetail(const std::string& name);
+    void printEnumDetail(const std::string& name);
+    void printMemberDetail(const std::string& struct_name, const std::string& member_name);
+    void printAST();
     void printCurrentContext();
     void printSourceContext(int lines = 5);
     void printVariable(const std::string& name);
